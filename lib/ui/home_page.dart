@@ -797,11 +797,12 @@ class AboutPage extends StatelessWidget {
       title: '关于',
       children: const [
         Text('马卡龙女友跑酷', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        Text('版本 1.3.0 · 最好玩完整版'),
+        Text('版本 1.3.1 · 手感修复版'),
         SizedBox(height: 10),
         Text(
           '原创甜蜜平台跳跃单机。99 关、检查点、狂暴 Boss、耐打红胖怪、'
-          '糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、本地存档，无联网无广告。',
+          '糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、本地存档，无联网无广告。'
+          '已优化跳跃高度与问号砖顶击。',
         ),
         SizedBox(height: 10),
         Text('Android：Google Play / 各安卓商店 — 安装 apk 或自行签名上架。'),

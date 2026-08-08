@@ -107,7 +107,7 @@ class LevelCatalog {
         continue;
       }
       final y = ground - 2 - ((x ~/ 10 + level) % 3);
-      if (grid[y][x] != ' ') {
+      if (grid[_clampPlatY(grid, y)][x] != ' ') {
         continue;
       }
       _platform(grid, x, y, 2 + (level % 2));
@@ -138,7 +138,7 @@ class LevelCatalog {
     if (d >= 4) {
       for (var x = 24; x < w - 24; x += 14 + (world % 3)) {
         if ((x + level + world) % 15 == 0) {
-          _gap(grid, x, 2 + (d ~/ 8));
+          _gap(grid, x, 2);
         }
       }
     }
@@ -154,10 +154,10 @@ class LevelCatalog {
     if (d >= 8 && level >= 3) {
       for (var x = 36; x < w - 36; x += 20) {
         if ((x + world) % 21 == 0) {
-          final y = ground - 3 - (level % 4);
+          final y = ground - 3 - (level % 2);
           _platform(grid, x, y, 2);
           if (level >= 5) {
-            _enemy(grid, x + 1, y - 1);
+            _enemy(grid, x + 1, ground);
           }
         }
       }
@@ -165,16 +165,41 @@ class LevelCatalog {
   }
 
   static void _platform(List<List<String>> g, int x, int y, int len) {
+    final py = _clampPlatY(g, y);
+    // 原定太高时，补一阶过渡平台，避免突然够不着
+    if (y < py - 1) {
+      final stepY = ((py + (g.length - 3)) / 2).floor();
+      final mid = _clampPlatY(g, stepY);
+      if (mid > py) {
+        for (var i = 0; i < len.clamp(1, 3); i++) {
+          final px = x + i - 1;
+          if (px >= 0 && px < g.first.length) {
+            if (g[mid][px] == ' ') {
+              g[mid][px] = '=';
+            }
+          }
+        }
+      }
+    }
     for (var i = 0; i < len; i++) {
       final px = x + i;
-      if (px >= 0 && px < g.first.length && y >= 0 && y < g.length) {
-        g[y][px] = '=';
+      if (px >= 0 && px < g.first.length && py >= 0 && py < g.length) {
+        g[py][px] = '=';
       }
     }
   }
 
+  /// 平台高度钳制：相对地面约 2～5 格，保证普通跳跃可达
+  static int _clampPlatY(List<List<String>> g, int y) {
+    final highest = (g.length - 8).clamp(4, g.length - 5);
+    final lowest = (g.length - 4).clamp(highest, g.length - 3);
+    return y.clamp(highest, lowest);
+  }
+
   static void _gap(List<List<String>> g, int x, int len) {
-    for (var i = 0; i < len; i++) {
+    // 坑宽最多 3 格；更宽的需求改成中间浮台
+    final useLen = len.clamp(1, 3);
+    for (var i = 0; i < useLen; i++) {
       final px = x + i;
       if (px <= 3 || px >= g.first.length - 4) {
         continue;
@@ -184,12 +209,16 @@ class LevelCatalog {
         g[g.length - 2][px] = ' ';
       }
     }
+    if (len > 3) {
+      _platform(g, x + 1, g.length - 5, 2);
+    }
   }
 
   static void _coin(List<List<String>> g, int x, int y) {
-    if (y >= 0 && y < g.length && x >= 0 && x < g.first.length) {
-      if (g[y][x] == ' ') {
-        g[y][x] = 'C';
+    final py = y.clamp(1, g.length - 3);
+    if (py >= 0 && py < g.length && x >= 0 && x < g.first.length) {
+      if (g[py][x] == ' ') {
+        g[py][x] = 'C';
       }
     }
   }
@@ -203,7 +232,17 @@ class LevelCatalog {
   }
 
   static void _put(List<List<String>> g, int x, int y, String ch) {
-    if (y >= 0 && y < g.length && x >= 0 && x < g.first.length) {
+    var py = y;
+    if (ch == '?' || ch == '=' || ch == 'S' || ch == 'M' || ch == 'H') {
+      if (ch == '?' || ch == '=') {
+        py = _clampPlatY(g, y);
+      } else if (ch == 'S') {
+        py = (g.length - 3);
+      } else {
+        py = y.clamp(2, g.length - 4);
+      }
+    }
+    if (py >= 0 && py < g.length && x >= 0 && x < g.first.length) {
       final force = ch == '?' ||
           ch == 'S' ||
           ch == 'B' ||
@@ -212,175 +251,183 @@ class LevelCatalog {
           ch == 'R' ||
           ch == 'M' ||
           ch == 'H';
-      if (g[y][x] == ' ' || force) {
-        g[y][x] = ch;
+      if (g[py][x] == ' ' || force) {
+        g[py][x] = ch;
       }
     }
   }
 
   static void _worldCreamMeadow(List<List<String>> g, int level) {
-    _platform(g, 6, 10, 4);
-    _coin(g, 7, 9);
-    _coin(g, 8, 9);
-    _put(g, 9, 10, '?');
-    _platform(g, 12, 8, 3);
-    _coin(g, 13, 7);
-    _enemy(g, 10, g.length - 3);
-    _put(g, 15, g.length - 3, 'S');
+    final ground = g.length - 3;
+    _platform(g, 6, ground - 1, 4);
+    _coin(g, 7, ground - 2);
+    _coin(g, 8, ground - 2);
+    _put(g, 9, ground - 1, '?');
+    _platform(g, 12, ground - 3, 3);
+    _coin(g, 13, ground - 4);
+    _enemy(g, 10, ground);
+    _put(g, 15, ground, 'S');
     if (level >= 2) {
       _gap(g, 17, 2);
     }
 
     final step = 6 + level;
     for (var x = 16; x < g.first.length - 10; x += step) {
-      _platform(g, x, 9 - (level % 3), 3 + (level % 2));
-      _coin(g, x + 1, 8 - (level % 3));
+      final platY = ground - 2 - (level % 3);
+      _platform(g, x, platY, 3 + (level % 2));
+      _coin(g, x + 1, platY - 1);
       if (x % (step * 2) == 0) {
-        _put(g, x + 1, 8 - (level % 3), '?');
+        _put(g, x + 1, platY, '?');
       }
       if (level >= 2 && x % (step * 2) == 0) {
-        _enemy(g, x + 2, g.length - 3);
+        _enemy(g, x + 2, ground);
       }
       if (level >= 3) {
-        _gap(g, x + 3, 2 + (level ~/ 4));
+        _gap(g, x + 3, 2 + (level ~/ 5).clamp(0, 1));
       }
       if (level >= 4 && x % 18 == 0) {
-        _put(g, x, 6, 'M');
+        _put(g, x, platY - 1, 'M');
       }
     }
     if (level >= 4) {
-      _put(g, 24, 9, 'H');
+      _put(g, 24, ground - 2, 'H');
     }
     if (level >= 5) {
-      _platform(g, 20, 6, 4);
-      _platform(g, 28, 5, 3);
-      _coin(g, 29, 4);
-      _put(g, 30, 4, '?');
+      _platform(g, 20, ground - 4, 4);
+      _platform(g, 28, ground - 5, 3);
+      _coin(g, 29, ground - 6);
+      _put(g, 30, ground - 5, '?');
     }
   }
 
   static void _worldStrawberry(List<List<String>> g, int level) {
+    final ground = g.length - 3;
     for (var i = 0; i < 6 + level; i++) {
       final x = 7 + i * (5 + level ~/ 3);
-      _platform(g, x, 10 - (i % 4), 2 + (i % 3));
-      _coin(g, x, 9 - (i % 4));
+      final y = ground - 1 - (i % 4);
+      _platform(g, x, y, 2 + (i % 3));
+      _coin(g, x, y - 1);
       if (i.isOdd) {
-        _enemy(g, x + 1, g.length - 3);
+        _enemy(g, x + 1, ground);
       }
       if (level >= 4) {
         _gap(g, x + 2, 2);
       }
     }
-    _platform(g, g.first.length ~/ 2, 4, 5);
+    _platform(g, g.first.length ~/ 2, ground - 5, 5);
     for (var c = 0; c < 5; c++) {
-      _coin(g, g.first.length ~/ 2 + c, 3);
+      _coin(g, g.first.length ~/ 2 + c, ground - 6);
     }
   }
 
   static void _worldMint(List<List<String>> g, int level) {
+    final ground = g.length - 3;
     for (var x = 6; x < g.first.length - 8; x += 5) {
-      final y = 8 - ((x ~/ 5 + level) % 4);
+      final y = ground - 2 - ((x ~/ 5 + level) % 3);
       _platform(g, x, y, 2);
       _coin(g, x, y - 1);
     }
     for (var x = 12; x < g.first.length - 12; x += 9) {
-      _gap(g, x, 3 + level ~/ 5);
-      _enemy(g, x - 2, g.length - 3);
+      _gap(g, x, 2 + (level ~/ 6).clamp(0, 1));
+      _enemy(g, x - 2, ground);
     }
   }
 
   static void _worldTaroStar(List<List<String>> g, int level) {
-    // 星空：悬浮踏板多、地面坑多
+    final ground = g.length - 3;
     for (var i = 0; i < 8 + level; i++) {
       final x = 5 + i * 4;
-      final y = 4 + (i + level) % 6;
+      final y = ground - 2 - ((i + level) % 4);
       _platform(g, x, y, 2);
       if (i % 2 == 0) {
         _coin(g, x, y - 1);
       } else {
-        _enemy(g, x, y - 1);
+        _enemy(g, x, ground);
       }
     }
     for (var x = 10; x < g.first.length - 10; x += 7) {
-      _gap(g, x, 3);
+      _gap(g, x, 2);
     }
   }
 
   static void _worldLemonBeach(List<List<String>> g, int level) {
+    final ground = g.length - 3;
     for (var x = 8; x < g.first.length - 8; x += 6) {
-      _platform(g, x, 10, 4);
-      _coin(g, x + 1, 9);
-      _coin(g, x + 2, 9);
+      _platform(g, x, ground - 1, 4);
+      _coin(g, x + 1, ground - 2);
+      _coin(g, x + 2, ground - 2);
       if (level >= 2) {
-        _enemy(g, x + 3, g.length - 3);
+        _enemy(g, x + 3, ground);
       }
       if (level >= 6) {
-        _gap(g, x + 4, 2 + level ~/ 5);
-        _platform(g, x + 5, 7, 2);
+        _gap(g, x + 4, 2);
+        _platform(g, x + 5, ground - 4, 2);
       }
     }
   }
 
   static void _worldRoseCastle(List<List<String>> g, int level) {
-    // 城堡台阶 + 高台
+    final ground = g.length - 3;
     var x = 6;
-    var y = g.length - 3;
     for (var i = 0; i < 5 + level ~/ 2; i++) {
-      _platform(g, x, y - i.clamp(0, 6), 3);
-      _coin(g, x + 1, y - i.clamp(0, 6) - 1);
+      final y = ground - i.clamp(0, 5);
+      _platform(g, x, y, 3);
+      _coin(g, x + 1, y - 1);
       x += 5;
     }
     for (var gx = 15; gx < g.first.length - 15; gx += 10) {
-      _gap(g, gx, 2 + level ~/ 4);
-      _enemy(g, gx - 1, g.length - 3);
+      _gap(g, gx, 2);
+      _enemy(g, gx - 1, ground);
     }
   }
 
   static void _worldBlueberry(List<List<String>> g, int level) {
+    final ground = g.length - 3;
     for (var i = 0; i < 10 + level; i++) {
       final x = 6 + i * 3;
-      final y = 5 + (i * 2 + level) % 5;
+      final y = ground - 2 - ((i + level) % 4);
       _platform(g, x, y, 1 + (i % 2));
       if (i % 3 == 0) {
         _coin(g, x, y - 1);
       }
       if (i % 4 == 0) {
-        _enemy(g, x + 4, g.length - 3);
+        _enemy(g, x + 4, ground);
       }
     }
     for (var x = 8; x < g.first.length - 8; x += 8) {
-      _gap(g, x, 2 + (level > 5 ? 2 : 0));
+      _gap(g, x, 2);
     }
   }
 
   static void _worldCaramelMine(List<List<String>> g, int level) {
+    final ground = g.length - 3;
     for (var x = 5; x < g.first.length - 5; x += 4) {
       if ((x ~/ 4 + level).isOdd) {
-        _platform(g, x, 9, 3);
-        _platform(g, x + 1, 6, 2);
-        _coin(g, x + 1, 5);
+        _platform(g, x, ground - 2, 3);
+        _platform(g, x + 1, ground - 4, 2);
+        _coin(g, x + 1, ground - 5);
       } else {
         _gap(g, x, 2);
-        _enemy(g, x - 1, g.length - 3);
+        _enemy(g, x - 1, ground);
       }
     }
     if (level >= 8) {
-      _platform(g, g.first.length ~/ 3, 4, 6);
+      _platform(g, g.first.length ~/ 3, ground - 5, 6);
       for (var i = 0; i < 6; i++) {
-        _coin(g, g.first.length ~/ 3 + i, 3);
+        _coin(g, g.first.length ~/ 3 + i, ground - 6);
       }
     }
   }
 
   static void _worldHoneymoon(List<List<String>> g, int level) {
-    // 蜜月：节奏型平台 + 糖心币轨
+    final ground = g.length - 3;
     for (var i = 0; i < 12 + level; i++) {
       final x = 5 + i * 3;
-      final y = 6 + ((i + level) % 5);
+      final y = ground - 2 - ((i + level) % 4);
       _platform(g, x, y, 2);
       _coin(g, x, y - 1);
       if (i % 5 == 0) {
-        _enemy(g, x + 2, g.length - 3);
+        _enemy(g, x + 2, ground);
       }
     }
     for (var x = 12; x < g.first.length - 12; x += 6 + level ~/ 3) {
@@ -390,24 +437,24 @@ class LevelCatalog {
 
   static void _bossSpice(List<List<String>> g, int world) {
     final mid = g.first.length ~/ 2;
-    _platform(g, mid - 4, 5, 8);
-    _platform(g, mid - 8, 8, 3);
-    _platform(g, mid + 5, 8, 3);
+    final ground = g.length - 3;
+    _platform(g, mid - 4, ground - 5, 8);
+    _platform(g, mid - 8, ground - 3, 3);
+    _platform(g, mid + 5, ground - 3, 3);
     for (var i = 0; i < 8; i++) {
-      _coin(g, mid - 3 + i, 4);
+      _coin(g, mid - 3 + i, ground - 6);
     }
-    _put(g, mid, 3, '?');
-    _put(g, mid + 2, 3, 'M');
-    _put(g, mid - 2, 3, 'H');
-    _enemy(g, mid - 2, g.length - 3);
-    _put(g, mid + 6, g.length - 3, 'G');
-    _put(g, mid - 6, g.length - 3, 'R');
-    // Boss 放在中段平台上，避免被地面占位挡住
-    _put(g, mid, 4, 'B');
-    _gap(g, mid - 6, 3 + world ~/ 3);
-    _gap(g, mid + 4, 3 + world ~/ 3);
-    _put(g, mid - 10, g.length - 3, 'S');
-    _put(g, mid - 14, g.length - 3, 'K');
+    _put(g, mid + 1, ground - 5, '?');
+    _put(g, mid + 2, ground - 6, 'M');
+    _put(g, mid - 2, ground - 6, 'H');
+    _enemy(g, mid - 2, ground);
+    _put(g, mid + 6, ground, 'G');
+    _put(g, mid - 6, ground, 'R');
+    _put(g, mid, ground - 5, 'B');
+    _gap(g, mid - 6, 3);
+    _gap(g, mid + 4, 3);
+    _put(g, mid - 10, ground, 'S');
+    _put(g, mid - 14, ground, 'K');
   }
 
   /// 标志性关卡手调关键段让每世界更有记忆点
@@ -430,7 +477,6 @@ class LevelCatalog {
     } else {
       _enemy(g, anchor + 5, ground);
     }
-    // 世界主题小变化
     if (world % 2 == 0) {
       _gap(g, anchor + 16, 2);
       _put(g, anchor + 19, ground, 'H');

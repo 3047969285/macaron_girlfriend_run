@@ -456,14 +456,19 @@ class MacaronGame extends FlameGame {
     }
 
     player.velocity.y += GameConstants.gravity * dt;
-    if (player.velocity.y > 1300) {
-      player.velocity.y = 1300;
+    // 松开跳跃：截断上升，短跳更可控
+    if (!jumpHeld &&
+        player.velocity.y < GameConstants.jumpCutVelocity) {
+      player.velocity.y = GameConstants.jumpCutVelocity;
+    }
+    if (player.velocity.y > 1400) {
+      player.velocity.y = 1400;
     }
 
-    final rising = player.velocity.y < 0;
+    final wasRising = player.velocity.y < 0;
     _moveAxis(dt, horizontal: true);
     _moveAxis(dt, horizontal: false);
-    if (rising) {
+    if (wasRising || player.velocity.y <= 0) {
       _tryHeadBumpBlocks();
     }
 
@@ -507,35 +512,43 @@ class MacaronGame extends FlameGame {
   }
 
   void _bumpBlocksAbove(Rect solid) {
+    final probe = solid.inflate(6);
     for (final b in blocks) {
       if (b.used) {
         continue;
       }
       final r = Rect.fromLTWH(b.position.x, b.position.y, b.size.x, b.size.y);
-      // 撞到的固体与问号砖重叠即顶开（含同格地形）
-      if (r.overlaps(solid.inflate(3))) {
+      if (r.overlaps(probe)) {
         _activateBlock(b);
         break;
       }
     }
   }
 
-  /// 头顶扫问号砖，不依赖碰撞后速度是否已被清零
+  /// 头顶扫问号砖：用宽松重叠，避免撞墙后判定失效
   void _tryHeadBumpBlocks() {
     final box = _playerHitbox();
+    final headZone = Rect.fromLTRB(
+      box.left + 2,
+      box.top - 16,
+      box.right - 2,
+      box.top + 14,
+    );
     for (final b in blocks) {
       if (b.used) {
         continue;
       }
       final r = Rect.fromLTWH(b.position.x, b.position.y, b.size.x, b.size.y);
-      final headHits = box.top <= r.bottom + 2 &&
-          box.top >= r.bottom - 28 &&
-          box.left < r.right - 2 &&
-          box.right > r.left + 2;
-      if (headHits) {
+      final aboveFeet = r.bottom <= player.position.y - 4;
+      if (aboveFeet && (headZone.overlaps(r) || box.overlaps(r))) {
         _activateBlock(b);
-        player.velocity.y = 0;
-        player.position.y = r.bottom + player.hitHeight;
+        if (player.velocity.y < 0) {
+          player.velocity.y = 80;
+        }
+        final minFeet = r.bottom + player.hitHeight;
+        if (player.position.y < minFeet) {
+          player.position.y = minFeet;
+        }
         break;
       }
     }
@@ -604,8 +617,8 @@ class MacaronGame extends FlameGame {
   }
 
   void _resolveBlocks() {
-    // 主检测已在 _tryHeadBumpBlocks；此处兜底再扫一次上升中的头
-    if (player.velocity.y >= -1) {
+    // 上升或刚顶到天花板时都再扫一次，避免漏判
+    if (player.velocity.y > 120) {
       return;
     }
     _tryHeadBumpBlocks();

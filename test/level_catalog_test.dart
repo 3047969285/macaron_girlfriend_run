@@ -53,4 +53,33 @@ void main() {
     expect(ShopCatalog.of('sparkle_shoes').price, greaterThan(0));
     expect(ShopCatalog.of('strawberry_cape').price, greaterThan(0));
   });
+
+  test('jump height can reach mid platforms from ground', () {
+    final peak = (GameConstants.jumpVelocity * GameConstants.jumpVelocity) /
+        (2 * GameConstants.gravity);
+    expect(peak, greaterThan(GameConstants.tileSize * 5));
+  });
+
+  test('solid platforms stay in reachable band', () {
+    for (var w = 0; w < GameConstants.worldCount; w++) {
+      for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
+        final level = LevelCatalog.load(w, l);
+        final highest = (level.height - 8).clamp(4, level.height - 5);
+        final lowest = (level.height - 4).clamp(highest, level.height - 3);
+        for (var y = 0; y < level.height; y++) {
+          final row = level.rows[y];
+          if (!row.contains('=') && !row.contains('?')) {
+            continue;
+          }
+          for (var x = 0; x < row.length; x++) {
+            final ch = row[x];
+            if (ch == '=' || ch == '?') {
+              expect(y, inInclusiveRange(highest, lowest),
+                  reason: 'w$w l$l ($x,$y)=$ch');
+            }
+          }
+        }
+      }
+    }
+  });
 }

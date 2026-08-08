@@ -16,13 +16,17 @@ class GameConstants {
   static const int totalLevels = worldCount * levelsPerWorld;
 
   static const double tileSize = 48;
-  static const double gravity = 2400;
-  static const double moveSpeed = 230;
-  static const double runSpeed = 340;
-  static const double jumpVelocity = -880;
-  static const double superJumpVelocity = -1040;
-  static const double coyoteTime = 0.12;
-  static const double jumpBuffer = 0.12;
+  /// 重力：略降，让跳跃更高更跟手
+  static const double gravity = 1950;
+  static const double moveSpeed = 255;
+  static const double runSpeed = 380;
+  /// 起跳初速度（向上为负）；约可跳 6 格高
+  static const double jumpVelocity = -1080;
+  static const double superJumpVelocity = -1320;
+  /// 松开跳跃键后的上升速度上限（可变跳）
+  static const double jumpCutVelocity = -260;
+  static const double coyoteTime = 0.14;
+  static const double jumpBuffer = 0.14;
 
   static const int maxActiveEnemies = 24;
   static const int maxParallaxLayers = 3;
