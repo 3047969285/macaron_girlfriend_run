@@ -1,0 +1,24 @@
+马卡龙女友跑酷 - iPhone 公网访问（无需同 Wi-Fi）
+
+【最快：Netlify 拖拽部署】约 2 分钟
+
+1. 双击运行「部署iPhone公网.bat」或「给iPhone玩.bat」完成网页构建
+2. 打开浏览器：https://app.netlify.com/drop
+3. 注册/登录 Netlify（可用 GitHub 账号）
+4. 把桌面文件夹「马卡龙-iPhone网页版」整个拖进网页
+5. 等待上传完成，会得到类似 https://随机名.netlify.app 的地址
+6. iPhone 用 Safari 打开该地址 → 横屏玩 → 分享 → 添加到主屏幕
+
+【永久：GitHub Pages】
+
+1. 把 macaron_girlfriend_run 推到 GitHub
+2. 仓库 Settings → Pages → Build and deployment → Source 选 GitHub Actions
+3. 推送 main 分支，Actions 跑完后 Pages 里会有网址
+4. 地址：https://你的用户名.github.io/仓库名/
+
+【临时：Cloudflare 隧道】电脑要一直开着
+
+1. winget install Cloudflare.cloudflared
+2. 双击「部署iPhone公网.bat」，复制 trycloudflare.com 链接到 iPhone
+
+【真 ipa App】见 docs/BUILD_IOS.md

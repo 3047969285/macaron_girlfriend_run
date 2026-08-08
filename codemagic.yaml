@@ -1,0 +1,42 @@
+# Codemagic：无 Mac 时云端打 iOS 正式包
+#
+# 步骤：
+# 1. 工程推到 GitHub（私有仓即可）
+# 2. https://codemagic.io 登录 → Add application → 选仓库
+# 3. Team settings → Integrations → Developer Portal 绑定 Apple 开发者账号
+# 4. 在 App Store Connect 创建 App，Bundle ID: com.macaron.macaronGirlfriendRun
+# 5. Start build → ios-release → 下载 ipa 或上传 TestFlight
+
+workflows:
+  ios-release:
+    name: iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.macaron.macaronGirlfriendRun
+      vars:
+        BUNDLE_ID: com.macaron.macaronGirlfriendRun
+    scripts:
+      - name: Flutter packages
+        script: flutter pub get
+      - name: CocoaPods
+        script: cd ios && pod install
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/Runner.xcarchive
+    publishing:
+      email:
+        recipients:
+          - user@example.com
+        notify:
+          success: true
+          failure: true
