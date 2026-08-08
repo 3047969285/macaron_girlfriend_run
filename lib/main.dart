@@ -9,13 +9,18 @@ import 'package:macaron_girlfriend_run/ui/splash_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // Web / iPhone 上强制横屏可能失败，不阻塞启动
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  } catch (_) {}
   await SaveService.instance.init();
-  await AudioService.instance.init();
+  try {
+    await AudioService.instance.init();
+  } catch (_) {}
   // 高刷失败不阻塞启动
   // ignore: unawaited_futures
   FpsBootstrap.applyFromSave();

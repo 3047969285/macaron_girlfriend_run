@@ -29,9 +29,48 @@
       -webkit-touch-callout: none;
     }
     flt-glass-pane { height: 100%; }
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(180deg, #FFB4C8 0%, #FFF6F0 55%, #B8F0D8 100%);
+      color: #5C4033;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+      z-index: 9999;
+      text-align: center;
+      padding: 24px;
+    }
+    #boot .candy { font-size: 48px; }
+    #boot .title { font-size: 22px; font-weight: 800; }
+    #boot .hint { font-size: 13px; opacity: 0.7; line-height: 1.5; }
+    #boot.hidden { display: none; }
   </style>
 </head>
 <body>
+  <div id="boot">
+    <div class="candy">🍬</div>
+    <div class="title">马卡龙加载中…</div>
+    <div class="hint">请横屏 · 首次加载大约需要几秒<br>若一直黑屏，请关掉蜂窝网络代理/VPN 后刷新</div>
+  </div>
+  <script>
+    (function () {
+      var boot = document.getElementById('boot');
+      var hide = function () {
+        if (boot) boot.classList.add('hidden');
+      };
+      window.addEventListener('flutter-first-frame', hide);
+      setTimeout(hide, 12000);
+      setTimeout(function () {
+        if (!boot || boot.classList.contains('hidden')) return;
+        boot.querySelector('.hint').textContent =
+          '加载偏慢：请确认用 Safari 打开，并带末尾斜杠的完整链接刷新一次';
+      }, 8000);
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

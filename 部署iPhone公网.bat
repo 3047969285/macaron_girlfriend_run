@@ -10,8 +10,8 @@ echo  （不需要手机和电脑同一 Wi-Fi）
 echo ========================================
 echo.
 
-echo [1/3] 构建网页版...
-flutter build web --release
+echo [1/3] 构建网页版（本地 CanvasKit，避免 Google CDN 在国内打不开）...
+flutter build web --release --base-href "/macaron_girlfriend_run/" --no-web-resources-cdn --no-wasm-dry-run
 if errorlevel 1 (
   echo 构建失败
   pause
