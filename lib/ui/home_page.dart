@@ -6,6 +6,7 @@ import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
+import 'package:macaron_girlfriend_run/ui/macaron_dialogs.dart';
 import 'package:macaron_girlfriend_run/ui/play_page.dart';
 import 'package:macaron_girlfriend_run/ui/shop_page.dart';
 
@@ -40,8 +41,11 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
     final cont = SaveService.instance.continuePlayTarget();
+    final unlockedLevels = unlocked >= GameConstants.totalLevels
+        ? GameConstants.totalLevels
+        : unlocked + 1;
     final progress =
-        (unlocked / GameConstants.totalLevels).clamp(0.0, 1.0).toDouble();
+        (unlockedLevels / GameConstants.totalLevels).clamp(0.0, 1.0);
 
     return Scaffold(
       body: Container(
@@ -75,7 +79,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '99 关最好玩完整版 · Boss 狂暴 / 检查点 / 商店',
+                    '99 关完全体 · Boss 血条 / 检查点 / 商店 / 仪式感',
                     style: TextStyle(
                       fontSize: 13,
                       color: MacaronColors.cocoa.withValues(alpha: 0.55),
@@ -104,9 +108,12 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '进度 ${(progress * 100).toStringAsFixed(0)}% · '
-                    '${unlocked.clamp(0, GameConstants.totalLevels)}/'
-                    '${GameConstants.totalLevels}',
+                    unlocked >= GameConstants.totalLevels
+                        ? '进度 100% · 已解锁全部 '
+                            '${GameConstants.totalLevels} 关'
+                        : '进度 ${(progress * 100).toStringAsFixed(0)}% · '
+                            '已解锁 ${unlocked + 1}/'
+                            '${GameConstants.totalLevels} 关',
                     style: TextStyle(
                       fontSize: 11,
                       color: MacaronColors.cocoa.withValues(alpha: 0.4),
@@ -286,6 +293,56 @@ class WorldMapPage extends StatefulWidget {
 class _WorldMapPageState extends State<WorldMapPage> {
   int world = 0;
 
+  Future<void> _openLevel(int level) async {
+    await AudioService.instance.click();
+    if (!mounted) {
+      return;
+    }
+    final name = LevelNames.of(world, level);
+    final global = SaveService.toGlobal(world, level);
+    final stars = SaveService.instance.starsOf(global);
+    final best = SaveService.instance.bestScoreOf(global);
+    final isBoss = level == GameConstants.levelsPerWorld - 1;
+    final starLine = stars > 0
+        ? '历史最高 ${List.filled(stars, '★').join()} · 纪录 $best'
+        : '尚未通关 · 冲一颗星试试';
+    await showMacaronDialog<void>(
+      context: context,
+      title: isBoss ? 'Boss 关预览' : '关卡预览',
+      body: '${WorldCatalog.paletteOf(world).name}\n'
+          '$name\n'
+          '$starLine\n'
+          '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
+          '进关后可暂停查看三星条件',
+      actions: [
+        MacaronDialogAction(
+          label: '再逛逛',
+          onPressed: (ctx) => Navigator.pop(ctx),
+        ),
+        MacaronDialogAction(
+          label: '开始',
+          primary: true,
+          onPressed: (ctx) {
+            Navigator.pop(ctx);
+            Navigator.push(
+              context,
+              CupertinoPageRoute<void>(
+                builder: (_) => PlayPage(
+                  worldIndex: world,
+                  levelIndex: level,
+                ),
+              ),
+            ).then((_) {
+              if (mounted) {
+                setState(() {});
+              }
+            });
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
@@ -366,26 +423,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   final best = SaveService.instance.bestScoreOf(global);
                   final name = LevelNames.of(world, level);
                   return GestureDetector(
-                    onTap: locked
-                        ? null
-                        : () async {
-                            await AudioService.instance.click();
-                            if (!mounted) {
-                              return;
-                            }
-                            await Navigator.push(
-                              context,
-                              CupertinoPageRoute<void>(
-                                builder: (_) => PlayPage(
-                                  worldIndex: world,
-                                  levelIndex: level,
-                                ),
-                              ),
-                            );
-                            if (mounted) {
-                              setState(() {});
-                            }
-                          },
+                    onTap: locked ? null : () => _openLevel(level),
                     child: Opacity(
                       opacity: locked ? 0.4 : 1,
                       child: Container(
@@ -793,12 +831,14 @@ class AboutPage extends StatelessWidget {
       title: '关于',
       children: const [
         Text('马卡龙女友跑酷', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        Text('版本 1.4.0 · 全能打磨版'),
+        Text('版本 1.5.0 · 完全体'),
         SizedBox(height: 10),
         Text(
-          '原创甜蜜平台跳跃单机。99 关、检查点、狂暴 Boss、耐打红胖怪、'
-          '糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、本地存档，无联网无广告。'
-          '已优化继续冒险、触控反馈、相机前瞻、长关性能与 iPhone 网页加载。',
+          '原创甜蜜平台跳跃单机。99 关、真暂停、Boss 血条、检查点、狂暴 Boss、'
+          '耐打红胖怪、糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、'
+          '关卡预览与通关仪式、本地存档，无联网无广告。'
+          '已优化继续冒险、粘键、超时续时、问号砖三星、触控反馈、'
+          '相机前瞻、长关性能与 iPhone 网页加载。',
         ),
         SizedBox(height: 10),
         Text('Android：Google Play / 各安卓商店 — 安装 apk 或自行签名上架。'),

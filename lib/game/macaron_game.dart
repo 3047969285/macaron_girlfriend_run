@@ -98,6 +98,7 @@ class MacaronGame extends FlameGame {
   double _springLock = 0;
   double _trailAcc = 0;
   double _lookAhead = 0;
+  bool _deathFromTimeout = false;
   List<Rect> _cachedSolids = const [];
   List<List<Rect>> _solidsByCol = const [];
 
@@ -359,6 +360,33 @@ class MacaronGame extends FlameGame {
   void setPaused(bool value) {
     // 仅用逻辑暂停，不调 pauseEngine，否则 GameWidget 会整屏黑掉
     userPaused = value;
+    if (value) {
+      clearInput();
+    }
+  }
+
+  /// 清空触控/键盘输入，避免暂停后粘键
+  void clearInput() {
+    leftPressed = false;
+    rightPressed = false;
+    runPressed = false;
+    duckPressed = false;
+    jumpHeld = false;
+    jumpPressedEdge = false;
+    if (levelReady) {
+      player.resetInput();
+      player.applyDuck(false);
+    }
+  }
+
+  /// 三星条件简述（暂停菜单用）
+  String starTips() {
+    if (totalCoins <= 0) {
+      return '★ 通关　★★ 剩≥60秒　★★★ 剩≥90秒';
+    }
+    final two = (totalCoins * 0.58).ceil();
+    final three = (totalCoins * 0.88).ceil();
+    return '★ 通关　★★ 糖果≥$two　★★★ 糖果≥$three 且剩≥45秒';
   }
 
   void _snapCamera() {
@@ -382,11 +410,16 @@ class MacaronGame extends FlameGame {
 
   @override
   void update(double dt) {
-    super.update(dt);
-    // onLoad 完成前 player 尚未创建，必须跳过逻辑避免 LateInitializationError
-    if (!levelReady || userPaused || _finished) {
+    // onLoad 完成前只跑 Flame 基建
+    if (!levelReady) {
+      super.update(dt);
       return;
     }
+    // 真暂停 / 结算：冻结实体（怪、Boss、粒子、玩家计时）
+    if (userPaused || _finished) {
+      return;
+    }
+    super.update(dt);
 
     if (enemies.isNotEmpty && size.x > 0) {
       final camX = camera.viewfinder.position.x;
@@ -418,6 +451,7 @@ class MacaronGame extends FlameGame {
       ),
     );
     if (timeLeft <= 0) {
+      _deathFromTimeout = true;
       _hurtOrKill(forceKill: true);
       return;
     }
@@ -623,8 +657,8 @@ class MacaronGame extends FlameGame {
       powers.add(p);
       world.add(p);
     } else {
+      // 即时积分糖：只加分，不计入收集分母，避免打乱三星
       score += GameConstants.coinScore;
-      collected++;
       world.add(ScoreCandyBurst(position: pos.clone()));
       fx.coinSparkle(pos.clone());
     }
@@ -891,9 +925,10 @@ class MacaronGame extends FlameGame {
     }
     onLoseLife?.call();
     player.reviveAt(spawnPoint.clone());
-    // 保留剩余限时；若因超时死亡则给一小段续命时间
-    if (timeLeft < 28) {
+    // 仅超时死亡才续时，防止摔坑刷时间
+    if (_deathFromTimeout) {
       timeLeft = 28;
+      _deathFromTimeout = false;
     }
     _snapCamera();
   }

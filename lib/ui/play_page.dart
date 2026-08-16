@@ -59,7 +59,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       onGameOver: _handleGameOver,
     );
     if (_showTutorial) {
-      game.userPaused = true;
+      game.setPaused(true);
     }
     // ignore: unawaited_futures
     AudioService.instance.startBgm(worldIndex: widget.worldIndex);
@@ -86,6 +86,9 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden;
     if (background) {
+      // 一律停 BGM，避免教程/结算时切后台还响
+      // ignore: unawaited_futures
+      AudioService.instance.pauseBgm();
       if (_showTutorial || _busy || game.userPaused) {
         return;
       }
@@ -93,10 +96,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       setState(() {
         game.setPaused(true);
       });
-      // ignore: unawaited_futures
-      AudioService.instance.pauseBgm();
     } else if (state == AppLifecycleState.resumed) {
-      // 回到前台不自动解除暂停，但确保音效会话可恢复
       // ignore: unawaited_futures
       AudioService.instance.unlockAudio();
     }
@@ -113,8 +113,19 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     if (!down && !up) {
       return KeyEventResult.ignored;
     }
-    final pressed = down;
     final key = event.logicalKey;
+    if (down &&
+        (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.keyP)) {
+      if (!_showTutorial && !_busy) {
+        _togglePause();
+      }
+      return KeyEventResult.handled;
+    }
+    // 暂停/教程/结算时不接收移动键，避免粘键
+    if (_showTutorial || _busy || game.userPaused) {
+      return KeyEventResult.handled;
+    }
+    final pressed = down;
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
       game.leftPressed = pressed;
       return KeyEventResult.handled;
@@ -138,13 +149,6 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         key == LogicalKeyboardKey.keyJ ||
         key == LogicalKeyboardKey.keyW) {
       game.setJumpHeld(pressed);
-      return KeyEventResult.handled;
-    }
-    if (down &&
-        (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.keyP)) {
-      if (!_showTutorial) {
-        _togglePause();
-      }
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -204,7 +208,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         title: '💍 蜜月彩虹通关！',
         body: '你推开了全部 99 扇甜蜜大门\n'
             '分数 ${result.score} · ${List.filled(result.stars, '★').join()}\n'
-            '去商店换一套纪念外观吧',
+            '去商店换一套纪念外观吧\n'
+            '全通成就已点亮，随时可以三星重刷～',
         actions: [
           MacaronDialogAction(
             label: '回首页庆祝',
@@ -219,13 +224,53 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return;
     }
 
+    if (widget.levelIndex == GameConstants.levelsPerWorld - 1) {
+      await showMacaronDialog<void>(
+        context: context,
+        title: '🌍 世界通关！',
+        body: '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
+            '${List.filled(result.stars, '★').join()} · 分数 ${result.score}\n'
+            '世界通关糖果已进钱包\n'
+            '${game.starTips()}',
+        actions: [
+          MacaronDialogAction(
+            label: '选关',
+            onPressed: (ctx) {
+              Navigator.pop(ctx);
+              Navigator.pop(context, true);
+            },
+          ),
+          if (widget.worldIndex < GameConstants.worldCount - 1)
+            MacaronDialogAction(
+              label: '下一世界',
+              primary: true,
+              onPressed: (ctx) {
+                Navigator.pop(ctx);
+                final next = SaveService.fromGlobal(global + 1);
+                Navigator.pushReplacement(
+                  context,
+                  CupertinoPageRoute<void>(
+                    builder: (_) => PlayPage(
+                      worldIndex: next.$1,
+                      levelIndex: next.$2,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      );
+      return;
+    }
+
     await showMacaronDialog<void>(
       context: context,
       title: '${List.filled(result.stars, '★').join()} 过关',
       body: '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
           '分数 ${result.score}\n'
           '糖果 ${result.coins}/${game.totalCoins} · 踩怪 ${result.kills}\n'
-          '剩余 ${result.timeLeft} 秒',
+          '剩余 ${result.timeLeft} 秒\n'
+          '${game.starTips()}',
       actions: [
         MacaronDialogAction(
           label: '选关',
@@ -305,6 +350,9 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   }
 
   void _togglePause() {
+    if (_showTutorial || _busy) {
+      return;
+    }
     AudioService.instance.click();
     final pausing = !game.userPaused;
     setState(() {
@@ -425,91 +473,112 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
               child: ValueListenableBuilder<int>(
                 valueListenable: _hudTick,
                 builder: (_, __, ___) {
-                  return Row(
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _HudChip(
-                        onTap: _confirmExit,
-                        child: const Icon(
-                          CupertinoIcons.back,
-                          size: 18,
-                          color: MacaronColors.cocoa,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              worldName,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: MacaronColors.cocoa.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
+                      Row(
+                        children: [
+                          _HudChip(
+                            onTap: (_showTutorial || _busy)
+                                ? null
+                                : _confirmExit,
+                            child: const Icon(
+                              CupertinoIcons.back,
+                              size: 18,
+                              color: MacaronColors.cocoa,
                             ),
-                            Text(
-                              levelTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: MacaronColors.cocoa,
-                              ),
-                            ),
-                            Text(
-                              GameConstants.difficultyLabel(
-                                game.levelReady ? game.level.difficulty : 1,
-                              ),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: MacaronColors.rose.withValues(
-                                  alpha: 0.75,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _HudChip(
-                        child: Text('❤️×${game.lives}', style: _hudText),
-                      ),
-                      const SizedBox(width: 6),
-                      _HudChip(
-                        child: Text(
-                          '🍬${game.collected}/${game.totalCoins}',
-                          style: _hudText,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      _HudChip(child: Text('${game.score}', style: _hudText)),
-                      const SizedBox(width: 6),
-                      _HudChip(
-                        child: Text(
-                          '${game.timeLeft.ceil()}s',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: game.timeLeft < 30
-                                ? MacaronColors.rose
-                                : MacaronColors.cocoa,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  worldName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: MacaronColors.cocoa.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  levelTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: MacaronColors.cocoa,
+                                  ),
+                                ),
+                                Text(
+                                  GameConstants.difficultyLabel(
+                                    game.levelReady
+                                        ? game.level.difficulty
+                                        : 1,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: MacaronColors.rose.withValues(
+                                      alpha: 0.75,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _HudChip(
+                            child: Text('❤️×${game.lives}', style: _hudText),
+                          ),
+                          const SizedBox(width: 6),
+                          _HudChip(
+                            child: Text(
+                              '🍬${game.collected}/${game.totalCoins}',
+                              style: _hudText,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _HudChip(
+                            child: Text('${game.score}', style: _hudText),
+                          ),
+                          const SizedBox(width: 6),
+                          _HudChip(
+                            child: Text(
+                              '${game.timeLeft.ceil()}s',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: game.timeLeft < 30
+                                    ? MacaronColors.rose
+                                    : MacaronColors.cocoa,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _HudChip(
+                            onTap: (_showTutorial || _busy)
+                                ? null
+                                : _togglePause,
+                            child: Icon(
+                              game.userPaused
+                                  ? CupertinoIcons.play_fill
+                                  : CupertinoIcons.pause_fill,
+                              size: 16,
+                              color: MacaronColors.cocoa,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      _HudChip(
-                        onTap: _togglePause,
-                        child: Icon(
-                          game.userPaused
-                              ? CupertinoIcons.play_fill
-                              : CupertinoIcons.pause_fill,
-                          size: 16,
-                          color: MacaronColors.cocoa,
+                      if (game.boss != null && !game.boss!.dead) ...[
+                        const SizedBox(height: 8),
+                        _BossHpBar(
+                          hp: game.boss!.hp,
+                          maxHp: game.boss!.maxHp,
+                          enraged: game.boss!.enraged,
                         ),
-                      ),
+                      ],
                     ],
                   );
                 },
@@ -522,7 +591,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                   return const SizedBox.shrink();
                 }
                 return Positioned(
-                  top: pad.top + 56,
+                  top: pad.top + 88,
                   left: 0,
                   right: 0,
                   child: const Center(
@@ -556,6 +625,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
             if (game.userPaused && !_showTutorial)
               _PauseOverlay(
                 fromLifecycle: _lifecyclePaused,
+                starTips: game.starTips(),
                 onResume: _togglePause,
                 onQuit: _confirmExit,
                 onRetry: () {
@@ -614,17 +684,74 @@ class _HudChip extends StatelessWidget {
   }
 }
 
+class _BossHpBar extends StatelessWidget {
+  const _BossHpBar({
+    required this.hp,
+    required this.maxHp,
+    required this.enraged,
+  });
+
+  final int hp;
+  final int maxHp;
+  final bool enraged;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = maxHp <= 0 ? 0.0 : (hp / maxHp).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            enraged ? 'Boss 狂暴中' : 'Boss',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: enraged ? MacaronColors.rose : MacaronColors.cocoa,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: Colors.black12,
+              color: enraged ? MacaronColors.rose : MacaronColors.lilac,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$hp / $maxHp',
+            style: TextStyle(
+              fontSize: 10,
+              color: MacaronColors.cocoa.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PauseOverlay extends StatelessWidget {
   const _PauseOverlay({
     required this.onResume,
     required this.onQuit,
     required this.onRetry,
+    required this.starTips,
     this.fromLifecycle = false,
   });
 
   final VoidCallback onResume;
   final VoidCallback onQuit;
   final VoidCallback onRetry;
+  final String starTips;
   final bool fromLifecycle;
 
   @override
@@ -633,7 +760,7 @@ class _PauseOverlay extends StatelessWidget {
       color: Colors.black45,
       child: Center(
         child: Container(
-          width: 280,
+          width: 300,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
             color: MacaronColors.cream,
@@ -659,6 +786,16 @@ class _PauseOverlay extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   color: MacaronColors.cocoa.withValues(alpha: 0.55),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                starTips,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: MacaronColors.rose,
                 ),
               ),
               const SizedBox(height: 16),
@@ -730,9 +867,9 @@ class _TutorialOverlay extends StatelessWidget {
               const Text('• 蓝色小旗 = 检查点（本局死后从旗子复活）'),
               const Text('• 头顶顶黄色「?」砖 → 糖 / 超级跳 / 积分糖'),
               const Text('• 红胖怪要踩 2 次；Boss 半血后会狂暴跳砸'),
-              const Text('• 切到后台会自动暂停，限时死后会保留时间'),
+              const Text('• 切到后台会自动暂停并停 BGM；限时死后不额外刷时间'),
               const Text('• 紫色马卡龙 = 超级跳跃；心 = 加命'),
-              const Text('• 限时内通关摸旗，收集越多星级越高'),
+              const Text('• 限时内通关摸旗；暂停菜单可看三星条件'),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

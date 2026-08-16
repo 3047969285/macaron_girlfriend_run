@@ -241,18 +241,18 @@ class SaveService {
     await _prefs?.setInt(_keyLastLevel, level);
   }
 
-  /// 继续冒险目标：优先上次玩过且仍解锁的关
+  /// 继续冒险：未通关重试本关；已通关则去当前最远可玩关
   (int, int) continuePlayTarget() {
-    final maxPlayable =
+    final frontier =
         unlockedGlobalIndex.clamp(0, GameConstants.totalLevels - 1);
     final last = toGlobal(lastWorldIndex, lastLevelIndex);
-    if (last <= maxPlayable) {
+    if (last <= frontier && starsOf(last) == 0) {
       return (
         lastWorldIndex.clamp(0, GameConstants.worldCount - 1),
         lastLevelIndex.clamp(0, GameConstants.levelsPerWorld - 1),
       );
     }
-    return fromGlobal(maxPlayable);
+    return fromGlobal(frontier);
   }
 
   /// 触控按钮缩放 0.85～1.25
