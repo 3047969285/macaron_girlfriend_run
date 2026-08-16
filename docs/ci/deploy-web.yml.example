@@ -32,7 +32,7 @@ jobs:
       - name: Build web
         run: |
           flutter pub get
-          flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+          flutter build web --release --base-href "/${{ github.event.repository.name }}/" --no-web-resources-cdn --no-wasm-dry-run
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web

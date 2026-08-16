@@ -462,28 +462,35 @@ class LevelCatalog {
     final w = g.first.length;
     final ground = g.length - 3;
     final anchor = (w * (0.28 + (level % 3) * 0.12)).floor().clamp(12, w - 20);
-    _platform(g, anchor, ground - 3, 5);
-    _platform(g, anchor + 7, ground - 5, 3);
-    _platform(g, anchor + 12, ground - 2, 4);
+    // 阶梯上台 → 问号顶砖 → 弹簧过渡 → 高台糖轨
+    _platform(g, anchor, ground - 2, 4);
+    _platform(g, anchor + 5, ground - 3, 5);
+    _platform(g, anchor + 11, ground - 5, 4);
+    _platform(g, anchor + 16, ground - 3, 3);
     for (var i = 0; i < 5; i++) {
-      _coin(g, anchor + i, ground - 4);
+      _coin(g, anchor + 5 + i, ground - 4);
     }
-    _put(g, anchor + 2, ground - 3, '?');
-    _put(g, anchor + 8, ground - 5, 'M');
-    _put(g, anchor + 13, ground - 2, 'S');
+    _coin(g, anchor + 12, ground - 6);
+    _coin(g, anchor + 13, ground - 6);
+    _put(g, anchor + 7, ground - 3, '?');
+    _put(g, anchor + 12, ground - 5, 'M');
+    _put(g, anchor + 16, ground - 3, 'S');
+    _put(g, anchor + 3, ground - 2, 'K');
     if (level >= 4) {
-      _put(g, anchor + 4, ground, 'R');
-      _put(g, anchor + 10, ground, 'G');
+      _put(g, anchor + 9, ground, 'R');
+      _put(g, anchor + 14, ground, 'G');
     } else {
-      _enemy(g, anchor + 5, ground);
+      _enemy(g, anchor + 8, ground);
     }
     if (world % 2 == 0) {
-      _gap(g, anchor + 16, 2);
-      _put(g, anchor + 19, ground, 'H');
+      _gap(g, anchor + 20, 2);
+      _platform(g, anchor + 23, ground - 2, 3);
+      _put(g, anchor + 24, ground - 2, 'H');
     } else {
-      _platform(g, anchor + 17, ground - 4, 2);
-      _coin(g, anchor + 17, ground - 5);
-      _coin(g, anchor + 18, ground - 5);
+      _platform(g, anchor + 20, ground - 4, 3);
+      _coin(g, anchor + 20, ground - 5);
+      _coin(g, anchor + 21, ground - 5);
+      _put(g, anchor + 21, ground - 4, '?');
     }
   }
 }

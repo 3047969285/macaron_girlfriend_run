@@ -42,6 +42,15 @@ class GameConstants {
   static const double invincibleDuration = 1.55;
   static const double powerUpDuration = 11;
 
+  /// 相机跑步前瞻像素
+  static const double cameraLookAhead = 88;
+  /// 柔震屏最大偏移
+  static const double cameraShakeMax = 7;
+  /// 粒子同时存在上限
+  static const int maxFxParticles = 96;
+  /// 固体碰撞按列分桶宽度（格）
+  static const int solidBucketTiles = 1;
+
   /// 按关卡难度与地图长度计算限时秒数
   static double timeLimitFor(int difficulty, {required int mapWidth}) {
     final stretchBonus = mapWidth * 0.72;

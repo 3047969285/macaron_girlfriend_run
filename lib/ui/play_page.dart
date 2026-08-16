@@ -95,7 +95,16 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       });
       // ignore: unawaited_futures
       AudioService.instance.pauseBgm();
+    } else if (state == AppLifecycleState.resumed) {
+      // 回到前台不自动解除暂停，但确保音效会话可恢复
+      // ignore: unawaited_futures
+      AudioService.instance.unlockAudio();
     }
+  }
+
+  void _onControlInteract() {
+    // ignore: unawaited_futures
+    AudioService.instance.unlockAudio();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -347,6 +356,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
 
   Future<void> _dismissTutorial() async {
     await SaveService.instance.setTutorialDone();
+    await AudioService.instance.unlockAudio();
     if (!mounted) {
       return;
     }
@@ -354,6 +364,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       _showTutorial = false;
       game.setPaused(false);
     });
+    // ignore: unawaited_futures
+    AudioService.instance.resumeBgm();
   }
 
   @override
@@ -532,6 +544,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                 right: 0,
                 bottom: 0,
                 child: TouchControls(
+                  scale: SaveService.instance.controlScale,
+                  onInteract: _onControlInteract,
                   onLeft: (v) => game.leftPressed = v,
                   onRight: (v) => game.rightPressed = v,
                   onRun: (v) => game.runPressed = v,
@@ -710,11 +724,11 @@ class _TutorialOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('• 左移右移，右侧「蹲」「跑」「跳」'),
+              const Text('• 左移右移，右侧「蹲」「跑」「跳」（按下会缩小反馈）'),
               const Text('• 电脑可用方向键 / WASD + 空格跳'),
-              const Text('• 跳要松手后再跳，按住不会连跳'),
-              const Text('• 蓝色小旗是检查点，死后从这里复活'),
-              const Text('• 顶黄色「?」砖会出糖、道具或积分糖'),
+              const Text('• 跳要松手后再跳；短按短跳、长按跳得更高'),
+              const Text('• 蓝色小旗 = 检查点（本局死后从旗子复活）'),
+              const Text('• 头顶顶黄色「?」砖 → 糖 / 超级跳 / 积分糖'),
               const Text('• 红胖怪要踩 2 次；Boss 半血后会狂暴跳砸'),
               const Text('• 切到后台会自动暂停，限时死后会保留时间'),
               const Text('• 紫色马卡龙 = 超级跳跃；心 = 加命'),

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 /// 单颗特效粒子
@@ -221,7 +222,12 @@ class FxLayer extends PositionComponent {
     double baseDir = 0,
     double gravity = 520,
   }) {
-    for (var i = 0; i < count; i++) {
+    final room = GameConstants.maxFxParticles - _particles.length;
+    if (room <= 0) {
+      return;
+    }
+    final n = count.clamp(0, room);
+    for (var i = 0; i < n; i++) {
       final ang = baseDir + (_rng.nextDouble() - 0.5) * spread;
       final spd = speed * (0.45 + _rng.nextDouble() * 0.75);
       _particles.add(

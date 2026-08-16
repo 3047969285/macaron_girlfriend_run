@@ -117,6 +117,23 @@ class AudioService {
     await _bgm.resume();
   }
 
+  /// 网页端首次手势解锁音频会话
+  Future<void> unlockAudio() async {
+    await init();
+    try {
+      if (musicOn && _bgmPlaying) {
+        await _bgm.resume();
+      } else if (soundOn) {
+        final p = _fxPool[_fxCursor % _fxPool.length];
+        _fxCursor++;
+        await p.stop();
+        await p.setVolume(0.01);
+        await p.play(BytesSource(_wavClick));
+        await p.setVolume(SaveService.instance.soundVolume);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _playFx(Uint8List bytes) async {
     if (!_ready) {
       await init();

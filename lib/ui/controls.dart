@@ -58,6 +58,8 @@ class TouchControls extends StatelessWidget {
     required this.onRun,
     required this.onJumpHeld,
     this.onDuck,
+    this.onInteract,
+    this.scale = 1,
   });
 
   final ValueChanged<bool> onLeft;
@@ -65,10 +67,13 @@ class TouchControls extends StatelessWidget {
   final ValueChanged<bool> onRun;
   final ValueChanged<bool> onJumpHeld;
   final ValueChanged<bool>? onDuck;
+  final VoidCallback? onInteract;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
+    final s = scale.clamp(0.85, 1.25);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         28 + pad.left,
@@ -84,11 +89,15 @@ class TouchControls extends StatelessWidget {
               _RoundHold(
                 icon: CupertinoIcons.left_chevron,
                 onChanged: onLeft,
+                onInteract: onInteract,
+                size: 64 * s,
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14 * s),
               _RoundHold(
                 icon: CupertinoIcons.right_chevron,
                 onChanged: onRight,
+                onInteract: onInteract,
+                size: 64 * s,
               ),
             ],
           ),
@@ -99,22 +108,26 @@ class TouchControls extends StatelessWidget {
                 _RoundHold(
                   label: '蹲',
                   onChanged: onDuck!,
+                  onInteract: onInteract,
                   fill: MacaronColors.lilac.withValues(alpha: 0.85),
-                  size: 62,
+                  size: 62 * s,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12 * s),
               ],
               _RoundHold(
                 label: '跑',
                 onChanged: onRun,
+                onInteract: onInteract,
                 fill: MacaronColors.mint.withValues(alpha: 0.85),
+                size: 64 * s,
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14 * s),
               _RoundHold(
                 label: '跳',
                 onChanged: onJumpHeld,
+                onInteract: onInteract,
                 fill: MacaronColors.blush.withValues(alpha: 0.9),
-                size: 78,
+                size: 78 * s,
               ),
             ],
           ),
@@ -124,9 +137,10 @@ class TouchControls extends StatelessWidget {
   }
 }
 
-class _RoundHold extends StatelessWidget {
+class _RoundHold extends StatefulWidget {
   const _RoundHold({
     required this.onChanged,
+    this.onInteract,
     this.icon,
     this.label,
     this.fill,
@@ -134,44 +148,74 @@ class _RoundHold extends StatelessWidget {
   });
 
   final ValueChanged<bool> onChanged;
+  final VoidCallback? onInteract;
   final IconData? icon;
   final String? label;
   final Color? fill;
   final double size;
 
   @override
+  State<_RoundHold> createState() => _RoundHoldState();
+}
+
+class _RoundHoldState extends State<_RoundHold> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (_down == v) {
+      return;
+    }
+    setState(() => _down = v);
+    if (v) {
+      widget.onInteract?.call();
+    }
+    widget.onChanged(v);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final size = widget.size * (_down ? 0.92 : 1.0);
     return Listener(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => onChanged(true),
-      onPointerUp: (_) => onChanged(false),
-      onPointerCancel: (_) => onChanged(false),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: fill ?? Colors.white.withValues(alpha: 0.7),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.65)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x18000000),
-              blurRadius: 16,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: widget.size,
+        height: widget.size,
         alignment: Alignment.center,
-        child: icon != null
-            ? Icon(icon, color: MacaronColors.cocoa, size: 22)
-            : Text(
-                label ?? '',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: MacaronColors.cocoa,
-                ),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: (widget.fill ?? Colors.white.withValues(alpha: 0.7))
+                .withValues(alpha: _down ? 1.0 : 0.85),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: _down ? 0.95 : 0.65),
+              width: _down ? 2.5 : 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0x18000000),
+                blurRadius: _down ? 8 : 16,
+                offset: Offset(0, _down ? 3 : 6),
               ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: widget.icon != null
+              ? Icon(widget.icon, color: MacaronColors.cocoa, size: 22)
+              : Text(
+                  widget.label ?? '',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: MacaronColors.cocoa,
+                  ),
+                ),
+        ),
       ),
     );
   }

@@ -39,9 +39,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
-    final cont = SaveService.fromGlobal(
-      unlocked.clamp(0, GameConstants.totalLevels - 1),
-    );
+    final cont = SaveService.instance.continuePlayTarget();
     final progress =
         (unlocked / GameConstants.totalLevels).clamp(0.0, 1.0).toDouble();
 
@@ -127,9 +125,7 @@ class _HomePageState extends State<HomePage> {
                       if (!mounted) {
                         return;
                       }
-                      final g =
-                          unlocked.clamp(0, GameConstants.totalLevels - 1);
-                      final pos = SaveService.fromGlobal(g);
+                      final pos = SaveService.instance.continuePlayTarget();
                       await Navigator.push(
                         context,
                         CupertinoPageRoute<void>(
@@ -797,12 +793,12 @@ class AboutPage extends StatelessWidget {
       title: '关于',
       children: const [
         Text('马卡龙女友跑酷', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        Text('版本 1.3.1 · 手感修复版'),
+        Text('版本 1.4.0 · 全能打磨版'),
         SizedBox(height: 10),
         Text(
           '原创甜蜜平台跳跃单机。99 关、检查点、狂暴 Boss、耐打红胖怪、'
           '糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、本地存档，无联网无广告。'
-          '已优化跳跃高度与问号砖顶击。',
+          '已优化继续冒险、触控反馈、相机前瞻、长关性能与 iPhone 网页加载。',
         ),
         SizedBox(height: 10),
         Text('Android：Google Play / 各安卓商店 — 安装 apk 或自行签名上架。'),
@@ -833,6 +829,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool haptic;
   late double soundVol;
   late double musicVol;
+  late double controlScale;
 
   @override
   void initState() {
@@ -844,6 +841,7 @@ class _SettingsPageState extends State<SettingsPage> {
     haptic = SaveService.instance.hapticEnabled;
     soundVol = SaveService.instance.soundVolume;
     musicVol = SaveService.instance.musicVolume;
+    controlScale = SaveService.instance.controlScale;
   }
 
   @override
@@ -913,6 +911,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() => haptic = v);
                 await SaveService.instance.setHapticEnabled(v);
               },
+            ),
+            _section('触控'),
+            ListTile(
+              title: const Text('按钮大小'),
+              subtitle: Slider(
+                value: controlScale,
+                min: 0.85,
+                max: 1.25,
+                divisions: 8,
+                label: controlScale.toStringAsFixed(2),
+                activeColor: MacaronColors.mint,
+                onChanged: (v) async {
+                  setState(() => controlScale = v);
+                  await SaveService.instance.setControlScale(v);
+                },
+              ),
             ),
             _section('帧率'),
             Wrap(

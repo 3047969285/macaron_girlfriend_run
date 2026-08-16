@@ -73,7 +73,6 @@ class MacaronGame extends FlameGame {
   MacaronBoss? boss;
   late FxLayer fx;
   ParallaxLayer? parallax;
-  final math.Random _rng = math.Random();
 
   bool leftPressed = false;
   bool rightPressed = false;
@@ -98,7 +97,9 @@ class MacaronGame extends FlameGame {
   double _shakeMag = 0;
   double _springLock = 0;
   double _trailAcc = 0;
+  double _lookAhead = 0;
   List<Rect> _cachedSolids = const [];
+  List<List<Rect>> _solidsByCol = const [];
 
   bool get poweredUpVisible => levelReady && player.poweredUp;
 
@@ -230,6 +231,7 @@ class MacaronGame extends FlameGame {
 
     totalCoins = coins.length;
     _cachedSolids = terrain.map((e) => e.rect).toList(growable: false);
+    _rebuildSolidBuckets();
     world.add(
       TerrainRenderer(
         solids: terrain,
@@ -288,7 +290,39 @@ class MacaronGame extends FlameGame {
     );
   }
 
-  List<Rect> get _solidRects => _cachedSolids;
+  void _rebuildSolidBuckets() {
+    final cols = level.width;
+    _solidsByCol = List.generate(cols, (_) => <Rect>[]);
+    final tile = GameConstants.tileSize;
+    for (final r in _cachedSolids) {
+      final x0 = (r.left / tile).floor().clamp(0, cols - 1);
+      final x1 = ((r.right - 0.01) / tile).floor().clamp(0, cols - 1);
+      for (var x = x0; x <= x1; x++) {
+        _solidsByCol[x].add(r);
+      }
+    }
+  }
+
+  /// 仅取玩家附近列的固体，降低长关扫描成本
+  List<Rect> _nearbySolids(Rect hitbox) {
+    if (_solidsByCol.isEmpty) {
+      return _cachedSolids;
+    }
+    final tile = GameConstants.tileSize;
+    final cols = _solidsByCol.length;
+    final x0 = ((hitbox.left - tile) / tile).floor().clamp(0, cols - 1);
+    final x1 = ((hitbox.right + tile) / tile).floor().clamp(0, cols - 1);
+    final seen = <Rect>{};
+    final out = <Rect>[];
+    for (var x = x0; x <= x1; x++) {
+      for (final r in _solidsByCol[x]) {
+        if (seen.add(r)) {
+          out.add(r);
+        }
+      }
+    }
+    return out;
+  }
 
   void tapJump() {
     setJumpHeld(true);
@@ -333,13 +367,17 @@ class MacaronGame extends FlameGame {
     }
     final mapW = level.width * GameConstants.tileSize;
     final mapH = level.height * GameConstants.tileSize;
-    var cx = player.position.x;
+    final look = player.facingRight
+        ? GameConstants.cameraLookAhead * 0.55
+        : -GameConstants.cameraLookAhead * 0.55;
+    var cx = player.position.x + look;
     var cy = player.position.y - 80;
     final minX = size.x / 2;
     final maxX = mathMax(minX, mapW - size.x / 2);
     final minY = size.y / 2;
     final maxY = mathMax(minY, mapH - size.y / 2);
-    camera.viewfinder.position = Vector2(cx.clamp(minX, maxX), cy.clamp(minY, maxY));
+    camera.viewfinder.position =
+        Vector2(cx.clamp(minX, maxX), cy.clamp(minY, maxY));
   }
 
   @override
@@ -348,6 +386,14 @@ class MacaronGame extends FlameGame {
     // onLoad 完成前 player 尚未创建，必须跳过逻辑避免 LateInitializationError
     if (!levelReady || userPaused || _finished) {
       return;
+    }
+
+    if (enemies.isNotEmpty && size.x > 0) {
+      final camX = camera.viewfinder.position.x;
+      final margin = size.x * 0.85 + 220;
+      for (final e in enemies) {
+        e.simActive = (e.position.x - camX).abs() < margin;
+      }
     }
 
     if (player.dead) {
@@ -484,7 +530,7 @@ class MacaronGame extends FlameGame {
         : Vector2(0, player.velocity.y * dt);
     player.position += delta;
     final hitbox = _playerHitbox();
-    final solids = _solidRects;
+    final solids = _nearbySolids(hitbox);
     player.onGround = false;
     for (final solid in solids) {
       if (!hitbox.overlaps(solid)) {
@@ -901,12 +947,17 @@ class MacaronGame extends FlameGame {
     }
     final mapW = level.width * GameConstants.tileSize;
     final mapH = level.height * GameConstants.tileSize;
-    var cx = player.position.x;
+    final wantLook = (player.facingRight ? 1.0 : -1.0) *
+        GameConstants.cameraLookAhead *
+        (player.wantsRun ? 1.0 : 0.55);
+    _lookAhead += (wantLook - _lookAhead) * (6 * dt).clamp(0.0, 1.0);
+    var cx = player.position.x + _lookAhead;
     var cy = player.position.y - 80;
     if (_shakeTimer > 0) {
       final s = _shakeMag * (_shakeTimer / 0.18);
-      cx += (_rng.nextDouble() - 0.5) * s * 14;
-      cy += (_rng.nextDouble() - 0.5) * s * 10;
+      final amp = GameConstants.cameraShakeMax * s;
+      cx += math.sin(_shakeTimer * 42) * amp;
+      cy += math.cos(_shakeTimer * 38) * amp * 0.7;
     }
     final minX = size.x / 2;
     final maxX = mathMax(minX, mapW - size.x / 2);

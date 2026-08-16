@@ -256,6 +256,8 @@ class SoftEnemy extends PositionComponent {
   double _hopVy = 0;
   double _flash = 0;
   bool dead = false;
+  /// 镜头外跳过移动，减负长关
+  bool simActive = true;
 
   /// 踩踏一次返回是否击杀
   bool takeStomp() {
@@ -273,7 +275,7 @@ class SoftEnemy extends PositionComponent {
 
   @override
   void update(double dt) {
-    if (dead) {
+    if (dead || !simActive) {
       return;
     }
     _wobble += dt * 8;

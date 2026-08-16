@@ -6,7 +6,7 @@ echo [马卡龙] 正在构建 iPhone 网页版（Safari 可玩 + 可添加到主
 echo.
 echo  提示：若不想同 Wi-Fi，请改用「部署iPhone公网.bat」部署到 Netlify/GitHub。
 echo.
-flutter build web --release
+flutter build web --release --no-web-resources-cdn --no-wasm-dry-run
 if errorlevel 1 (
   echo 构建失败
   pause

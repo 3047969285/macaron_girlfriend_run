@@ -30,6 +30,7 @@ class SaveService {
   static const _keyLastWorld = 'last_world';
   static const _keyLastLevel = 'last_level';
   static const _keyAllClearSeen = 'all_clear_seen';
+  static const _keyControlScale = 'control_scale';
 
   SharedPreferences? _prefs;
 
@@ -238,6 +239,28 @@ class SaveService {
   Future<void> setLastPlayed(int world, int level) async {
     await _prefs?.setInt(_keyLastWorld, world);
     await _prefs?.setInt(_keyLastLevel, level);
+  }
+
+  /// 继续冒险目标：优先上次玩过且仍解锁的关
+  (int, int) continuePlayTarget() {
+    final maxPlayable =
+        unlockedGlobalIndex.clamp(0, GameConstants.totalLevels - 1);
+    final last = toGlobal(lastWorldIndex, lastLevelIndex);
+    if (last <= maxPlayable) {
+      return (
+        lastWorldIndex.clamp(0, GameConstants.worldCount - 1),
+        lastLevelIndex.clamp(0, GameConstants.levelsPerWorld - 1),
+      );
+    }
+    return fromGlobal(maxPlayable);
+  }
+
+  /// 触控按钮缩放 0.85～1.25
+  double get controlScale =>
+      (_prefs?.getDouble(_keyControlScale) ?? 1.0).clamp(0.85, 1.25);
+
+  Future<void> setControlScale(double v) async {
+    await _prefs?.setDouble(_keyControlScale, v.clamp(0.85, 1.25));
   }
 
   bool get allClearCelebrated => _prefs?.getBool(_keyAllClearSeen) ?? false;
