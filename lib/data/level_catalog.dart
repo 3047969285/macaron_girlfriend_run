@@ -27,7 +27,7 @@ class LevelCatalog {
   }
 
   static List<String> _buildRows(int world, int level) {
-    final width = 80 + world * 12 + level * 10;
+    final width = 100 + world * 14 + level * 14;
     final height = 14;
     final grid = List.generate(height, (_) => List.filled(width, ' '));
 
@@ -89,13 +89,242 @@ class LevelCatalog {
 
     _applyDifficultyPass(grid, world, level);
     _fillLongRun(grid, world, level);
+    _addSceneChallenges(grid, world, level);
 
     // Boss 关最后注入，避免被长关填充覆盖
     if (level == 10) {
       _bossSpice(grid, world);
     }
 
+    _placeFeaturePickups(grid, world, level);
+    _repairGuaranteedGroundRoute(grid);
+    _placeSceneCheckpoints(grid);
+
     return grid.map((r) => r.join()).toList();
+  }
+
+  /// 每关分成四段，轮换跳跃、平台收集与怪物遭遇，避免长地图只重复一种节奏。
+  static void _addSceneChallenges(
+    List<List<String>> grid,
+    int world,
+    int level,
+  ) {
+    final width = grid.first.length;
+    final ground = grid.length - 3;
+    final sectionWidth = (width - 8) ~/ 4;
+    final difficulty = _difficulty(world, level);
+
+    for (var section = 0; section < 4; section++) {
+      final start = 4 + section * sectionWidth;
+      final x = start + sectionWidth * 2 ~/ 3;
+      switch ((world + level + section) % 4) {
+        case 0:
+          _gap(grid, x, 2);
+          _platform(grid, x - 1, ground - 3, 4);
+          _coin(grid, x, ground - 4);
+          _coin(grid, x + 1, ground - 4);
+          break;
+        case 1:
+          _platform(grid, x, ground - 2, 3);
+          _platform(grid, x + 4, ground - 4, 3);
+          _coin(grid, x + 1, ground - 3);
+          _coin(grid, x + 5, ground - 5);
+          break;
+        case 2:
+          _placeSceneEnemy(grid, x, ground, difficulty);
+          _platform(grid, x + 3, ground - 3, 3);
+          _coin(grid, x + 4, ground - 4);
+          break;
+        case 3:
+          _gap(grid, x, 2);
+          _platform(grid, x + 3, ground - 2, 3);
+          _coin(grid, x + 3, ground - 3);
+          _coin(grid, x + 4, ground - 3);
+          break;
+      }
+    }
+  }
+
+  static void _placeSceneEnemy(
+    List<List<String>> grid,
+    int targetX,
+    int ground,
+    int difficulty,
+  ) {
+    final width = grid.first.length;
+    final kind = difficulty >= 9
+        ? 'R'
+        : difficulty >= 4
+        ? 'G'
+        : 'E';
+    for (var offset = 0; offset <= 5; offset++) {
+      for (final direction in offset == 0 ? const [1] : const [1, -1]) {
+        final x = targetX + offset * direction;
+        if (x < 8 || x >= width - 8 || grid[ground][x] != ' ') {
+          continue;
+        }
+        if (grid[ground + 1][x] != '#' || grid[ground + 2][x] != '#') {
+          continue;
+        }
+        if ([
+          x - 2,
+          x - 1,
+          x + 1,
+          x + 2,
+        ].any((near) => 'EGRBWV'.contains(grid[ground][near]))) {
+          continue;
+        }
+        grid[ground][x] = kind;
+        return;
+      }
+    }
+  }
+
+  /// 长关每五分之一补一个有地面的检查点，降低连续失误后重跑距离。
+  static void _placeSceneCheckpoints(List<List<String>> grid) {
+    final width = grid.first.length;
+    final ground = grid.length - 3;
+    for (final fraction in const [0.2, 0.4, 0.6, 0.8]) {
+      final targetX = (width * fraction).round();
+      for (var offset = 0; offset <= 10; offset++) {
+        var placed = false;
+        for (final direction in offset == 0 ? const [1] : const [1, -1]) {
+          final x = targetX + offset * direction;
+          if (x < 8 || x >= width - 8) {
+            continue;
+          }
+          if (grid[ground][x] == 'K') {
+            placed = true;
+            break;
+          }
+          if (grid[ground][x] != ' ' ||
+              grid[ground + 1][x] != '#' ||
+              grid[ground + 2][x] != '#') {
+            continue;
+          }
+          if ([
+            x - 2,
+            x - 1,
+            x + 1,
+            x + 2,
+          ].any((near) => 'EGRBWV'.contains(grid[ground][near]))) {
+            continue;
+          }
+          grid[ground][x] = 'K';
+          placed = true;
+          break;
+        }
+        if (placed) {
+          break;
+        }
+      }
+    }
+  }
+
+  /// 保留主题平台的同时，确保地面路线有净空且每个坑都能用基础跳跃跨过。
+  static void _repairGuaranteedGroundRoute(List<List<String>> grid) {
+    const maxGapTiles = 2;
+    const minLandingTiles = 2;
+    final ground = grid.length - 3;
+    final width = grid.first.length;
+
+    // 低位平台会撞到站立角色的头和身体；移出碰撞范围，保留平台并开放地面通道。
+    for (var x = 2; x <= width - 3; x++) {
+      final tile = grid[ground - 1][x];
+      if (tile != '=' && tile != '?') {
+        continue;
+      }
+      grid[ground - 1][x] = ' ';
+      var destination = ground - 2;
+      while (destination >= ground - 3 && grid[destination][x] != ' ') {
+        destination--;
+      }
+      if (destination >= ground - 3) {
+        grid[destination][x] = tile;
+      } else if (tile == '?' && grid[ground - 2][x] == '=') {
+        grid[ground - 2][x] = '?';
+      }
+    }
+
+    // 起点、终点固定在有地面的地面通道内，避免后续主题装饰覆盖。
+    grid[ground][2] = 'P';
+    grid[ground][width - 3] = 'F';
+    grid[ground + 1][2] = '#';
+    grid[ground + 2][2] = '#';
+    grid[ground + 1][width - 3] = '#';
+    grid[ground + 2][width - 3] = '#';
+
+    var gapTiles = 0;
+    var landingTiles = minLandingTiles;
+    for (var x = 2; x <= width - 3; x++) {
+      final isGap = grid[ground + 1][x] == ' ' && grid[ground + 2][x] == ' ';
+      if (!isGap) {
+        gapTiles = 0;
+        landingTiles++;
+        continue;
+      }
+
+      if (gapTiles < maxGapTiles && landingTiles >= minLandingTiles) {
+        gapTiles++;
+        landingTiles = 0;
+        continue;
+      }
+
+      // 重叠坑之间补成落脚地面，限制坑宽并留足下一跳的起跳区。
+      grid[ground + 1][x] = '#';
+      grid[ground + 2][x] = '#';
+      gapTiles = 0;
+      landingTiles = 1;
+    }
+  }
+
+  /// 在安全地面区轮换放置射击器与小车，不占用跳跃必经路径。
+  static void _placeFeaturePickups(
+    List<List<String>> grid,
+    int world,
+    int level,
+  ) {
+    final width = grid.first.length;
+    final ground = grid.length - 3;
+    if ((world + level).isEven) {
+      _placeGroundPickup(grid, width ~/ 4, ground, 'W');
+    }
+    if ((world * 2 + level) % 3 == 0) {
+      _placeGroundPickup(grid, (width * 0.62).round(), ground, 'V');
+    }
+  }
+
+  static void _placeGroundPickup(
+    List<List<String>> grid,
+    int targetX,
+    int ground,
+    String pickup,
+  ) {
+    for (var offset = 0; offset <= 8; offset++) {
+      for (final direction in offset == 0 ? const [1] : const [1, -1]) {
+        final x = targetX + offset * direction;
+        if (x < 10 || x >= grid.first.length - 8) {
+          continue;
+        }
+        if (grid[ground][x] != ' ' ||
+            grid[ground - 1][x] != ' ' ||
+            grid[ground + 1][x] != '#' ||
+            grid[ground + 2][x] != '#') {
+          continue;
+        }
+        final nearEnemy = [
+          x - 2,
+          x - 1,
+          x + 1,
+          x + 2,
+        ].any((near) => 'EGRB'.contains(grid[ground][near]));
+        if (nearEnemy) {
+          continue;
+        }
+        grid[ground][x] = pickup;
+        return;
+      }
+    }
   }
 
   /// 长关卡中段补平台与收集物
@@ -189,9 +418,9 @@ class LevelCatalog {
     }
   }
 
-  /// 平台高度钳制：相对地面约 2～5 格，保证普通跳跃可达
+  /// 平台最高控制在地面上 4 格，给高难关较短的跳跃留出余量
   static int _clampPlatY(List<List<String>> g, int y) {
-    final highest = (g.length - 8).clamp(4, g.length - 5);
+    final highest = (g.length - 6).clamp(4, g.length - 5);
     final lowest = (g.length - 4).clamp(highest, g.length - 3);
     return y.clamp(highest, lowest);
   }
@@ -243,7 +472,8 @@ class LevelCatalog {
       }
     }
     if (py >= 0 && py < g.length && x >= 0 && x < g.first.length) {
-      final force = ch == '?' ||
+      final force =
+          ch == '?' ||
           ch == 'S' ||
           ch == 'B' ||
           ch == 'K' ||

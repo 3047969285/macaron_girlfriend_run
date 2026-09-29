@@ -74,6 +74,20 @@ class ShopCatalog {
       price: 240,
       accent: MacaronColors.rose,
     ),
+    CosmeticItem(
+      id: 'pea_buddy',
+      name: '豌豆小伙伴',
+      desc: '戴在头顶，自动瞄准附近小怪',
+      price: 280,
+      accent: MacaronColors.mint,
+    ),
+    CosmeticItem(
+      id: 'sunflower_buddy',
+      name: '手捧向日葵',
+      desc: '到达检查点时回复一颗心',
+      price: 240,
+      accent: MacaronColors.lemon,
+    ),
   ];
 
   static CosmeticItem of(String id) {

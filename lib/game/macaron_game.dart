@@ -64,8 +64,12 @@ class MacaronGame extends FlameGame {
   final List<TerrainTile> terrain = [];
   final List<MacaronCoin> coins = [];
   final List<SoftEnemy> enemies = [];
+  final List<EnemyCandyShot> _enemyShots = [];
+  final List<PlayerCandyShot> _playerShots = [];
   final List<QuestionBlock> blocks = [];
   final List<PowerMacaron> powers = [];
+  final List<GunPickup> gunPickups = [];
+  final List<VehiclePickup> vehiclePickups = [];
   final List<LifeHeart> hearts = [];
   final List<SpringPad> springs = [];
   final List<CheckpointPad> checkpoints = [];
@@ -79,6 +83,7 @@ class MacaronGame extends FlameGame {
   bool runPressed = false;
   bool duckPressed = false;
   bool jumpHeld = false;
+  bool shootPressed = false;
   bool _jumpArmed = true;
   bool jumpPressedEdge = false;
 
@@ -92,6 +97,13 @@ class MacaronGame extends FlameGame {
   int kills = 0;
   double timeLeft = GameConstants.levelTimeLimit.toDouble();
   double powerTimer = 0;
+  double gunTimer = 0;
+  double vehicleTimer = 0;
+  double _gunCooldown = 0;
+  double _plantShotCooldown = 0;
+  double _skillDashTimer = 0;
+  double _skillCooldownTimer = 0;
+  int _skillDirection = 1;
   double _hudAcc = 0;
   double _shakeTimer = 0;
   double _shakeMag = 0;
@@ -103,6 +115,13 @@ class MacaronGame extends FlameGame {
   List<List<Rect>> _solidsByCol = const [];
 
   bool get poweredUpVisible => levelReady && player.poweredUp;
+  bool get weaponVisible => levelReady && gunTimer > 0;
+  double get skillCooldownRatio =>
+      (_skillCooldownTimer /
+              GameConstants.playerSkillCooldownFor(
+                levelReady ? level.difficulty : 1,
+              ))
+          .clamp(0.0, 1.0);
 
   double mathMax(double a, double b) => a > b ? a : b;
 
@@ -138,16 +157,27 @@ class MacaronGame extends FlameGame {
   void _notifyHud() => onHudChanged?.call();
 
   void _buildLevel() {
+    _clearEnemyShots();
+    for (final shot in _playerShots) {
+      shot.consume();
+    }
+    _playerShots.clear();
     terrain.clear();
     coins.clear();
     enemies.clear();
     blocks.clear();
     powers.clear();
+    gunPickups.clear();
+    vehiclePickups.clear();
     hearts.clear();
     springs.clear();
     checkpoints.clear();
     goal = null;
     boss = null;
+    gunTimer = 0;
+    vehicleTimer = 0;
+    _gunCooldown = 0;
+    _plantShotCooldown = 0.7;
     world.removeAll(world.children.toList());
 
     final tile = GameConstants.tileSize;
@@ -160,12 +190,15 @@ class MacaronGame extends FlameGame {
       midColor: palette.parallaxMid,
     );
     world.add(parallax!);
-    world.add(WorldBackdrop(palette: palette, mapWidth: level.width * tile));
     world.add(
-      AmbientSparkles(
+      WorldBackdrop(
+        palette: palette,
         mapWidth: level.width * tile,
-        tint: palette.accent,
+        sceneVariant: (worldIndex + levelIndex) % 4,
       ),
+    );
+    world.add(
+      AmbientSparkles(mapWidth: level.width * tile, tint: palette.accent),
     );
     fx = FxLayer();
     world.add(fx);
@@ -177,10 +210,20 @@ class MacaronGame extends FlameGame {
         final py = y * tile;
         switch (t) {
           case '#':
-            terrain.add(TerrainTile(rect: Rect.fromLTWH(px, py, tile, tile), isGround: true));
+            terrain.add(
+              TerrainTile(
+                rect: Rect.fromLTWH(px, py, tile, tile),
+                isGround: true,
+              ),
+            );
             break;
           case '=':
-            terrain.add(TerrainTile(rect: Rect.fromLTWH(px, py, tile, tile), isGround: false));
+            terrain.add(
+              TerrainTile(
+                rect: Rect.fromLTWH(px, py, tile, tile),
+                isGround: false,
+              ),
+            );
             break;
           case 'P':
             spawnPoint = Vector2(px + tile / 2, py + tile);
@@ -190,7 +233,9 @@ class MacaronGame extends FlameGame {
             break;
           case 'C':
             if (coins.length < 96) {
-              coins.add(MacaronCoin(position: Vector2(px + tile / 2, py + tile / 2)));
+              coins.add(
+                MacaronCoin(position: Vector2(px + tile / 2, py + tile / 2)),
+              );
             }
             break;
           case 'E':
@@ -211,17 +256,38 @@ class MacaronGame extends FlameGame {
             );
             break;
           case 'K':
-            checkpoints.add(CheckpointPad(position: Vector2(px + tile / 2, py + tile)));
+            checkpoints.add(
+              CheckpointPad(position: Vector2(px + tile / 2, py + tile)),
+            );
             break;
           case '?':
             blocks.add(QuestionBlock(position: Vector2(px, py)));
-            terrain.add(TerrainTile(rect: Rect.fromLTWH(px, py, tile, tile), isGround: false));
+            terrain.add(
+              TerrainTile(
+                rect: Rect.fromLTWH(px, py, tile, tile),
+                isGround: false,
+              ),
+            );
             break;
           case 'M':
-            powers.add(PowerMacaron(position: Vector2(px + tile / 2, py + tile / 2)));
+            powers.add(
+              PowerMacaron(position: Vector2(px + tile / 2, py + tile / 2)),
+            );
+            break;
+          case 'W':
+            gunPickups.add(
+              GunPickup(position: Vector2(px + tile / 2, py + tile / 2)),
+            );
+            break;
+          case 'V':
+            vehiclePickups.add(
+              VehiclePickup(position: Vector2(px + tile / 2, py + tile / 2)),
+            );
             break;
           case 'H':
-            hearts.add(LifeHeart(position: Vector2(px + tile / 2, py + tile / 2)));
+            hearts.add(
+              LifeHeart(position: Vector2(px + tile / 2, py + tile / 2)),
+            );
             break;
           case 'S':
             springs.add(SpringPad(position: Vector2(px, py + tile - 20)));
@@ -239,6 +305,7 @@ class MacaronGame extends FlameGame {
         palette: palette,
         mapWidth: level.width * tile,
         groundY: groundY,
+        sceneVariant: (worldIndex + levelIndex) % 4,
       ),
     );
     for (final b in blocks) {
@@ -252,6 +319,12 @@ class MacaronGame extends FlameGame {
     }
     for (final p in powers) {
       world.add(p);
+    }
+    for (final pickup in gunPickups) {
+      world.add(pickup);
+    }
+    for (final pickup in vehiclePickups) {
+      world.add(pickup);
     }
     for (final h in hearts) {
       world.add(h);
@@ -270,7 +343,9 @@ class MacaronGame extends FlameGame {
     }
     final cosmetic = SaveService.instance.equippedCosmeticId;
     player = GirlfriendPlayer(role: role, cosmeticId: cosmetic)
-      ..position = spawnPoint.clone();
+      ..position = spawnPoint.clone()
+      ..isDriving = false
+      ..holdingCandyGun = false;
     world.add(player);
     _notifyHud();
   }
@@ -284,11 +359,38 @@ class MacaronGame extends FlameGame {
         position: Vector2(px + tile / 2, py + tile),
         leftBound: px - tile * 1.5,
         rightBound: px + tile * 2.5,
-        speed: GameConstants.enemySpeedFor(level.difficulty) *
+        difficulty: level.difficulty,
+        speed:
+            GameConstants.enemySpeedFor(level.difficulty) *
             (kind == EnemyKind.hopper ? 1.15 : 1.0),
         kind: kind,
+        onSkillCue: (at, skillKind) {
+          fx.enemySkill(at, skillKind);
+          AudioService.instance.enemySkill();
+        },
+        onShoot: _spawnEnemyShot,
       ),
     );
+  }
+
+  void _spawnEnemyShot(Vector2 at, double direction) {
+    if (_enemyShots.where((shot) => !shot.spent).length >= 12) {
+      return;
+    }
+    final shot = EnemyCandyShot(
+      position: at,
+      direction: direction,
+      speed: GameConstants.enemyProjectileSpeedFor(level.difficulty),
+    );
+    _enemyShots.add(shot);
+    world.add(shot);
+  }
+
+  void _clearEnemyShots() {
+    for (final shot in _enemyShots) {
+      shot.consume();
+    }
+    _enemyShots.clear();
   }
 
   void _rebuildSolidBuckets() {
@@ -357,6 +459,105 @@ class MacaronGame extends FlameGame {
     }
   }
 
+  void setShootPressed(bool value) {
+    shootPressed = value && gunTimer > 0;
+    if (shootPressed) {
+      _firePlayerShot();
+    }
+  }
+
+  void _firePlayerShot() {
+    if (!levelReady ||
+        player.dead ||
+        userPaused ||
+        _finished ||
+        gunTimer <= 0 ||
+        _gunCooldown > 0 ||
+        _playerShots.where((shot) => !shot.spent).length >= 8) {
+      return;
+    }
+    _gunCooldown = 0.38;
+    _spawnPlayerShot(Vector2(player.facingRight ? 1 : -1, 0), isPea: false);
+    AudioService.instance.shoot();
+  }
+
+  void _tryPlantShot() {
+    if (player.cosmeticId != 'pea_buddy' ||
+        _plantShotCooldown > 0 ||
+        player.dead ||
+        _finished ||
+        _playerShots.where((shot) => !shot.spent).length >= 8) {
+      return;
+    }
+    SoftEnemy? target;
+    var nearest = double.infinity;
+    for (final enemy in enemies) {
+      if (enemy.dead ||
+          (enemy.position.x - player.position.x).abs() > 300 ||
+          (enemy.position.y - player.position.y).abs() > 140) {
+        continue;
+      }
+      final distance = (enemy.position - player.position).length2;
+      if (distance < nearest) {
+        nearest = distance;
+        target = enemy;
+      }
+    }
+    if (target == null) {
+      _plantShotCooldown = 0.25;
+      return;
+    }
+    final origin = player.position + Vector2(0, -player.hitHeight * 0.98);
+    final direction = target.position - origin;
+    _spawnPlayerShot(direction, isPea: true, speed: 430, origin: origin);
+    _plantShotCooldown = GameConstants.plantShotCooldownFor(level.difficulty);
+    AudioService.instance.shoot();
+  }
+
+  void _spawnPlayerShot(
+    Vector2 direction, {
+    required bool isPea,
+    double speed = 520,
+    Vector2? origin,
+  }) {
+    final shot = PlayerCandyShot(
+      position:
+          origin ??
+          player.position +
+              Vector2(player.facingRight ? 22 : -22, -player.hitHeight * 0.58),
+      direction: direction,
+      isPea: isPea,
+      speed: speed,
+    );
+    _playerShots.add(shot);
+    world.add(shot);
+  }
+
+  void activateSkill() {
+    if (!levelReady ||
+        userPaused ||
+        _finished ||
+        player.dead ||
+        _skillCooldownTimer > 0) {
+      return;
+    }
+    _skillDirection = leftPressed != rightPressed
+        ? (leftPressed ? -1 : 1)
+        : (player.facingRight ? 1 : -1);
+    _skillDashTimer = GameConstants.playerDashDurationFor(level.difficulty);
+    _skillCooldownTimer = GameConstants.playerSkillCooldownFor(
+      level.difficulty,
+    );
+    player.skillDashing = true;
+    player.facingRight = _skillDirection > 0;
+    AudioService.instance.skillDash();
+    fx.skillDash(
+      player.position + Vector2(0, -player.hitHeight * 0.52),
+      facingRight: player.facingRight,
+    );
+    _notifyHud();
+  }
+
   void setPaused(bool value) {
     // 仅用逻辑暂停，不调 pauseEngine，否则 GameWidget 会整屏黑掉
     userPaused = value;
@@ -372,6 +573,7 @@ class MacaronGame extends FlameGame {
     runPressed = false;
     duckPressed = false;
     jumpHeld = false;
+    shootPressed = false;
     jumpPressedEdge = false;
     if (levelReady) {
       player.resetInput();
@@ -404,8 +606,11 @@ class MacaronGame extends FlameGame {
     final maxX = mathMax(minX, mapW - size.x / 2);
     final minY = size.y / 2;
     final maxY = mathMax(minY, mapH - size.y / 2);
-    camera.viewfinder.position =
-        Vector2(cx.clamp(minX, maxX), cy.clamp(minY, maxY));
+    camera.viewfinder.position = Vector2(
+      cx.clamp(minX, maxX),
+      cy.clamp(minY, maxY),
+    );
+    parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
   }
 
   @override
@@ -419,6 +624,11 @@ class MacaronGame extends FlameGame {
     if (userPaused || _finished) {
       return;
     }
+    for (final enemy in enemies) {
+      enemy
+        ..targetX = player.dead ? null : player.position.x
+        ..targetY = player.dead ? null : player.position.y;
+    }
     super.update(dt);
 
     if (enemies.isNotEmpty && size.x > 0) {
@@ -430,6 +640,7 @@ class MacaronGame extends FlameGame {
     }
 
     if (player.dead) {
+      _clearEnemyShots();
       player.velocity.y += GameConstants.gravity * dt;
       player.position += player.velocity * dt;
       _updateCamera(dt);
@@ -445,10 +656,7 @@ class MacaronGame extends FlameGame {
     }
     timeLeft = (timeLeft - clampedDt).clamp(
       0.0,
-      GameConstants.timeLimitFor(
-        level.difficulty,
-        mapWidth: level.width,
-      ),
+      GameConstants.timeLimitFor(level.difficulty, mapWidth: level.width),
     );
     if (timeLeft <= 0) {
       _deathFromTimeout = true;
@@ -461,16 +669,42 @@ class MacaronGame extends FlameGame {
         player.poweredUp = false;
       }
     }
+    gunTimer = (gunTimer - clampedDt).clamp(0.0, 20.0);
+    vehicleTimer = (vehicleTimer - clampedDt).clamp(0.0, 10.0);
+    _gunCooldown = (_gunCooldown - clampedDt).clamp(0.0, 2.0);
+    _plantShotCooldown = (_plantShotCooldown - clampedDt).clamp(0.0, 10.0);
+    if (gunTimer <= 0) {
+      shootPressed = false;
+    }
+    player
+      ..holdingCandyGun = gunTimer > 0
+      ..isDriving = vehicleTimer > 0;
+    _skillDashTimer = (_skillDashTimer - clampedDt).clamp(
+      0.0,
+      GameConstants.playerDashDurationFor(level.difficulty),
+    );
+    _skillCooldownTimer = (_skillCooldownTimer - clampedDt).clamp(
+      0.0,
+      GameConstants.playerSkillCooldownFor(level.difficulty),
+    );
+    player.skillDashing = _skillDashTimer > 0;
 
     _simulatePlayer(clampedDt);
+    if (shootPressed) {
+      _firePlayerShot();
+    }
+    _tryPlantShot();
     _emitCosmeticTrail(clampedDt);
     _resolveCollectibles();
     _resolveBlocks();
     _resolvePowers();
+    _resolveFeaturePickups();
     _resolveHearts();
     _resolveSprings();
     _resolveCheckpoints();
     _resolveEnemies();
+    _resolvePlayerShots();
+    _resolveEnemyShots();
     _resolveBoss();
     _resolveGoal();
     _updateCamera(clampedDt);
@@ -496,13 +730,23 @@ class MacaronGame extends FlameGame {
 
     final ducking = player.ducking;
     final speed = ducking
-        ? GameConstants.moveSpeed * 0.45
-        : (player.wantsRun ? GameConstants.runSpeed : GameConstants.moveSpeed);
-    if (player.wantsLeft && !player.wantsRight) {
-      player.velocity.x = -speed;
+        ? GameConstants.playerMoveSpeedFor(level.difficulty) * 0.45
+        : (player.wantsRun
+              ? GameConstants.playerRunSpeedFor(level.difficulty)
+              : GameConstants.playerMoveSpeedFor(level.difficulty));
+    final vehicleSpeed = vehicleTimer > 0 && player.onGround
+        ? speed *
+              GameConstants.playerVehicleSpeedMultiplierFor(level.difficulty)
+        : speed;
+    if (player.skillDashing) {
+      player.velocity.x =
+          GameConstants.playerDashSpeedFor(level.difficulty) * _skillDirection;
+      player.facingRight = _skillDirection > 0;
+    } else if (player.wantsLeft && !player.wantsRight) {
+      player.velocity.x = -vehicleSpeed;
       player.facingRight = false;
     } else if (player.wantsRight && !player.wantsLeft) {
-      player.velocity.x = speed;
+      player.velocity.x = vehicleSpeed;
       player.facingRight = true;
     } else {
       player.velocity.x = 0;
@@ -520,8 +764,8 @@ class MacaronGame extends FlameGame {
     final canJump = player.coyoteTimer > 0 && (!ducking || jumpedEdge);
     if (wantJump && canJump) {
       player.velocity.y = player.poweredUp
-          ? GameConstants.superJumpVelocity
-          : GameConstants.jumpVelocity;
+          ? GameConstants.playerPoweredJumpVelocityFor(level.difficulty)
+          : GameConstants.playerJumpVelocityFor(level.difficulty);
       player.onGround = false;
       player.coyoteTimer = 0;
       player.jumpBufferTimer = 0;
@@ -537,9 +781,9 @@ class MacaronGame extends FlameGame {
 
     player.velocity.y += GameConstants.gravity * dt;
     // 松开跳跃：截断上升，短跳更可控
-    if (!jumpHeld &&
-        player.velocity.y < GameConstants.jumpCutVelocity) {
-      player.velocity.y = GameConstants.jumpCutVelocity;
+    final jumpCut = GameConstants.playerJumpCutVelocityFor(level.difficulty);
+    if (!jumpHeld && player.velocity.y < jumpCut) {
+      player.velocity.y = jumpCut;
     }
     if (player.velocity.y > 1400) {
       player.velocity.y = 1400;
@@ -719,10 +963,59 @@ class MacaronGame extends FlameGame {
         p.collected = true;
         p.removeFromParent();
         player.grantPower();
-        powerTimer = GameConstants.powerUpDuration;
+        powerTimer = GameConstants.playerPowerUpDurationFor(level.difficulty);
         score += 300;
         AudioService.instance.powerUp();
         fx.powerUp(p.position.clone());
+      }
+    }
+  }
+
+  void _resolveFeaturePickups() {
+    final box = _playerHitbox();
+    for (final pickup in gunPickups) {
+      if (pickup.collected) {
+        continue;
+      }
+      final hitbox = Rect.fromCenter(
+        center: Offset(pickup.position.x, pickup.position.y),
+        width: pickup.size.x * 0.8,
+        height: pickup.size.y * 0.8,
+      );
+      if (box.overlaps(hitbox)) {
+        pickup.collected = true;
+        pickup.removeFromParent();
+        gunTimer = math.max(
+          gunTimer,
+          GameConstants.playerGunDurationFor(level.difficulty),
+        );
+        score += 150;
+        AudioService.instance.powerUp();
+        fx.powerUp(pickup.position.clone());
+        _notifyHud();
+      }
+    }
+    for (final pickup in vehiclePickups) {
+      if (pickup.collected) {
+        continue;
+      }
+      final hitbox = Rect.fromCenter(
+        center: Offset(pickup.position.x, pickup.position.y),
+        width: pickup.size.x * 0.9,
+        height: pickup.size.y * 0.9,
+      );
+      if (box.overlaps(hitbox)) {
+        pickup.collected = true;
+        pickup.removeFromParent();
+        vehicleTimer = math.max(
+          vehicleTimer,
+          GameConstants.playerVehicleDurationFor(level.difficulty),
+        );
+        player.isDriving = true;
+        score += 200;
+        AudioService.instance.vehicle();
+        fx.powerUp(pickup.position.clone());
+        _notifyHud();
       }
     }
   }
@@ -753,7 +1046,9 @@ class MacaronGame extends FlameGame {
 
   void _emitCosmeticTrail(double dt) {
     final id = player.cosmeticId;
-    if (id != 'mint_trail' && id != 'sparkle_shoes' && id != 'strawberry_cape') {
+    if (id != 'mint_trail' &&
+        id != 'sparkle_shoes' &&
+        id != 'strawberry_cape') {
       return;
     }
     if (player.velocity.x.abs() < 40 && player.onGround) {
@@ -782,7 +1077,8 @@ class MacaronGame extends FlameGame {
       final r = Rect.fromLTWH(s.position.x, s.position.y, s.size.x, s.size.y);
       if (box.overlaps(r)) {
         s.bounce();
-        player.velocity.y = GameConstants.superJumpVelocity * 1.05;
+        player.velocity.y =
+            GameConstants.playerPoweredJumpVelocityFor(level.difficulty) * 1.05;
         player.onGround = false;
         player.jumpBufferTimer = 0;
         _springLock = 0.22;
@@ -808,6 +1104,11 @@ class MacaronGame extends FlameGame {
         k.activate();
         spawnPoint = k.position.clone();
         score += 50;
+        if (player.cosmeticId == 'sunflower_buddy' &&
+            lives < GameConstants.maxLives) {
+          lives++;
+          _notifyHud();
+        }
         AudioService.instance.powerUp();
         fx.powerUp(k.position.clone());
       }
@@ -877,6 +1178,20 @@ class MacaronGame extends FlameGame {
       if (!box.overlaps(e)) {
         continue;
       }
+      if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
+        while (!enemy.dead) {
+          enemy.takeStomp();
+        }
+        enemy.removeFromParent();
+        enemies.remove(enemy);
+        kills++;
+        score +=
+            GameConstants.enemyScore *
+            (enemy.kind == EnemyKind.bruiser ? 2 : 1);
+        AudioService.instance.stomp();
+        fx.stompKill(enemy.position.clone());
+        continue;
+      }
       if (player.velocity.y > 0 &&
           player.position.y - player.size.y * 0.2 <
               enemy.position.y - enemy.size.y * 0.4) {
@@ -889,7 +1204,8 @@ class MacaronGame extends FlameGame {
           enemy.removeFromParent();
           enemies.remove(enemy);
           kills++;
-          score += GameConstants.enemyScore *
+          score +=
+              GameConstants.enemyScore *
               (enemy.kind == EnemyKind.bruiser ? 2 : 1);
         } else {
           score += 50;
@@ -900,8 +1216,96 @@ class MacaronGame extends FlameGame {
     }
   }
 
+  void _resolvePlayerShots() {
+    for (final shot in List<PlayerCandyShot>.from(_playerShots)) {
+      if (shot.spent) {
+        continue;
+      }
+      final hitbox = Rect.fromCenter(
+        center: Offset(shot.position.x, shot.position.y),
+        width: shot.size.x * 0.72,
+        height: shot.size.y * 0.72,
+      );
+      final blocked = _nearbySolids(
+        hitbox,
+      ).any((solid) => solid.overlaps(hitbox));
+      if (blocked) {
+        shot.consume();
+        continue;
+      }
+      for (final enemy in List<SoftEnemy>.from(enemies)) {
+        if (enemy.dead) {
+          continue;
+        }
+        final enemyBox = Rect.fromCenter(
+          center: Offset(enemy.position.x, enemy.position.y - enemy.size.y / 2),
+          width: enemy.size.x * 0.8,
+          height: enemy.size.y * 0.8,
+        );
+        if (!hitbox.overlaps(enemyBox)) {
+          continue;
+        }
+        final killed = enemy.takeStomp();
+        shot.consume();
+        if (killed) {
+          enemy.removeFromParent();
+          enemies.remove(enemy);
+          kills++;
+          score +=
+              GameConstants.enemyScore *
+              (enemy.kind == EnemyKind.bruiser ? 2 : 1);
+          fx.stompKill(enemy.position.clone());
+        } else {
+          score += 50;
+          fx.enemyCandyPop(enemy.position.clone());
+        }
+        AudioService.instance.stomp();
+        break;
+      }
+    }
+    _playerShots.removeWhere((shot) => shot.spent);
+  }
+
+  void _resolveEnemyShots() {
+    if (player.dead) {
+      _clearEnemyShots();
+      return;
+    }
+    final playerBox = _playerHitbox();
+    for (final shot in List<EnemyCandyShot>.from(_enemyShots)) {
+      if (shot.spent) {
+        continue;
+      }
+      final hitbox = Rect.fromCenter(
+        center: Offset(shot.position.x, shot.position.y),
+        width: shot.size.x * 0.72,
+        height: shot.size.y * 0.72,
+      );
+      final blocked = _nearbySolids(
+        hitbox,
+      ).any((solid) => solid.overlaps(hitbox));
+      if (blocked) {
+        fx.enemyCandyPop(shot.position.clone());
+        shot.consume();
+      } else if (playerBox.overlaps(hitbox)) {
+        fx.enemyCandyPop(shot.position.clone());
+        shot.consume();
+        _hurtOrKill();
+      }
+    }
+    _enemyShots.removeWhere((shot) => shot.spent);
+  }
+
   void _hurtOrKill({bool forceKill = false}) {
     if (!forceKill && player.isInvincible) {
+      return;
+    }
+    if (!forceKill && vehicleTimer > 0) {
+      vehicleTimer = 0;
+      player.isDriving = false;
+      player.hurtFlash();
+      AudioService.instance.hurt();
+      _notifyHud();
       return;
     }
     if (!forceKill && player.poweredUp) {
@@ -912,10 +1316,20 @@ class MacaronGame extends FlameGame {
       return;
     }
     AudioService.instance.hurt();
+    _skillDashTimer = 0;
+    player.skillDashing = false;
     player.kill();
   }
 
   void _afterDeath() {
+    _clearEnemyShots();
+    for (final shot in _playerShots) {
+      shot.consume();
+    }
+    _playerShots.clear();
+    gunTimer = 0;
+    vehicleTimer = 0;
+    shootPressed = false;
     lives--;
     _notifyHud();
     if (lives <= 0) {
@@ -950,8 +1364,7 @@ class MacaronGame extends FlameGame {
       _finished = true;
       player.reachedGoal = true;
       fx.winConfetti(goal!.position.clone());
-      final timeBonus =
-          (timeLeft.floor() * GameConstants.timeBonusPerSecond);
+      final timeBonus = (timeLeft.floor() * GameConstants.timeBonusPerSecond);
       score += GameConstants.clearBonus + timeBonus;
       AudioService.instance.win();
       onWin?.call(
@@ -982,7 +1395,8 @@ class MacaronGame extends FlameGame {
     }
     final mapW = level.width * GameConstants.tileSize;
     final mapH = level.height * GameConstants.tileSize;
-    final wantLook = (player.facingRight ? 1.0 : -1.0) *
+    final wantLook =
+        (player.facingRight ? 1.0 : -1.0) *
         GameConstants.cameraLookAhead *
         (player.wantsRun ? 1.0 : 0.55);
     _lookAhead += (wantLook - _lookAhead) * (6 * dt).clamp(0.0, 1.0);
@@ -1006,7 +1420,7 @@ class MacaronGame extends FlameGame {
       cur.x + (cx - cur.x) * follow,
       cur.y + (cy - cur.y) * follow,
     );
-    parallax?.syncCamera(camera.viewfinder.position.x);
+    parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
   }
 
   int starRating() {

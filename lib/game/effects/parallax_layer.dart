@@ -8,16 +8,22 @@ class ParallaxLayer extends PositionComponent {
     required this.mapWidth,
     required this.farColor,
     required this.midColor,
-  }) : super(priority: -20);
+  }) : _farPaint = Paint()..color = farColor,
+       _midPaint = Paint()..color = midColor,
+       super(priority: -20);
 
   final double mapWidth;
   final Color farColor;
   final Color midColor;
+  final Paint _farPaint;
+  final Paint _midPaint;
   double scrollX = 0;
+  double viewportWidth = 0;
 
   /// 由相机位置驱动
-  void syncCamera(double cameraX) {
+  void syncCamera(double cameraX, {required double viewportWidth}) {
     scrollX = cameraX;
+    this.viewportWidth = viewportWidth > 0 ? viewportWidth : 0;
   }
 
   @override
@@ -29,8 +35,10 @@ class ParallaxLayer extends PositionComponent {
   }
 
   void _drawFarHills(Canvas canvas, double offset) {
-    final paint = Paint()..color = farColor;
-    for (var x = -200.0 + offset % 360; x < mapWidth + 400; x += 360) {
+    const spacing = 360.0;
+    final start = _firstVisibleHillX(offset, spacing, -200);
+    final end = _visibleHillEnd(400);
+    for (var x = start; x < end; x += spacing) {
       canvas.drawPath(
         Path()
           ..moveTo(x, 420)
@@ -38,14 +46,16 @@ class ParallaxLayer extends PositionComponent {
           ..lineTo(x + 200, 640)
           ..lineTo(x, 640)
           ..close(),
-        paint,
+        _farPaint,
       );
     }
   }
 
   void _drawMidHills(Canvas canvas, double offset) {
-    final paint = Paint()..color = midColor;
-    for (var x = -120.0 + offset % 280; x < mapWidth + 320; x += 280) {
+    const spacing = 280.0;
+    final start = _firstVisibleHillX(offset, spacing, -120);
+    final end = _visibleHillEnd(320);
+    for (var x = start; x < end; x += spacing) {
       canvas.drawPath(
         Path()
           ..moveTo(x, 460)
@@ -54,21 +64,43 @@ class ParallaxLayer extends PositionComponent {
           ..lineTo(x + 260, 640)
           ..lineTo(x, 640)
           ..close(),
-        paint,
+        _midPaint,
       );
     }
+  }
+
+  /// 只绘制视口内及左侧一座山的范围，避免长关每帧遍历整张地图。
+  double _firstVisibleHillX(double offset, double spacing, double baseX) {
+    final first = baseX + offset % spacing;
+    if (viewportWidth <= 0) {
+      return first;
+    }
+    final visibleLeft = scrollX - viewportWidth / 2 - spacing;
+    if (visibleLeft <= first) {
+      return first;
+    }
+    return first + ((visibleLeft - first) / spacing).ceil() * spacing;
+  }
+
+  double _visibleHillEnd(double mapPadding) {
+    final mapEnd = mapWidth + mapPadding;
+    if (viewportWidth <= 0) {
+      return mapEnd;
+    }
+    final visibleRight = scrollX + viewportWidth / 2;
+    return visibleRight < mapEnd ? visibleRight : mapEnd;
   }
 }
 
 /// 浮动积分糖（问号砖积分反馈）
 class ScoreCandyBurst extends PositionComponent {
   ScoreCandyBurst({required Vector2 position})
-      : super(
-          position: position,
-          size: Vector2.all(28),
-          anchor: Anchor.center,
-          priority: 80,
-        );
+    : super(
+        position: position,
+        size: Vector2.all(28),
+        anchor: Anchor.center,
+        priority: 80,
+      );
 
   double _life = 0.7;
 

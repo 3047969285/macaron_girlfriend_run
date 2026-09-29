@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 /// 可切换角色形态（联机预留男友，一期默认女友）
-enum PlayerRole {
-  girlfriend,
-  boyfriend,
-}
+enum PlayerRole { girlfriend, boyfriend }
 
 /// 世界与关卡常量
 class GameConstants {
@@ -14,21 +12,29 @@ class GameConstants {
   static const int worldCount = 9;
   static const int levelsPerWorld = 11;
   static const int totalLevels = worldCount * levelsPerWorld;
+  static const int maxDifficulty =
+      worldCount + (levelsPerWorld - 1) ~/ 3 + 2 + (worldCount - 1) ~/ 3;
 
   static const double tileSize = 48;
-  /// 重力：略降，让跳跃更高更跟手
+
+  /// 重力
   static const double gravity = 1950;
   static const double moveSpeed = 255;
   static const double runSpeed = 380;
-  /// 起跳初速度（向上为负）；约可跳 6 格高
-  static const double jumpVelocity = -1080;
-  static const double superJumpVelocity = -1320;
+
+  /// 低难度基础跳跃初速度（向上为负）；正式跳跃按关卡难度计算
+  static const double jumpVelocity = -1000;
+  static const double superJumpVelocity = -1080;
+
   /// 松开跳跃键后的上升速度上限（可变跳）
-  static const double jumpCutVelocity = -260;
+  static const double jumpCutVelocity = -255;
   static const double coyoteTime = 0.14;
   static const double jumpBuffer = 0.14;
+  static const double skillDashDuration = 0.34;
+  static const double skillCooldown = 4.6;
+  static const double skillDashSpeed = 610;
 
-  static const int maxActiveEnemies = 24;
+  static const int maxActiveEnemies = 56;
   static const int maxParallaxLayers = 3;
 
   static const int startingLives = 3;
@@ -44,12 +50,115 @@ class GameConstants {
 
   /// 相机跑步前瞻像素
   static const double cameraLookAhead = 88;
+
   /// 柔震屏最大偏移
   static const double cameraShakeMax = 7;
+
   /// 粒子同时存在上限
   static const int maxFxParticles = 96;
+
   /// 固体碰撞按列分桶宽度（格）
   static const int solidBucketTiles = 1;
+
+  static double _difficultyProgress(int difficulty) =>
+      ((difficulty - 1) / (maxDifficulty - 1)).clamp(0.0, 1.0);
+
+  /// 玩家能力随关卡难度平滑收紧，保留可通关的基础跳跃与冲刺距离
+  static double playerMoveSpeedFor(int difficulty) =>
+      moveSpeed - 18 * _difficultyProgress(difficulty);
+
+  static double playerRunSpeedFor(int difficulty) =>
+      runSpeed - 35 * _difficultyProgress(difficulty);
+
+  static double playerJumpVelocityFor(int difficulty) =>
+      -(1000 - 40 * _difficultyProgress(difficulty));
+
+  static double playerPoweredJumpVelocityFor(int difficulty) =>
+      -(1080 - 60 * _difficultyProgress(difficulty));
+
+  static double playerJumpCutVelocityFor(int difficulty) =>
+      -(255 - 35 * _difficultyProgress(difficulty));
+
+  static double playerDashSpeedFor(int difficulty) =>
+      610 - 70 * _difficultyProgress(difficulty);
+
+  static double playerDashDurationFor(int difficulty) =>
+      skillDashDuration - 0.04 * _difficultyProgress(difficulty);
+
+  static double playerSkillCooldownFor(int difficulty) =>
+      4.6 + 2.0 * _difficultyProgress(difficulty);
+
+  static double playerPowerUpDurationFor(int difficulty) =>
+      powerUpDuration - 2.0 * _difficultyProgress(difficulty);
+
+  static double playerGunDurationFor(int difficulty) =>
+      13.0 - 2.0 * _difficultyProgress(difficulty);
+
+  static double playerVehicleDurationFor(int difficulty) =>
+      7.0 - 1.5 * _difficultyProgress(difficulty);
+
+  static double playerVehicleSpeedMultiplierFor(int difficulty) =>
+      1.24 - 0.08 * _difficultyProgress(difficulty);
+
+  static double plantShotCooldownFor(int difficulty) =>
+      2.7 + 0.8 * _difficultyProgress(difficulty);
+
+  static double enemySkillCooldownFor(int difficulty, EnemyKind kind) {
+    final progress = _difficultyProgress(difficulty);
+    final start = switch (kind) {
+      EnemyKind.walker => 5.3,
+      EnemyKind.hopper => 5.8,
+      EnemyKind.bruiser => 6.2,
+    };
+    final end = switch (kind) {
+      EnemyKind.walker => 4.0,
+      EnemyKind.hopper => 4.2,
+      EnemyKind.bruiser => 4.8,
+    };
+    return start + (end - start) * progress;
+  }
+
+  static double enemySkillWarningFor(int difficulty, EnemyKind kind) {
+    final progress = _difficultyProgress(difficulty);
+    final start = switch (kind) {
+      EnemyKind.walker => 0.72,
+      EnemyKind.hopper => 0.64,
+      EnemyKind.bruiser => 0.78,
+    };
+    final end = switch (kind) {
+      EnemyKind.walker => 0.60,
+      EnemyKind.hopper => 0.52,
+      EnemyKind.bruiser => 0.64,
+    };
+    return start + (end - start) * progress;
+  }
+
+  static double enemySkillRangeFor(int difficulty, EnemyKind kind) {
+    final progress = _difficultyProgress(difficulty);
+    final start = switch (kind) {
+      EnemyKind.walker => 290.0,
+      EnemyKind.hopper => 235.0,
+      EnemyKind.bruiser => 270.0,
+    };
+    final end = switch (kind) {
+      EnemyKind.walker => 350.0,
+      EnemyKind.hopper => 290.0,
+      EnemyKind.bruiser => 330.0,
+    };
+    return start + (end - start) * progress;
+  }
+
+  static double enemyProjectileSpeedFor(int difficulty) =>
+      220 + 65 * _difficultyProgress(difficulty);
+
+  static double enemyPounceVelocityFor(int difficulty) =>
+      -(600 + 80 * _difficultyProgress(difficulty));
+
+  static double enemyPounceSpeedMultiplierFor(int difficulty) =>
+      1.45 + 0.25 * _difficultyProgress(difficulty);
+
+  static double enemyChargeSpeedMultiplierFor(int difficulty) =>
+      2.35 + 0.35 * _difficultyProgress(difficulty);
 
   /// 按关卡难度与地图长度计算限时秒数
   static double timeLimitFor(int difficulty, {required int mapWidth}) {

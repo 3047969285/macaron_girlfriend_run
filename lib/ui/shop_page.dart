@@ -60,7 +60,7 @@ class _ShopPageState extends State<ShopPage> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                '用关卡收集的糖果兑换外观，穿上后立刻生效',
+                '兑换外观与植物伙伴，穿戴后生效',
                 style: TextStyle(color: MacaronColors.cocoa, fontSize: 13),
               ),
             ),

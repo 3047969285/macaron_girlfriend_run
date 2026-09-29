@@ -8,11 +8,11 @@ import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 /// 甜妹平台跳跃主角
 class GirlfriendPlayer extends PositionComponent {
   GirlfriendPlayer({required this.role, this.cosmeticId = 'classic'})
-      : super(
-          size: Vector2(standWidth, standHeight),
-          anchor: Anchor.bottomCenter,
-          priority: 100,
-        );
+    : super(
+        size: Vector2(standWidth, standHeight),
+        anchor: Anchor.bottomCenter,
+        priority: 100,
+      );
 
   static const double standWidth = 52;
   static const double standHeight = 68;
@@ -35,11 +35,14 @@ class GirlfriendPlayer extends PositionComponent {
   bool reachedGoal = false;
   bool dead = false;
   bool poweredUp = false;
+  bool skillDashing = false;
+  bool isDriving = false;
+  bool holdingCandyGun = false;
   double invincibleTimer = 0;
 
   double _anim = 0;
 
-  bool get isInvincible => invincibleTimer > 0;
+  bool get isInvincible => invincibleTimer > 0 || skillDashing;
 
   /// 碰撞用身高（下蹲时变矮）
   double get hitHeight => ducking ? duckHeight : standHeight;
@@ -88,6 +91,7 @@ class GirlfriendPlayer extends PositionComponent {
 
   void kill() {
     dead = true;
+    skillDashing = false;
     ducking = false;
     size = Vector2(standWidth, standHeight);
     velocity.y = GameConstants.jumpVelocity * 0.6;
@@ -100,6 +104,9 @@ class GirlfriendPlayer extends PositionComponent {
     position.setFrom(pos);
     velocity.setZero();
     poweredUp = false;
+    skillDashing = false;
+    isDriving = false;
+    holdingCandyGun = false;
     invincibleTimer = GameConstants.invincibleDuration;
   }
 
@@ -113,7 +120,7 @@ class GirlfriendPlayer extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    if (isInvincible && (invincibleTimer * 12).floor().isOdd) {
+    if (invincibleTimer > 0 && (invincibleTimer * 12).floor().isOdd) {
       return;
     }
     final dress = role == PlayerRole.girlfriend
@@ -125,18 +132,44 @@ class GirlfriendPlayer extends PositionComponent {
 
     final squash = ducking ? 1.12 : (onGround ? 1.0 : 0.92);
     final stretch = ducking ? 0.72 : (onGround ? 1.0 : 1.08);
-    final legSwing =
-        ducking ? 0.0 : math.sin(_anim) * (velocity.x.abs() > 10 ? 6.0 : 1.5);
+    final legSwing = ducking
+        ? 0.0
+        : math.sin(_anim) * (velocity.x.abs() > 10 ? 6.0 : 1.5);
 
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale(facingRight ? 1.0 : -1.0, 1.0);
     canvas.scale(squash, stretch);
 
+    if (skillDashing) {
+      final pulse = math.sin(_anim * 1.4) * 2;
+      canvas.drawCircle(
+        Offset(0, -size.y * 0.48),
+        25 + pulse,
+        Paint()
+          ..color = MacaronColors.lemon.withValues(alpha: 0.62)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4,
+      );
+      for (var i = 0; i < 3; i++) {
+        canvas.drawCircle(
+          Offset(-25 - i * 8.0, -size.y * 0.36 + math.sin(_anim + i) * 4),
+          3.5 - i * 0.5,
+          Paint()
+            ..color = (i.isEven ? MacaronColors.blush : Colors.white)
+                .withValues(alpha: 0.75 - i * 0.16),
+        );
+      }
+    }
+
     canvas.drawOval(
       Rect.fromCenter(center: const Offset(0, 2), width: 38, height: 10),
       Paint()..color = Colors.black.withValues(alpha: 0.18),
     );
+
+    if (isDriving) {
+      _drawVehicle(canvas);
+    }
 
     final legPaint = Paint()..color = const Color(0xFFFFE0D0);
     canvas.drawRRect(
@@ -241,8 +274,134 @@ class GirlfriendPlayer extends PositionComponent {
     );
 
     _drawCosmetic(canvas);
+    if (holdingCandyGun) {
+      _drawCandyGun(canvas);
+    }
 
     canvas.restore();
+  }
+
+  void _drawVehicle(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-35, -20, 70, 22),
+        const Radius.circular(9),
+      ),
+      Paint()..color = MacaronColors.mint,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(-23, -19)
+        ..lineTo(-14, -30)
+        ..lineTo(12, -30)
+        ..lineTo(22, -19)
+        ..close(),
+      Paint()..color = MacaronColors.sky,
+    );
+    for (final x in [-21.0, 21.0]) {
+      canvas.drawCircle(Offset(x, -1), 7, Paint()..color = MacaronColors.cocoa);
+      canvas.drawCircle(Offset(x, -1), 3, Paint()..color = Colors.white);
+    }
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(27, -15, 6, 5),
+        const Radius.circular(2),
+      ),
+      Paint()..color = MacaronColors.lemon,
+    );
+  }
+
+  void _drawCandyGun(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(13, -size.y * 0.48, 23, 9),
+        const Radius.circular(4),
+      ),
+      Paint()..color = MacaronColors.rose,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(17, -size.y * 0.48 + 6, 7, 9),
+        const Radius.circular(3),
+      ),
+      Paint()..color = MacaronColors.lemon,
+    );
+    canvas.drawCircle(
+      Offset(17, -size.y * 0.48 - 1),
+      2,
+      Paint()..color = Colors.white,
+    );
+  }
+
+  void _drawPeaBuddy(Canvas canvas) {
+    final bob = math.sin(_anim * 0.55) * 1.5;
+    canvas.drawLine(
+      Offset(-4, -size.y * 0.88),
+      Offset(-2, -size.y * 1.02 + bob),
+      Paint()
+        ..color = const Color(0xFF55A86A)
+        ..strokeWidth = 3,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(-8, -size.y * 0.96 + bob),
+        width: 11,
+        height: 5,
+      ),
+      Paint()..color = MacaronColors.mint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(4, -size.y * 0.98 + bob),
+        width: 11,
+        height: 5,
+      ),
+      Paint()..color = const Color(0xFF76C893),
+    );
+    canvas.drawCircle(
+      Offset(1, -size.y * 1.03 + bob),
+      8,
+      Paint()..color = const Color(0xFF83D69B),
+    );
+    canvas.drawCircle(
+      Offset(7, -size.y * 1.03 + bob),
+      4,
+      Paint()..color = const Color(0xFF4EAA71),
+    );
+    canvas.drawCircle(
+      Offset(8, -size.y * 1.03 + bob),
+      1.5,
+      Paint()..color = MacaronColors.cocoa,
+    );
+  }
+
+  void _drawSunflowerBuddy(Canvas canvas) {
+    const center = Offset(22, -30);
+    canvas.drawLine(
+      const Offset(16, -12),
+      center,
+      Paint()
+        ..color = const Color(0xFF55A86A)
+        ..strokeWidth = 3,
+    );
+    for (var i = 0; i < 8; i++) {
+      final angle = i * math.pi / 4;
+      canvas.drawCircle(
+        center + Offset(math.cos(angle) * 7, math.sin(angle) * 7),
+        3.5,
+        Paint()..color = MacaronColors.lemon,
+      );
+    }
+    canvas.drawCircle(center, 5, Paint()..color = const Color(0xFF9B6A45));
+    canvas.drawCircle(
+      const Offset(20, -31),
+      1.2,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawOval(
+      const Rect.fromLTWH(11, -17, 8, 4),
+      Paint()..color = MacaronColors.mint,
+    );
   }
 
   void _drawCosmetic(Canvas canvas) {
@@ -315,6 +474,12 @@ class GirlfriendPlayer extends PositionComponent {
             ..close(),
           Paint()..color = MacaronColors.rose.withValues(alpha: 0.75),
         );
+        break;
+      case 'pea_buddy':
+        _drawPeaBuddy(canvas);
+        break;
+      case 'sunflower_buddy':
+        _drawSunflowerBuddy(canvas);
         break;
       default:
         break;

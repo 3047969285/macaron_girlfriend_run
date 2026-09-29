@@ -82,7 +82,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final background = state == AppLifecycleState.paused ||
+    final background =
+        state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden;
     if (background) {
@@ -125,12 +126,23 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     if (_showTutorial || _busy || game.userPaused) {
       return KeyEventResult.handled;
     }
+    if (key == LogicalKeyboardKey.keyE) {
+      if (down) {
+        game.activateSkill();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF) {
+      game.setShootPressed(down);
+      return KeyEventResult.handled;
+    }
     final pressed = down;
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
       game.leftPressed = pressed;
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) {
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.keyD) {
       game.rightPressed = pressed;
       return KeyEventResult.handled;
     }
@@ -155,8 +167,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   }
 
   Future<void> _showFreshAchievements() async {
-    final fresh =
-        await SaveService.instance.takeNewlyUnlockedAchievements();
+    final fresh = await SaveService.instance.takeNewlyUnlockedAchievements();
     if (!mounted || fresh.isEmpty) {
       return;
     }
@@ -174,8 +185,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return;
     }
     _busy = true;
-    final global =
-        SaveService.toGlobal(widget.worldIndex, widget.levelIndex);
+    final global = SaveService.toGlobal(widget.worldIndex, widget.levelIndex);
     await SaveService.instance.setStars(global, result.stars);
     await SaveService.instance.setBestScore(global, result.score);
     await SaveService.instance.unlockThrough(global + 1);
@@ -196,7 +206,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
 
     final isLast =
         widget.worldIndex == GameConstants.worldCount - 1 &&
-            widget.levelIndex == GameConstants.levelsPerWorld - 1;
+        widget.levelIndex == GameConstants.levelsPerWorld - 1;
 
     if (isLast && !SaveService.instance.allClearCelebrated) {
       await SaveService.instance.setAllClearCelebrated();
@@ -206,7 +216,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       await showMacaronDialog<void>(
         context: context,
         title: '💍 蜜月彩虹通关！',
-        body: '你推开了全部 99 扇甜蜜大门\n'
+        body:
+            '你推开了全部 99 扇甜蜜大门\n'
             '分数 ${result.score} · ${List.filled(result.stars, '★').join()}\n'
             '去商店换一套纪念外观吧\n'
             '全通成就已点亮，随时可以三星重刷～',
@@ -228,7 +239,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       await showMacaronDialog<void>(
         context: context,
         title: '🌍 世界通关！',
-        body: '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
+        body:
+            '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
             '${List.filled(result.stars, '★').join()} · 分数 ${result.score}\n'
             '世界通关糖果已进钱包\n'
             '${game.starTips()}',
@@ -250,10 +262,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                 Navigator.pushReplacement(
                   context,
                   CupertinoPageRoute<void>(
-                    builder: (_) => PlayPage(
-                      worldIndex: next.$1,
-                      levelIndex: next.$2,
-                    ),
+                    builder: (_) =>
+                        PlayPage(worldIndex: next.$1, levelIndex: next.$2),
                   ),
                 );
               },
@@ -266,7 +276,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     await showMacaronDialog<void>(
       context: context,
       title: '${List.filled(result.stars, '★').join()} 过关',
-      body: '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
+      body:
+          '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
           '分数 ${result.score}\n'
           '糖果 ${result.coins}/${game.totalCoins} · 踩怪 ${result.kills}\n'
           '剩余 ${result.timeLeft} 秒\n'
@@ -290,10 +301,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
               Navigator.pushReplacement(
                 context,
                 CupertinoPageRoute<void>(
-                  builder: (_) => PlayPage(
-                    worldIndex: next.$1,
-                    levelIndex: next.$2,
-                  ),
+                  builder: (_) =>
+                      PlayPage(worldIndex: next.$1, levelIndex: next.$2),
                 ),
               );
             },
@@ -514,9 +523,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                                 ),
                                 Text(
                                   GameConstants.difficultyLabel(
-                                    game.levelReady
-                                        ? game.level.difficulty
-                                        : 1,
+                                    game.levelReady ? game.level.difficulty : 1,
                                   ),
                                   style: TextStyle(
                                     fontSize: 10,
@@ -529,6 +536,20 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                               ],
                             ),
                           ),
+                          if (game.weaponVisible || game.vehicleTimer > 0) ...[
+                            const SizedBox(width: 6),
+                            _HudChip(
+                              child: Text(
+                                [
+                                  if (game.weaponVisible)
+                                    '🔫${game.gunTimer.ceil()}s',
+                                  if (game.vehicleTimer > 0)
+                                    '🚙${game.vehicleTimer.ceil()}s',
+                                ].join(' '),
+                                style: _hudText,
+                              ),
+                            ),
+                          ],
                           _HudChip(
                             child: Text('❤️×${game.lives}', style: _hudText),
                           ),
@@ -612,14 +633,20 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: TouchControls(
-                  scale: SaveService.instance.controlScale,
-                  onInteract: _onControlInteract,
-                  onLeft: (v) => game.leftPressed = v,
-                  onRight: (v) => game.rightPressed = v,
-                  onRun: (v) => game.runPressed = v,
-                  onDuck: game.setDuckPressed,
-                  onJumpHeld: game.setJumpHeld,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _hudTick,
+                  builder: (_, __, ___) => TouchControls(
+                    scale: SaveService.instance.controlScale,
+                    onInteract: _onControlInteract,
+                    onLeft: (v) => game.leftPressed = v,
+                    onRight: (v) => game.rightPressed = v,
+                    onRun: (v) => game.runPressed = v,
+                    onDuck: game.setDuckPressed,
+                    onJumpHeld: game.setJumpHeld,
+                    onSkill: game.activateSkill,
+                    onShoot: game.weaponVisible ? game.setShootPressed : null,
+                    skillCooldown: game.skillCooldownRatio,
+                  ),
                 ),
               ),
             if (game.userPaused && !_showTutorial)
@@ -869,6 +896,8 @@ class _TutorialOverlay extends StatelessWidget {
               const Text('• 红胖怪要踩 2 次；Boss 半血后会狂暴跳砸'),
               const Text('• 切到后台会自动暂停并停 BGM；限时死后不额外刷时间'),
               const Text('• 紫色马卡龙 = 超级跳跃；心 = 加命'),
+              const Text('• 冲刺 / E：短暂无敌；距离、冷却随关卡变化'),
+              const Text('• 拾取发射器后按 F / 射击；小车能加速并挡一次碰撞'),
               const Text('• 限时内通关摸旗；暂停菜单可看三星条件'),
               const SizedBox(height: 16),
               SizedBox(

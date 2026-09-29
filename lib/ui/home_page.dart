@@ -77,15 +77,7 @@ class _HomePageState extends State<HomePage> {
                       color: MacaronColors.cocoa,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '99 关完全体 · Boss 血条 / 检查点 / 商店 / 仪式感',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: MacaronColors.cocoa.withValues(alpha: 0.55),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   Text(
                     '累计 ${SaveService.instance.totalStars} 星 · '
                     '${SaveService.instance.clearCount} 通关 · '
@@ -109,10 +101,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 4),
                   Text(
                     unlocked >= GameConstants.totalLevels
-                        ? '进度 100% · 已解锁全部 '
-                            '${GameConstants.totalLevels} 关'
-                        : '进度 ${(progress * 100).toStringAsFixed(0)}% · '
-                            '已解锁 ${unlocked + 1}/'
+                        ? '全部 ${GameConstants.totalLevels} 关已解锁'
+                        : '已解锁 ${unlocked + 1}/'
                             '${GameConstants.totalLevels} 关',
                     style: TextStyle(
                       fontSize: 11,
@@ -153,7 +143,6 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 12),
                   _PillButton(
                     label: '糖果商店',
-                    subtitle: '兑换蝴蝶结 / 皇冠等外观',
                     onTap: () => _open(const ShopPage()),
                   ),
                   const SizedBox(height: 12),
@@ -187,7 +176,6 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 12),
                   _PillButton(
                     label: 'iPhone 版',
-                    subtitle: 'Safari 网页 / 添加到主屏幕',
                     onTap: () {
                       showCupertinoDialog<void>(
                         context: context,

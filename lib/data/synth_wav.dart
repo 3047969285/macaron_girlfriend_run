@@ -84,7 +84,8 @@ class SynthWav {
     final out = List<double>.filled(n, 0);
     for (var i = 0; i < n; i++) {
       final t = i / _sampleRate;
-      out[i] = (rnd.nextDouble() * 2 - 1) * vol * _env(t, 0.001, dur * 0.5, dur);
+      out[i] =
+          (rnd.nextDouble() * 2 - 1) * vol * _env(t, 0.001, dur * 0.5, dur);
     }
     return out;
   }
@@ -108,41 +109,68 @@ class SynthWav {
   static Uint8List click() => build(tone(880, 0.05, vol: 0.25));
 
   static Uint8List jump() => build(
-        mix([
-          tone(520, 0.08, vol: 0.28, bend: 420),
-          tone(780, 0.1, vol: 0.18, bend: 300),
-        ]),
-      );
+    mix([
+      tone(520, 0.08, vol: 0.28, bend: 420),
+      tone(780, 0.1, vol: 0.18, bend: 300),
+    ]),
+  );
 
-  static Uint8List coin() => build(
-        mix([
-          tone(988, 0.06, vol: 0.3),
-          tone(1318, 0.09, vol: 0.22),
-        ]),
-      );
+  static Uint8List coin() =>
+      build(mix([tone(988, 0.06, vol: 0.3), tone(1318, 0.09, vol: 0.22)]));
 
   static Uint8List stomp() => build(
-        mix([
-          tone(180, 0.07, vol: 0.45, bend: -80),
-          tone(120, 0.12, vol: 0.35, bend: -40),
-          noise(0.08, vol: 0.25),
-        ]),
-      );
+    mix([
+      tone(180, 0.07, vol: 0.45, bend: -80),
+      tone(120, 0.12, vol: 0.35, bend: -40),
+      noise(0.08, vol: 0.25),
+    ]),
+  );
 
   static Uint8List hurt() => build(
-        mix([
-          tone(220, 0.15, vol: 0.35, bend: -120),
-          tone(160, 0.2, vol: 0.25, bend: -60),
-        ]),
-      );
+    mix([
+      tone(220, 0.15, vol: 0.35, bend: -120),
+      tone(160, 0.2, vol: 0.25, bend: -60),
+    ]),
+  );
 
   static Uint8List powerUp() => build(
-        mix([
-          tone(440, 0.08, vol: 0.25, bend: 180),
-          tone(660, 0.12, vol: 0.25, bend: 220),
-          tone(880, 0.16, vol: 0.2, bend: 260),
-        ]),
-      );
+    mix([
+      tone(440, 0.08, vol: 0.25, bend: 180),
+      tone(660, 0.12, vol: 0.25, bend: 220),
+      tone(880, 0.16, vol: 0.2, bend: 260),
+    ]),
+  );
+
+  static Uint8List skillDash() => build(
+    mix([
+      noise(0.16, vol: 0.1),
+      tone(620, 0.08, vol: 0.22, bend: 520),
+      tone(930, 0.12, vol: 0.2, bend: 440),
+      tone(1244, 0.16, vol: 0.16, bend: 260),
+    ]),
+  );
+
+  static Uint8List shoot() => build(
+    mix([
+      tone(920, 0.035, vol: 0.16, bend: -220),
+      tone(520, 0.055, vol: 0.13, bend: -180),
+    ]),
+  );
+
+  static Uint8List vehicle() => build(
+    mix([
+      tone(392, 0.07, vol: 0.2, bend: 180),
+      tone(587, 0.09, vol: 0.2, bend: 220),
+      tone(784, 0.12, vol: 0.16, bend: 260),
+    ]),
+  );
+
+  static Uint8List enemySkill() => build(
+    mix([
+      tone(620, 0.09, vol: 0.19, bend: 180),
+      tone(880, 0.11, vol: 0.13, bend: -120),
+    ]),
+  );
 
   static Uint8List win() {
     final parts = <List<double>>[];

@@ -14,8 +14,12 @@ class AudioService {
   final List<AudioPlayer> _fxPool = [];
   int _fxCursor = 0;
   bool _ready = false;
+  bool _soundsReady = false;
+  Future<void>? _initTask;
   bool _bgmPlaying = false;
   int _bgmWorld = -1;
+  double? _appliedBgmVolume;
+  double? _appliedFxVolume;
 
   late final Uint8List _wavClick;
   late final Uint8List _wavJump;
@@ -24,6 +28,10 @@ class AudioService {
   late final Uint8List _wavHurt;
   late final Uint8List _wavWin;
   late final Uint8List _wavPower;
+  late final Uint8List _wavSkillDash;
+  late final Uint8List _wavShoot;
+  late final Uint8List _wavVehicle;
+  late final Uint8List _wavEnemySkill;
   final Map<int, Uint8List> _bgmByWorld = {};
 
   bool get soundOn => SaveService.instance.soundEnabled;
@@ -35,15 +43,40 @@ class AudioService {
     if (_ready) {
       return;
     }
-    _wavClick = SynthWav.click();
-    _wavJump = SynthWav.jump();
-    _wavCoin = SynthWav.coin();
-    _wavStomp = SynthWav.stomp();
-    _wavHurt = SynthWav.hurt();
-    _wavWin = SynthWav.win();
-    _wavPower = SynthWav.powerUp();
-    for (var i = 0; i < _fxPoolSize; i++) {
-      _fxPool.add(AudioPlayer());
+    final activeTask = _initTask;
+    if (activeTask != null) {
+      await activeTask;
+      return;
+    }
+    final task = _initialize();
+    _initTask = task;
+    try {
+      await task;
+    } catch (_) {
+      _initTask = null;
+      rethrow;
+    }
+  }
+
+  Future<void> _initialize() async {
+    if (!_soundsReady) {
+      _wavClick = SynthWav.click();
+      _wavJump = SynthWav.jump();
+      _wavCoin = SynthWav.coin();
+      _wavStomp = SynthWav.stomp();
+      _wavHurt = SynthWav.hurt();
+      _wavWin = SynthWav.win();
+      _wavPower = SynthWav.powerUp();
+      _wavSkillDash = SynthWav.skillDash();
+      _wavShoot = SynthWav.shoot();
+      _wavVehicle = SynthWav.vehicle();
+      _wavEnemySkill = SynthWav.enemySkill();
+      _soundsReady = true;
+    }
+    if (_fxPool.isEmpty) {
+      for (var i = 0; i < _fxPoolSize; i++) {
+        _fxPool.add(AudioPlayer());
+      }
     }
     await _bgm.setReleaseMode(ReleaseMode.loop);
     await applyVolumes();
@@ -52,9 +85,17 @@ class AudioService {
 
   /// 按存档音量刷新播放器
   Future<void> applyVolumes() async {
-    await _bgm.setVolume(SaveService.instance.musicVolume);
-    for (final p in _fxPool) {
-      await p.setVolume(SaveService.instance.soundVolume);
+    final bgmVolume = SaveService.instance.musicVolume;
+    if (_appliedBgmVolume != bgmVolume) {
+      await _bgm.setVolume(bgmVolume);
+      _appliedBgmVolume = bgmVolume;
+    }
+    final fxVolume = SaveService.instance.soundVolume;
+    if (_appliedFxVolume != fxVolume) {
+      for (final p in _fxPool) {
+        await p.setVolume(fxVolume);
+      }
+      _appliedFxVolume = fxVolume;
     }
   }
 
@@ -145,7 +186,6 @@ class AudioService {
     _fxCursor++;
     try {
       await player.stop();
-      await player.setVolume(SaveService.instance.soundVolume);
       await player.play(BytesSource(bytes));
     } catch (_) {}
   }
@@ -195,5 +235,28 @@ class AudioService {
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
     }
+  }
+
+  Future<void> skillDash() async {
+    await _playFx(_wavSkillDash);
+    if (hapticOn) {
+      await HapticFeedback.selectionClick();
+    }
+  }
+
+  Future<void> shoot() async {
+    await _playFx(_wavShoot);
+  }
+
+  Future<void> vehicle() async {
+    await _playFx(_wavVehicle);
+    if (hapticOn) {
+      await HapticFeedback.selectionClick();
+    }
+  }
+
+  /// 怪物技能蓄力提示音
+  Future<void> enemySkill() async {
+    await _playFx(_wavEnemySkill);
   }
 }

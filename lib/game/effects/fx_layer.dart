@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
@@ -60,11 +61,7 @@ class FxLayer extends PositionComponent {
       count: 14,
       speed: 200,
       spread: math.pi * 2,
-      colors: [
-        MacaronColors.lemon,
-        MacaronColors.blush,
-        Colors.white,
-      ],
+      colors: [MacaronColors.lemon, MacaronColors.blush, Colors.white],
       sizeMin: 2,
       sizeMax: 6,
       life: 0.55,
@@ -123,10 +120,7 @@ class FxLayer extends PositionComponent {
       speed: 120,
       spread: math.pi * 0.8,
       baseDir: -math.pi / 2,
-      colors: [
-        MacaronColors.lemon,
-        const Color(0xFFBCAAA4),
-      ],
+      colors: [MacaronColors.lemon, const Color(0xFFBCAAA4)],
       sizeMin: 4,
       sizeMax: 9,
       life: 0.5,
@@ -141,14 +135,91 @@ class FxLayer extends PositionComponent {
       count: 22,
       speed: 180,
       spread: math.pi * 2,
-      colors: [
-        MacaronColors.lilac,
-        MacaronColors.rose,
-        Colors.white,
-      ],
+      colors: [MacaronColors.lilac, MacaronColors.rose, Colors.white],
       sizeMin: 3,
       sizeMax: 10,
       life: 0.75,
+    );
+  }
+
+  /// 棉花糖冲刺：一圈糖霜闪光和轻巧拖尾
+  void skillDash(Vector2 at, {required bool facingRight}) {
+    _spawn(
+      at + Vector2(facingRight ? -16 : 16, -12),
+      count: 18,
+      speed: 190,
+      spread: math.pi * 0.9,
+      baseDir: facingRight ? math.pi : 0,
+      colors: [
+        MacaronColors.blush,
+        MacaronColors.lemon,
+        MacaronColors.lilac,
+        Colors.white,
+      ],
+      sizeMin: 3,
+      sizeMax: 8,
+      life: 0.5,
+      gravity: 80,
+    );
+    _rings.add(_FxRing(center: at.clone(), life: 0.32, maxRadius: 42));
+    _labels.add(
+      _FxLabel(
+        text: '咻～',
+        position: at + Vector2(-18, -42),
+        life: 0.55,
+        color: MacaronColors.rose,
+        size: 20,
+      ),
+    );
+  }
+
+  /// 怪物蓄力预警：用短小的糖果粒子提示玩家
+  void enemySkill(Vector2 at, EnemyKind kind) {
+    final tint = switch (kind) {
+      EnemyKind.walker => MacaronColors.rose,
+      EnemyKind.hopper => MacaronColors.lemon,
+      EnemyKind.bruiser => MacaronColors.lilac,
+    };
+    _spawn(
+      at + Vector2(0, -24),
+      count: 7,
+      speed: 95,
+      spread: math.pi * 1.4,
+      baseDir: -math.pi / 2,
+      colors: [tint, MacaronColors.cream, Colors.white],
+      sizeMin: 3,
+      sizeMax: 6,
+      life: 0.38,
+      gravity: 140,
+    );
+    final label = switch (kind) {
+      EnemyKind.walker => '啵!',
+      EnemyKind.hopper => '跳!',
+      EnemyKind.bruiser => '冲!',
+    };
+    _labels.add(
+      _FxLabel(
+        text: label,
+        position: at + Vector2(-12, -48),
+        life: 0.48,
+        color: tint,
+        size: 16,
+      ),
+    );
+  }
+
+  /// 糖豆撞上玩家或地形时变成一小团糖霜
+  void enemyCandyPop(Vector2 at) {
+    _spawn(
+      at,
+      count: 7,
+      speed: 105,
+      spread: math.pi * 2,
+      colors: [MacaronColors.rose, MacaronColors.blush, Colors.white],
+      sizeMin: 2,
+      sizeMax: 5,
+      life: 0.3,
+      gravity: 220,
     );
   }
 
@@ -160,10 +231,7 @@ class FxLayer extends PositionComponent {
       speed: 220,
       spread: math.pi,
       baseDir: -math.pi / 2,
-      colors: [
-        MacaronColors.mint,
-        Colors.white,
-      ],
+      colors: [MacaronColors.mint, Colors.white],
       sizeMin: 4,
       sizeMax: 8,
       life: 0.5,
@@ -271,20 +339,12 @@ class FxLayer extends PositionComponent {
         ..color = MacaronColors.rose.withValues(alpha: alpha * 0.55)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4;
-      canvas.drawCircle(
-        Offset(r.center.x, r.center.y),
-        r.radius,
-        paint,
-      );
+      canvas.drawCircle(Offset(r.center.x, r.center.y), r.radius, paint);
     }
     for (final p in _particles) {
       final alpha = (p.life * 2.5).clamp(0.0, 1.0);
       final paint = Paint()..color = p.color.withValues(alpha: alpha);
-      canvas.drawCircle(
-        Offset(p.position.x, p.position.y),
-        p.size,
-        paint,
-      );
+      canvas.drawCircle(Offset(p.position.x, p.position.y), p.size, paint);
     }
     for (final l in _labels) {
       final alpha = (l.life * 1.8).clamp(0.0, 1.0);
@@ -311,11 +371,8 @@ class FxLayer extends PositionComponent {
 }
 
 class _FxRing {
-  _FxRing({
-    required this.center,
-    required this.life,
-    required this.maxRadius,
-  }) : radius = 8;
+  _FxRing({required this.center, required this.life, required this.maxRadius})
+    : radius = 8;
 
   final Vector2 center;
   double life;
@@ -342,7 +399,7 @@ class _FxLabel {
 /// 远景漂浮光点
 class AmbientSparkles extends PositionComponent {
   AmbientSparkles({required this.mapWidth, required this.tint})
-      : super(priority: -5);
+    : super(priority: -5);
 
   final double mapWidth;
   final Color tint;

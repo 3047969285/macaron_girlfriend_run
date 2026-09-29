@@ -32,9 +32,7 @@ class FpsBootstrap {
           pick = _closest(modes, 120);
           break;
         default:
-          pick = modes.reduce(
-            (a, b) => a.refreshRate >= b.refreshRate ? a : b,
-          );
+          pick = modes.reduce((a, b) => a.refreshRate >= b.refreshRate ? a : b);
       }
       await FlutterDisplayMode.setPreferredMode(pick);
     } catch (_) {}
@@ -59,6 +57,9 @@ class TouchControls extends StatelessWidget {
     required this.onJumpHeld,
     this.onDuck,
     this.onInteract,
+    this.onSkill,
+    this.onShoot,
+    this.skillCooldown = 0,
     this.scale = 1,
   });
 
@@ -68,12 +69,26 @@ class TouchControls extends StatelessWidget {
   final ValueChanged<bool> onJumpHeld;
   final ValueChanged<bool>? onDuck;
   final VoidCallback? onInteract;
+  final VoidCallback? onSkill;
+  final ValueChanged<bool>? onShoot;
+  final double skillCooldown;
   final double scale;
 
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
-    final s = scale.clamp(0.85, 1.25);
+    final controlWidth =
+        142.0 +
+        (onDuck == null ? 0 : 74) +
+        64 +
+        (onSkill == null ? 0 : 62) +
+        (onShoot == null ? 0 : 72) +
+        12 +
+        78;
+    final availableWidth =
+        MediaQuery.sizeOf(context).width - pad.left - pad.right - 56;
+    final maxScale = (availableWidth / controlWidth).clamp(0.85, 1.25);
+    final s = scale.clamp(0.85, maxScale).toDouble();
     return Padding(
       padding: EdgeInsets.fromLTRB(
         28 + pad.left,
@@ -121,7 +136,26 @@ class TouchControls extends StatelessWidget {
                 fill: MacaronColors.mint.withValues(alpha: 0.85),
                 size: 64 * s,
               ),
-              SizedBox(width: 14 * s),
+              if (onShoot != null) ...[
+                SizedBox(width: 8 * s),
+                _RoundHold(
+                  label: '射击',
+                  onChanged: onShoot!,
+                  onInteract: onInteract,
+                  fill: MacaronColors.rose.withValues(alpha: 0.88),
+                  size: 62 * s,
+                ),
+              ],
+              if (onSkill != null) ...[
+                SizedBox(width: 8 * s),
+                _SkillButton(
+                  onPressed: onSkill!,
+                  onInteract: onInteract,
+                  cooldown: skillCooldown,
+                  size: 54 * s,
+                ),
+              ],
+              SizedBox(width: 12 * s),
               _RoundHold(
                 label: '跳',
                 onChanged: onJumpHeld,
@@ -132,6 +166,116 @@ class TouchControls extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SkillButton extends StatefulWidget {
+  const _SkillButton({
+    required this.onPressed,
+    required this.cooldown,
+    this.onInteract,
+    required this.size,
+  });
+
+  final VoidCallback onPressed;
+  final VoidCallback? onInteract;
+  final double cooldown;
+  final double size;
+
+  @override
+  State<_SkillButton> createState() => _SkillButtonState();
+}
+
+class _SkillButtonState extends State<_SkillButton> {
+  bool _down = false;
+
+  void _setPressed(bool value) {
+    if (_down == value) {
+      return;
+    }
+    setState(() => _down = value);
+    if (value) {
+      widget.onInteract?.call();
+      widget.onPressed();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = widget.cooldown.clamp(0.0, 1.0);
+    final ready = ratio <= 0.001;
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => _setPressed(true),
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 80),
+          scale: _down ? 0.92 : 1,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: MacaronColors.lilac.withValues(alpha: 0.94),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x18000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: widget.size - 5,
+                  height: widget.size - 5,
+                  child: CircularProgressIndicator(
+                    value: 1 - ratio,
+                    strokeWidth: 3,
+                    backgroundColor: MacaronColors.cocoa.withValues(
+                      alpha: 0.12,
+                    ),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      MacaronColors.lemon,
+                    ),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      ready
+                          ? CupertinoIcons.bolt_fill
+                          : CupertinoIcons.hourglass,
+                      size: 17,
+                      color: MacaronColors.cocoa,
+                    ),
+                    Text(
+                      ready ? '冲刺' : '充能',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: MacaronColors.cocoa,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
