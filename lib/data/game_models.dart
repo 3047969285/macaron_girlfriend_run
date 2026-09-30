@@ -5,6 +5,17 @@ import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 /// 可切换角色形态（联机预留男友，一期默认女友）
 enum PlayerRole { girlfriend, boyfriend }
 
+/// 关卡轮换的玩家主动技能
+enum HeroSkill { dash, shield, petalVolley }
+
+extension HeroSkillPresentation on HeroSkill {
+  String get shortLabel => switch (this) {
+    HeroSkill.dash => '闪冲',
+    HeroSkill.shield => '糖盾',
+    HeroSkill.petalVolley => '花弹',
+  };
+}
+
 /// 世界与关卡常量
 class GameConstants {
   GameConstants._();
@@ -33,20 +44,29 @@ class GameConstants {
   static const double skillDashDuration = 0.34;
   static const double skillCooldown = 4.6;
   static const double skillDashSpeed = 610;
+  static const int maxPlayerShots = 8;
 
   static const int maxActiveEnemies = 56;
+  static const int maxEnemyTraps = 8;
   static const int maxParallaxLayers = 3;
 
   static const int startingLives = 3;
   static const int maxLives = 5;
   static const int coinScore = 100;
   static const int enemyScore = 200;
+  static const int maxEnemyCombo = 5;
+  static const int enemyComboBonusStep = 25;
   static const int clearBonus = 1000;
   static const int timeBonusPerSecond = 10;
   static const int levelTimeLimit = 180;
 
   static const double invincibleDuration = 1.55;
   static const double powerUpDuration = 11;
+  static const double enemyTrapDuration = 3.8;
+  static const double enemyTrapSlowDuration = 1.05;
+  static const double enemyTrapSlowMultiplier = 0.62;
+  static const double gardenBuddyDuration = 16.0;
+  static const double enemyComboWindow = 3.2;
 
   /// 相机跑步前瞻像素
   static const double cameraLookAhead = 88;
@@ -85,8 +105,14 @@ class GameConstants {
   static double playerDashDurationFor(int difficulty) =>
       skillDashDuration - 0.04 * _difficultyProgress(difficulty);
 
+  static double playerShieldDurationFor(int difficulty) =>
+      0.95 - 0.2 * _difficultyProgress(difficulty);
+
   static double playerSkillCooldownFor(int difficulty) =>
       4.6 + 2.0 * _difficultyProgress(difficulty);
+
+  static HeroSkill heroSkillForLevel(int worldIndex, int levelIndex) =>
+      HeroSkill.values[(worldIndex + levelIndex) % HeroSkill.values.length];
 
   static double playerPowerUpDurationFor(int difficulty) =>
       powerUpDuration - 2.0 * _difficultyProgress(difficulty);
@@ -103,17 +129,26 @@ class GameConstants {
   static double plantShotCooldownFor(int difficulty) =>
       2.7 + 0.8 * _difficultyProgress(difficulty);
 
+  static double gardenBuddyDurationFor(int difficulty) =>
+      gardenBuddyDuration - 3.0 * _difficultyProgress(difficulty);
+
+  static int enemyComboBonusFor(int comboCount) =>
+      ((comboCount - 1).clamp(0, maxEnemyCombo - 1) * enemyComboBonusStep)
+          .toInt();
+
   static double enemySkillCooldownFor(int difficulty, EnemyKind kind) {
     final progress = _difficultyProgress(difficulty);
     final start = switch (kind) {
       EnemyKind.walker => 5.3,
       EnemyKind.hopper => 5.8,
       EnemyKind.bruiser => 6.2,
+      EnemyKind.trapper => 6.6,
     };
     final end = switch (kind) {
       EnemyKind.walker => 4.0,
       EnemyKind.hopper => 4.2,
       EnemyKind.bruiser => 4.8,
+      EnemyKind.trapper => 5.2,
     };
     return start + (end - start) * progress;
   }
@@ -124,11 +159,13 @@ class GameConstants {
       EnemyKind.walker => 0.72,
       EnemyKind.hopper => 0.64,
       EnemyKind.bruiser => 0.78,
+      EnemyKind.trapper => 0.9,
     };
     final end = switch (kind) {
       EnemyKind.walker => 0.60,
       EnemyKind.hopper => 0.52,
       EnemyKind.bruiser => 0.64,
+      EnemyKind.trapper => 0.76,
     };
     return start + (end - start) * progress;
   }
@@ -139,11 +176,13 @@ class GameConstants {
       EnemyKind.walker => 290.0,
       EnemyKind.hopper => 235.0,
       EnemyKind.bruiser => 270.0,
+      EnemyKind.trapper => 245.0,
     };
     final end = switch (kind) {
       EnemyKind.walker => 350.0,
       EnemyKind.hopper => 290.0,
       EnemyKind.bruiser => 330.0,
+      EnemyKind.trapper => 305.0,
     };
     return start + (end - start) * progress;
   }

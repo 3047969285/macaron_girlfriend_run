@@ -245,6 +245,7 @@ class SoftEnemy extends PositionComponent {
     this.speed = 88,
     this.onSkillCue,
     this.onShoot,
+    this.onLayTrap,
     EnemyKind kind = EnemyKind.walker,
   }) : kind = kind,
        hitPoints = kind == EnemyKind.bruiser ? 2 : 1,
@@ -270,6 +271,7 @@ class SoftEnemy extends PositionComponent {
   final double _baseY;
   final void Function(Vector2 at, EnemyKind kind)? onSkillCue;
   final void Function(Vector2 at, double direction)? onShoot;
+  final void Function(Vector2 at)? onLayTrap;
   int hitPoints;
   double dir = 1;
   double _wobble = 0;
@@ -343,6 +345,12 @@ class SoftEnemy extends PositionComponent {
             difficulty,
             kind,
           );
+        case EnemyKind.trapper:
+          onLayTrap?.call(position.clone());
+          _skillCooldown = GameConstants.enemySkillCooldownFor(
+            difficulty,
+            kind,
+          );
       }
       if (kind != EnemyKind.hopper) {
         return;
@@ -384,6 +392,9 @@ class SoftEnemy extends PositionComponent {
               distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
         EnemyKind.bruiser =>
           distance >= 70 &&
+              distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
+        EnemyKind.trapper =>
+          distance >= 80 &&
               distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
       };
       if (canUseSkill) {
@@ -430,6 +441,8 @@ class SoftEnemy extends PositionComponent {
         return const Color(0xFFFFB74D);
       case EnemyKind.bruiser:
         return const Color(0xFFE57373);
+      case EnemyKind.trapper:
+        return const Color(0xFF72CDB1);
       case EnemyKind.walker:
         return const Color(0xFFFF8A80);
     }
@@ -491,6 +504,16 @@ class SoftEnemy extends PositionComponent {
           Paint()..color = MacaronColors.lemon,
         );
       }
+    }
+    if (kind == EnemyKind.trapper) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(0, -size.y * 0.86),
+          width: 15,
+          height: 8,
+        ),
+        Paint()..color = const Color(0xFFB8F0D8),
+      );
     }
     if (_warningTimer > 0) {
       final badge = RRect.fromRectAndRadius(
@@ -587,6 +610,88 @@ class EnemyCandyShot extends PositionComponent {
   }
 }
 
+/// 陷阱怪留下的黏糖地面，踩中会短暂减速，可跳过或用冲刺穿过。
+class StickyCandyPatch extends PositionComponent {
+  StickyCandyPatch({required Vector2 position})
+    : super(
+        position: position,
+        size: Vector2(112, 28),
+        anchor: Anchor.bottomCenter,
+        priority: 39,
+      );
+
+  double _armingTimer = 0.42;
+  double _life = GameConstants.enemyTrapDuration;
+  double _pulse = 0;
+  bool spent = false;
+
+  bool get armed => !spent && _armingTimer <= 0;
+
+  Rect get hitbox => Rect.fromLTWH(
+    position.x - size.x / 2 + 8,
+    position.y - size.y + 6,
+    size.x - 16,
+    size.y - 7,
+  );
+
+  void consume() {
+    if (spent) {
+      return;
+    }
+    spent = true;
+    removeFromParent();
+  }
+
+  @override
+  void update(double dt) {
+    if (spent) {
+      return;
+    }
+    _pulse += dt * 7;
+    _armingTimer = (_armingTimer - dt).clamp(0.0, 1.0);
+    _life -= dt;
+    if (_life <= 0) {
+      consume();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (spent) {
+      return;
+    }
+    final alpha = armed ? 0.82 : 0.38 + math.sin(_pulse * 5).abs() * 0.3;
+    final puddle = RRect.fromRectAndRadius(
+      Rect.fromLTWH(7, size.y - 20, size.x - 14, 15),
+      const Radius.circular(10),
+    );
+    canvas.drawOval(
+      Rect.fromLTWH(10, size.y - 8, size.x - 20, 7),
+      Paint()..color = const Color(0xFF5F8E7A).withValues(alpha: 0.2),
+    );
+    canvas.drawRRect(
+      puddle,
+      Paint()..color = const Color(0xFF7AD9B8).withValues(alpha: alpha),
+    );
+    canvas.drawRRect(
+      puddle,
+      Paint()
+        ..color = Colors.white.withValues(alpha: armed ? 0.55 : 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = armed ? 1.5 : 2,
+    );
+    for (var i = 0; i < 3; i++) {
+      final x = 25.0 + i * 30;
+      final bubbleY = size.y - 17 - math.sin(_pulse + i) * 2;
+      canvas.drawCircle(
+        Offset(x, bubbleY),
+        i == 1 ? 2.5 : 1.8,
+        Paint()..color = Colors.white.withValues(alpha: alpha),
+      );
+    }
+  }
+}
+
 /// 跑酷关卡中的限时糖果发射器
 class GunPickup extends PositionComponent {
   GunPickup({required Vector2 position})
@@ -638,6 +743,70 @@ class GunPickup extends PositionComponent {
       Paint()..color = MacaronColors.lemon,
     );
     canvas.drawCircle(Offset(14, 17 + y), 2, Paint()..color = Colors.white);
+  }
+}
+
+/// 花园守线道具：拾取后召来短时自动攻击的豌豆伙伴。
+class PeaSeed extends PositionComponent {
+  PeaSeed({required Vector2 position})
+    : super(
+        position: position,
+        size: Vector2.all(42),
+        anchor: Anchor.center,
+        priority: 48,
+      );
+
+  bool collected = false;
+  double _bob = 0;
+
+  @override
+  void update(double dt) {
+    _bob += dt * 3.8;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (collected) {
+      return;
+    }
+    final lift = math.sin(_bob) * 3;
+    canvas.drawCircle(
+      Offset(size.x / 2, size.y / 2 + lift),
+      19,
+      Paint()..color = Colors.white.withValues(alpha: 0.82),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(12, 25 + lift, 19, 10),
+        const Radius.circular(4),
+      ),
+      Paint()..color = const Color(0xFFB57A66),
+    );
+    canvas.drawLine(
+      Offset(21, 27 + lift),
+      Offset(21, 14 + lift),
+      Paint()
+        ..color = const Color(0xFF4F9D68)
+        ..strokeWidth = 3,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(15, 17 + lift), width: 11, height: 6),
+      Paint()..color = MacaronColors.mint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(27, 16 + lift), width: 11, height: 6),
+      Paint()..color = const Color(0xFF76C893),
+    );
+    canvas.drawCircle(
+      Offset(21, 11 + lift),
+      5,
+      Paint()..color = const Color(0xFF83D69B),
+    );
+    canvas.drawCircle(
+      Offset(23, 10 + lift),
+      1.2,
+      Paint()..color = MacaronColors.cocoa,
+    );
   }
 }
 
@@ -764,12 +933,23 @@ class PlayerCandyShot extends PositionComponent {
   }
 }
 
+enum BossAttackPattern {
+  slam,
+  rush,
+  volley;
+
+  static BossAttackPattern forWorld(int worldIndex) =>
+      values[worldIndex % values.length];
+}
+
 /// 世界 Boss（需多次踩踏，半血进入狂暴）
 class MacaronBoss extends PositionComponent {
   MacaronBoss({
     required Vector2 position,
     required this.leftBound,
     required this.rightBound,
+    required this.worldIndex,
+    this.onShoot,
     this.maxHp = 3,
   }) : hp = maxHp,
        _baseY = position.y,
@@ -782,17 +962,29 @@ class MacaronBoss extends PositionComponent {
 
   final double leftBound;
   final double rightBound;
+  final int worldIndex;
   final int maxHp;
   final double _baseY;
+  final void Function(Vector2 at, double direction)? onShoot;
   int hp;
   double dir = -1;
   double _wobble = 0;
   double _flash = 0;
-  double _jumpCd = 1.2;
+  double? targetX;
+  double _attackCooldown = 1.2;
+  double _warningTimer = 0;
+  double _rushTimer = 0;
+  double _attackDirection = 1;
+  double _volleyTimer = 0;
+  int _volleyShots = 0;
   double _vy = 0;
   bool dead = false;
   bool enraged = false;
   bool isSlamming = false;
+  bool get isRushing => _rushTimer > 0;
+
+  BossAttackPattern get attackPattern =>
+      BossAttackPattern.forWorld(worldIndex);
 
   /// 踩踏一次返回是否刚进入狂暴
   bool stompHit() {
@@ -805,7 +997,7 @@ class MacaronBoss extends PositionComponent {
     if (!enraged && hp <= (maxHp / 2).ceil()) {
       enraged = true;
       justEnraged = true;
-      _jumpCd = 0.2;
+      _attackCooldown = 0.2;
     }
     if (hp <= 0) {
       dead = true;
@@ -818,10 +1010,52 @@ class MacaronBoss extends PositionComponent {
     if (dead) {
       return;
     }
-    _wobble += dt * (enraged ? 8 : 5);
+    _wobble += dt * (isRushing ? 15 : enraged ? 8 : 5);
     if (_flash > 0) {
       _flash -= dt;
     }
+    if (enraged) {
+      _attackCooldown = (_attackCooldown - dt).clamp(0.0, 10.0);
+      if (_warningTimer > 0) {
+        _warningTimer = (_warningTimer - dt).clamp(0.0, 2.0);
+        if (_warningTimer <= 0) {
+          _beginAttack();
+        } else {
+          return;
+        }
+      } else if (_attackCooldown <= 0 &&
+          !isSlamming &&
+          !isRushing &&
+          _volleyShots == 0) {
+        _attackDirection = _directionToTarget();
+        dir = _attackDirection;
+        _warningTimer = 0.78;
+        return;
+      }
+
+      if (isRushing) {
+        _rushTimer = (_rushTimer - dt).clamp(0.0, 1.0);
+        position.x += _attackDirection * 390 * dt;
+        if (position.x <= leftBound || position.x >= rightBound) {
+          position.x = position.x.clamp(leftBound, rightBound);
+          _rushTimer = 0;
+        }
+        return;
+      }
+
+      if (_volleyShots > 0) {
+        _volleyTimer -= dt;
+        if (_volleyTimer <= 0) {
+          onShoot?.call(
+            position + Vector2(_attackDirection * size.x * 0.55, -size.y * 0.58),
+            _attackDirection,
+          );
+          _volleyShots--;
+          _volleyTimer = 0.28;
+        }
+      }
+    }
+
     final speed = enraged ? 125.0 : 70.0;
     position.x += dir * speed * dt;
     if (position.x < leftBound) {
@@ -832,24 +1066,40 @@ class MacaronBoss extends PositionComponent {
       dir = -1;
     }
 
-    if (enraged) {
-      _jumpCd -= dt;
-      if (_jumpCd <= 0 && !isSlamming) {
+    if (enraged && isSlamming) {
+      _vy += 2400 * dt;
+      position.y += _vy * dt;
+      if (position.y >= _baseY) {
+        position.y = _baseY;
+        _vy = 0;
+        isSlamming = false;
+      }
+    } else if (!enraged) {
+      position.y = _baseY;
+    }
+  }
+
+  double _directionToTarget() {
+    final target = targetX;
+    if (target == null || target == position.x) {
+      return dir;
+    }
+    return target > position.x ? 1 : -1;
+  }
+
+  void _beginAttack() {
+    switch (attackPattern) {
+      case BossAttackPattern.slam:
         isSlamming = true;
         _vy = -780;
-        _jumpCd = 2.2;
-      }
-      if (isSlamming) {
-        _vy += 2400 * dt;
-        position.y += _vy * dt;
-        if (position.y >= _baseY) {
-          position.y = _baseY;
-          _vy = 0;
-          isSlamming = false;
-        }
-      }
-    } else {
-      position.y = _baseY;
+        _attackCooldown = 2.6;
+      case BossAttackPattern.rush:
+        _rushTimer = 0.68;
+        _attackCooldown = 3.1;
+      case BossAttackPattern.volley:
+        _volleyShots = 3;
+        _volleyTimer = 0.18;
+        _attackCooldown = 3.3;
     }
   }
 
@@ -901,6 +1151,58 @@ class MacaronBoss extends PositionComponent {
       10,
       Paint()..color = enraged ? const Color(0xFFFF5252) : MacaronColors.lemon,
     );
+    if (isRushing) {
+      final trailPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.75)
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round;
+      for (var i = 0; i < 3; i++) {
+        final y = -size.y * (0.35 + i * 0.16);
+        canvas.drawLine(
+          Offset(-(size.x * 0.4 + i * 7), y),
+          Offset(-(size.x * 0.66 + i * 7), y),
+          trailPaint,
+        );
+      }
+    }
+    if (_warningTimer > 0) {
+      final center = Offset(0, -size.y - 25);
+      final badge = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: center, width: 38, height: 28),
+        const Radius.circular(9),
+      );
+      canvas.drawRRect(
+        badge,
+        Paint()..color = Colors.white.withValues(alpha: 0.95),
+      );
+      canvas.drawRRect(
+        badge,
+        Paint()
+          ..color = MacaronColors.rose
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      final cuePaint = Paint()
+        ..color = MacaronColors.cocoa
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      switch (attackPattern) {
+        case BossAttackPattern.slam:
+          canvas.drawLine(center + const Offset(0, -6), center + const Offset(0, 3), cuePaint);
+          canvas.drawCircle(center + const Offset(0, 8), 1.5, cuePaint);
+        case BossAttackPattern.rush:
+          final arrow = Path()
+            ..moveTo(center.dx - 7, center.dy - 5)
+            ..lineTo(center.dx + 7, center.dy)
+            ..lineTo(center.dx - 7, center.dy + 5);
+          canvas.drawPath(arrow, cuePaint);
+        case BossAttackPattern.volley:
+          for (var i = -1; i <= 1; i++) {
+            canvas.drawCircle(center + Offset(i * 7.0, 0), 2, cuePaint);
+          }
+      }
+    }
     for (var i = 0; i < maxHp; i++) {
       canvas.drawCircle(
         Offset(-18 + i * 18.0, -size.y - 8),

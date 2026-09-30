@@ -26,6 +26,13 @@ flutter run
 - 联机未做（仅角色形态预留）
 - 设计见 `docs/DESIGN.md`
 
+## 音乐署名
+
+- “Slow Jam” — Kevin MacLeod，来自 [incompetech](https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1600015)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权。
+- “Smooth Lovin” — Kevin MacLeod，来自 [incompetech](https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1700077)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权。
+
+曲目用于游戏内背景音乐；音频文件位于 `assets/audio/`。
+
 ## Android
 
 桌面 `马卡龙女友跑酷-debug.apk` 或：

@@ -60,6 +60,7 @@ class TouchControls extends StatelessWidget {
     this.onSkill,
     this.onShoot,
     this.skillCooldown = 0,
+    this.skillLabel = '冲刺',
     this.scale = 1,
   });
 
@@ -72,6 +73,7 @@ class TouchControls extends StatelessWidget {
   final VoidCallback? onSkill;
   final ValueChanged<bool>? onShoot;
   final double skillCooldown;
+  final String skillLabel;
   final double scale;
 
   @override
@@ -152,6 +154,7 @@ class TouchControls extends StatelessWidget {
                   onPressed: onSkill!,
                   onInteract: onInteract,
                   cooldown: skillCooldown,
+                  label: skillLabel,
                   size: 54 * s,
                 ),
               ],
@@ -175,6 +178,7 @@ class _SkillButton extends StatefulWidget {
   const _SkillButton({
     required this.onPressed,
     required this.cooldown,
+    required this.label,
     this.onInteract,
     required this.size,
   });
@@ -182,6 +186,7 @@ class _SkillButton extends StatefulWidget {
   final VoidCallback onPressed;
   final VoidCallback? onInteract;
   final double cooldown;
+  final String label;
   final double size;
 
   @override
@@ -263,7 +268,7 @@ class _SkillButtonState extends State<_SkillButton> {
                       color: MacaronColors.cocoa,
                     ),
                     Text(
-                      ready ? '冲刺' : '充能',
+                      widget.label,
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,

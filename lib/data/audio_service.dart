@@ -9,6 +9,10 @@ class AudioService {
   static final AudioService instance = AudioService._();
 
   static const int _fxPoolSize = 6;
+  static const List<String> _bgmAssets = [
+    'audio/slow_jam.mp3',
+    'audio/smooth_lovin.mp3',
+  ];
 
   final AudioPlayer _bgm = AudioPlayer();
   final List<AudioPlayer> _fxPool = [];
@@ -104,7 +108,7 @@ class AudioService {
     return _bgmByWorld.putIfAbsent(w, () => SynthWav.bgmLoopForWorld(w));
   }
 
-  /// 关卡内开始循环 BGM（按世界主题）
+  /// 关卡内开始循环授权 R&B / 慢拍 BGM，按世界轮换。
   Future<void> startBgm({int worldIndex = 0}) async {
     await init();
     if (!musicOn) {
@@ -118,7 +122,13 @@ class AudioService {
     }
     await _bgm.stop();
     await applyVolumes();
-    await _bgm.play(BytesSource(_bgmBytes(worldIndex)));
+    final asset = _bgmAssets[worldIndex % _bgmAssets.length];
+    try {
+      await _bgm.play(AssetSource(asset));
+    } catch (_) {
+      // 资源加载异常时仍保留本地合成曲，不能让 BGM 故障影响关卡启动。
+      await _bgm.play(BytesSource(_bgmBytes(worldIndex)));
+    }
     _bgmWorld = worldIndex;
     _bgmPlaying = true;
   }

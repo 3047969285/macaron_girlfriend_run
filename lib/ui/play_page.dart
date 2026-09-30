@@ -536,13 +536,17 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                               ],
                             ),
                           ),
-                          if (game.weaponVisible || game.vehicleTimer > 0) ...[
+                          if (game.weaponVisible ||
+                              game.plantBuddyTimer > 0 ||
+                              game.vehicleTimer > 0) ...[
                             const SizedBox(width: 6),
                             _HudChip(
                               child: Text(
                                 [
                                   if (game.weaponVisible)
                                     '🔫${game.gunTimer.ceil()}s',
+                                  if (game.plantBuddyTimer > 0)
+                                    '🌱${game.plantBuddyTimer.ceil()}s',
                                   if (game.vehicleTimer > 0)
                                     '🚙${game.vehicleTimer.ceil()}s',
                                 ].join(' '),
@@ -592,6 +596,18 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                           ),
                         ],
                       ),
+                      if (game.comboCount > 1) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _HudChip(
+                            child: Text(
+                              '✨ 连击 ×${game.comboCount} · 下个 +${GameConstants.enemyComboBonusFor(game.comboCount + 1)}',
+                              style: _hudText,
+                            ),
+                          ),
+                        ),
+                      ],
                       if (game.boss != null && !game.boss!.dead) ...[
                         const SizedBox(height: 8),
                         _BossHpBar(
@@ -646,6 +662,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                     onSkill: game.activateSkill,
                     onShoot: game.weaponVisible ? game.setShootPressed : null,
                     skillCooldown: game.skillCooldownRatio,
+                    skillLabel: game.skillButtonLabel,
                   ),
                 ),
               ),
@@ -888,17 +905,12 @@ class _TutorialOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('• 左移右移，右侧「蹲」「跑」「跳」（按下会缩小反馈）'),
-              const Text('• 电脑可用方向键 / WASD + 空格跳'),
-              const Text('• 跳要松手后再跳；短按短跳、长按跳得更高'),
-              const Text('• 蓝色小旗 = 检查点（本局死后从旗子复活）'),
-              const Text('• 头顶顶黄色「?」砖 → 糖 / 超级跳 / 积分糖'),
-              const Text('• 红胖怪要踩 2 次；Boss 半血后会狂暴跳砸'),
-              const Text('• 切到后台会自动暂停并停 BGM；限时死后不额外刷时间'),
-              const Text('• 紫色马卡龙 = 超级跳跃；心 = 加命'),
-              const Text('• 冲刺 / E：短暂无敌；距离、冷却随关卡变化'),
-              const Text('• 拾取发射器后按 F / 射击；小车能加速并挡一次碰撞'),
-              const Text('• 限时内通关摸旗；暂停菜单可看三星条件'),
+              const Text('• A/D 或左右键移动，空格跳；短按低跳，长按高跳'),
+              const Text('• 手机按住左右键移动，右侧有跑步、下蹲和跳跃'),
+              const Text('• 连续击败可叠连击分；红胖怪两次，Boss 跳砸要躲'),
+              const Text('• 问号砖和糖果有奖励，蓝旗是检查点'),
+              const Text('• 豌豆伙伴自动射击；拿枪按 F，小车加速并挡一次'),
+              const Text('• E 使用本关技能：闪冲 / 糖盾 / 花弹'),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

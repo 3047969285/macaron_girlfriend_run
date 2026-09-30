@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                     filled: true,
                     onTap: () async {
                       await AudioService.instance.click();
-                      if (!mounted) {
+                      if (!context.mounted) {
                         return;
                       }
                       final pos = SaveService.instance.continuePlayTarget();

@@ -179,6 +179,7 @@ class FxLayer extends PositionComponent {
       EnemyKind.walker => MacaronColors.rose,
       EnemyKind.hopper => MacaronColors.lemon,
       EnemyKind.bruiser => MacaronColors.lilac,
+      EnemyKind.trapper => MacaronColors.mint,
     };
     _spawn(
       at + Vector2(0, -24),
@@ -196,6 +197,7 @@ class FxLayer extends PositionComponent {
       EnemyKind.walker => '啵!',
       EnemyKind.hopper => '跳!',
       EnemyKind.bruiser => '冲!',
+      EnemyKind.trapper => '黏!',
     };
     _labels.add(
       _FxLabel(
@@ -203,6 +205,44 @@ class FxLayer extends PositionComponent {
         position: at + Vector2(-12, -48),
         life: 0.48,
         color: tint,
+        size: 16,
+      ),
+    );
+  }
+
+  /// 玩家踩中糖浆陷阱时的减速提示
+  void enemyTrapHit(Vector2 at) {
+    _spawn(
+      at + Vector2(0, -12),
+      count: 9,
+      speed: 82,
+      spread: math.pi * 1.5,
+      baseDir: -math.pi / 2,
+      colors: [MacaronColors.mint, MacaronColors.cream, Colors.white],
+      sizeMin: 3,
+      sizeMax: 6,
+      life: 0.5,
+      gravity: 120,
+    );
+    _labels.add(
+      _FxLabel(
+        text: '黏住!',
+        position: at + Vector2(-24, -48),
+        life: 0.72,
+        color: MacaronColors.mint,
+        size: 17,
+      ),
+    );
+  }
+
+  /// 原创冒险短句：作为角色提示字幕，不使用其他作品的角色台词。
+  void heroCallout(String text, Vector2 at) {
+    _labels.add(
+      _FxLabel(
+        text: text,
+        position: at + Vector2(-48, -18),
+        life: 1.25,
+        color: MacaronColors.rose,
         size: 16,
       ),
     );

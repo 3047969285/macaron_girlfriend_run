@@ -96,14 +96,14 @@ class LevelCatalog {
       _bossSpice(grid, world);
     }
 
-    _placeFeaturePickups(grid, world, level);
     _repairGuaranteedGroundRoute(grid);
+    _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
 
     return grid.map((r) => r.join()).toList();
   }
 
-  /// 每关分成四段，轮换跳跃、平台收集与怪物遭遇，避免长地图只重复一种节奏。
+  /// 四段轮换组合不同玩法，保持长关节奏变化且不强迫玩家走危险路线。
   static void _addSceneChallenges(
     List<List<String>> grid,
     int world,
@@ -113,36 +113,171 @@ class LevelCatalog {
     final ground = grid.length - 3;
     final sectionWidth = (width - 8) ~/ 4;
     final difficulty = _difficulty(world, level);
+    final rotation = (world * 3 + level) % 5;
 
     for (var section = 0; section < 4; section++) {
       final start = 4 + section * sectionWidth;
       final x = start + sectionWidth * 2 ~/ 3;
-      switch ((world + level + section) % 4) {
+      switch ((rotation + section) % 5) {
         case 0:
-          _gap(grid, x, 2);
-          _platform(grid, x - 1, ground - 3, 4);
-          _coin(grid, x, ground - 4);
-          _coin(grid, x + 1, ground - 4);
+          // 弹跳节奏：春垫、短坑与弧形糖轨；地面仍留有直通过法。
+          _put(grid, x, ground, 'S');
+          _gap(grid, x + 4, 2);
+          _platform(grid, x + 6, ground - 3, 3);
+          _coin(grid, x + 3, ground - 4);
+          _coin(grid, x + 4, ground - 5);
+          _coin(grid, x + 5, ground - 5);
+          _coin(grid, x + 6, ground - 4);
           break;
         case 1:
-          _platform(grid, x, ground - 2, 3);
-          _platform(grid, x + 4, ground - 4, 3);
-          _coin(grid, x + 1, ground - 3);
-          _coin(grid, x + 5, ground - 5);
+          // 花园守线：拾取种子后，植物伙伴会短暂自动瞄准附近敌人。
+          _placeGroundPickup(grid, x, ground, 'N');
+          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          _coin(grid, x + 2, ground - 2);
+          _coin(grid, x + 3, ground - 2);
           break;
         case 2:
-          _placeSceneEnemy(grid, x, ground, difficulty);
-          _platform(grid, x + 3, ground - 3, 3);
-          _coin(grid, x + 4, ground - 4);
+          // 横向枪战：先给发射器，再布置有间距的敌人，留下跳跃/冲刺选择。
+          _placeGroundPickup(grid, x, ground, 'W');
+          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          if (difficulty >= 4) {
+            _placeSceneEnemy(grid, x + 9, ground, difficulty, world, level);
+          }
           break;
         case 3:
-          _gap(grid, x, 2);
-          _platform(grid, x + 3, ground - 2, 3);
-          _coin(grid, x + 3, ground - 3);
-          _coin(grid, x + 4, ground - 3);
+          // 载具冲刺：车在障碍前出现，冲撞收益明显；不把车放在坑边。
+          _placeGroundPickup(grid, x, ground, 'V');
+          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          if (difficulty >= 5) {
+            _placeSceneEnemy(grid, x + 9, ground, difficulty, world, level);
+          }
+          _coin(grid, x + 6, ground - 2);
+          _coin(grid, x + 7, ground - 2);
+          break;
+        case 4:
+          // 技能对抗：预警型怪物搭配高台糖轨，冲刺与跳跃都能应对。
+          _placeSceneEnemy(grid, x, ground, difficulty, world, level);
+          _platform(grid, x + 4, ground - 3, 3);
+          _coin(grid, x + 4, ground - 4);
+          if (difficulty >= 5) {
+            _placeSceneEnemy(grid, x + 7, ground, difficulty, world, level);
+          }
           break;
       }
     }
+  }
+
+  /// 每关加入低顶隧道：下蹲取糖或跳上顶棚绕行，地面保持连续。
+  static void _addDuckTunnel(
+    List<List<String>> grid,
+    int world,
+    int level,
+  ) {
+    final width = grid.first.length;
+    final ground = grid.length - 3;
+    final length = 4 + (world + level) % 3;
+    final preferredStart = width ~/ 2 - length ~/ 2;
+    var start = -1;
+    var enemyRelocations = <(int, String, int)>[];
+
+    for (var offset = 0; offset < width && start < 0; offset++) {
+      for (final direction in offset == 0 ? const [0] : const [-1, 1]) {
+        final candidate = preferredStart + offset * direction;
+        if (candidate < 6 || candidate + length > width - 6) {
+          continue;
+        }
+        var clear = true;
+        final movingEnemies = <(int, String)>[];
+        for (var x = candidate; x < candidate + length; x++) {
+          final tile = grid[ground][x];
+          if (grid[ground - 1][x] != ' ' ||
+              grid[ground + 1][x] != '#' ||
+              'PFBVS?'.contains(tile)) {
+            clear = false;
+            break;
+          }
+          if ('EGRT'.contains(tile)) {
+            movingEnemies.add((x, tile));
+          }
+        }
+        if (!clear) {
+          continue;
+        }
+
+        final reserved = <int>{};
+        final moves = <(int, String, int)>[];
+        for (final (enemyX, kind) in movingEnemies) {
+          final destination = _duckTunnelEnemyDestination(
+            grid,
+            ground,
+            candidate,
+            length,
+            reserved,
+          );
+          if (destination == null) {
+            clear = false;
+            break;
+          }
+          reserved.add(destination);
+          moves.add((enemyX, kind, destination));
+        }
+        if (clear) {
+          start = candidate;
+          enemyRelocations = moves;
+          break;
+        }
+      }
+    }
+    if (start < 0) {
+      return;
+    }
+
+    for (final (enemyX, kind, destination) in enemyRelocations) {
+      grid[ground][enemyX] = ' ';
+      grid[ground][destination] = kind;
+    }
+    for (var i = 0; i < length; i++) {
+      grid[ground - 1][start + i] = 'D';
+      if (i.isOdd && grid[ground][start + i] == ' ') {
+        grid[ground][start + i] = 'C';
+      }
+    }
+
+    final guardX = start + length + 3;
+    if (_difficulty(world, level) >= 5 &&
+        (world + level).isEven &&
+        guardX < width - 6 &&
+        grid[ground][guardX] == ' ' &&
+        grid[ground + 1][guardX] == '#' &&
+        grid[ground + 2][guardX] == '#' &&
+        ![guardX - 2, guardX - 1, guardX + 1, guardX + 2].any(
+          (x) => 'EGRBT'.contains(grid[ground][x]),
+        )) {
+      grid[ground][guardX] = 'T';
+    }
+  }
+
+  static int? _duckTunnelEnemyDestination(
+    List<List<String>> grid,
+    int ground,
+    int start,
+    int length,
+    Set<int> reserved,
+  ) {
+    final width = grid.first.length;
+    for (var offset = 4; offset < width; offset++) {
+      for (final x in [start - offset, start + length - 1 + offset]) {
+        if (x < 6 || x >= width - 6 ||
+            x >= start && x < start + length ||
+            reserved.contains(x) ||
+            grid[ground][x] != ' ' ||
+            grid[ground + 1][x] != '#') {
+          continue;
+        }
+        return x;
+      }
+    }
+    return null;
   }
 
   static void _placeSceneEnemy(
@@ -150,13 +285,21 @@ class LevelCatalog {
     int targetX,
     int ground,
     int difficulty,
+    int world,
+    int level,
   ) {
     final width = grid.first.length;
-    final kind = difficulty >= 9
-        ? 'R'
-        : difficulty >= 4
-        ? 'G'
-        : 'E';
+    final sceneType = (world + level) % 4;
+    final kind = difficulty < 3
+        ? 'E'
+        : difficulty < 4
+        ? (sceneType == 0 ? 'T' : 'E')
+        : switch (sceneType) {
+            0 => 'T',
+            1 => 'G',
+            2 => 'R',
+            _ => 'E',
+          };
     for (var offset = 0; offset <= 5; offset++) {
       for (final direction in offset == 0 ? const [1] : const [1, -1]) {
         final x = targetX + offset * direction;
@@ -171,7 +314,7 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'EGRBWV'.contains(grid[ground][near]))) {
+        ].any((near) => 'EGRBTWV'.contains(grid[ground][near]))) {
           continue;
         }
         grid[ground][x] = kind;
@@ -207,7 +350,7 @@ class LevelCatalog {
             x - 1,
             x + 1,
             x + 2,
-          ].any((near) => 'EGRBWV'.contains(grid[ground][near]))) {
+          ].any((near) => 'EGRBTWV'.contains(grid[ground][near]))) {
             continue;
           }
           grid[ground][x] = 'K';
@@ -278,22 +421,6 @@ class LevelCatalog {
     }
   }
 
-  /// 在安全地面区轮换放置射击器与小车，不占用跳跃必经路径。
-  static void _placeFeaturePickups(
-    List<List<String>> grid,
-    int world,
-    int level,
-  ) {
-    final width = grid.first.length;
-    final ground = grid.length - 3;
-    if ((world + level).isEven) {
-      _placeGroundPickup(grid, width ~/ 4, ground, 'W');
-    }
-    if ((world * 2 + level) % 3 == 0) {
-      _placeGroundPickup(grid, (width * 0.62).round(), ground, 'V');
-    }
-  }
-
   static void _placeGroundPickup(
     List<List<String>> grid,
     int targetX,
@@ -306,10 +433,16 @@ class LevelCatalog {
         if (x < 10 || x >= grid.first.length - 8) {
           continue;
         }
-        if (grid[ground][x] != ' ' ||
-            grid[ground - 1][x] != ' ' ||
-            grid[ground + 1][x] != '#' ||
-            grid[ground + 2][x] != '#') {
+        final pickupY = [ground, ground - 2, ground - 3, ground - 4, ground - 5]
+            .where((y) => y > 0 && y + 1 < grid.length)
+            .firstWhere(
+              (y) =>
+                  grid[y][x] == ' ' &&
+                  grid[y - 1][x] == ' ' &&
+                  '=#?'.contains(grid[y + 1][x]),
+              orElse: () => -1,
+            );
+        if (pickupY < 0) {
           continue;
         }
         final nearEnemy = [
@@ -317,11 +450,11 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'EGRB'.contains(grid[ground][near]));
+        ].any((near) => 'EGRBT'.contains(grid[pickupY][near]));
         if (nearEnemy) {
           continue;
         }
-        grid[ground][x] = pickup;
+        grid[pickupY][x] = pickup;
         return;
       }
     }
@@ -395,21 +528,7 @@ class LevelCatalog {
 
   static void _platform(List<List<String>> g, int x, int y, int len) {
     final py = _clampPlatY(g, y);
-    // 原定太高时，补一阶过渡平台，避免突然够不着
-    if (y < py - 1) {
-      final stepY = ((py + (g.length - 3)) / 2).floor();
-      final mid = _clampPlatY(g, stepY);
-      if (mid > py) {
-        for (var i = 0; i < len.clamp(1, 3); i++) {
-          final px = x + i - 1;
-          if (px >= 0 && px < g.first.length) {
-            if (g[mid][px] == ' ') {
-              g[mid][px] = '=';
-            }
-          }
-        }
-      }
-    }
+    // 不自动补机械台阶；安全地面路线与可跳抵的平台分层设计。
     for (var i = 0; i < len; i++) {
       final px = x + i;
       if (px >= 0 && px < g.first.length && py >= 0 && py < g.length) {
@@ -479,6 +598,8 @@ class LevelCatalog {
           ch == 'K' ||
           ch == 'G' ||
           ch == 'R' ||
+          ch == 'T' ||
+          ch == 'N' ||
           ch == 'M' ||
           ch == 'H';
       if (g[py][x] == ' ' || force) {
@@ -599,11 +720,12 @@ class LevelCatalog {
   static void _worldRoseCastle(List<List<String>> g, int level) {
     final ground = g.length - 3;
     var x = 6;
+    const islandHeights = [3, 1, 4, 2, 3, 1, 4, 2];
     for (var i = 0; i < 5 + level ~/ 2; i++) {
-      final y = ground - i.clamp(0, 5);
-      _platform(g, x, y, 3);
+      final y = ground - islandHeights[(i + level) % islandHeights.length];
+      _platform(g, x, y, 2 + (i % 2));
       _coin(g, x + 1, y - 1);
-      x += 5;
+      x += 5 + (i % 2);
     }
     for (var gx = 15; gx < g.first.length - 15; gx += 10) {
       _gap(g, gx, 2);
@@ -692,18 +814,19 @@ class LevelCatalog {
     final w = g.first.length;
     final ground = g.length - 3;
     final anchor = (w * (0.28 + (level % 3) * 0.12)).floor().clamp(12, w - 20);
-    // 阶梯上台 → 问号顶砖 → 弹簧过渡 → 高台糖轨
-    _platform(g, anchor, ground - 2, 4);
-    _platform(g, anchor + 5, ground - 3, 5);
-    _platform(g, anchor + 11, ground - 5, 4);
-    _platform(g, anchor + 16, ground - 3, 3);
-    for (var i = 0; i < 5; i++) {
-      _coin(g, anchor + 5 + i, ground - 4);
-    }
-    _coin(g, anchor + 12, ground - 6);
-    _coin(g, anchor + 13, ground - 6);
-    _put(g, anchor + 7, ground - 3, '?');
-    _put(g, anchor + 12, ground - 5, 'M');
+    // 错落浮岛与弧形糖轨：避开连续同向升高的机械台阶。
+    _platform(g, anchor, ground - 3, 5);
+    _platform(g, anchor + 8, ground - 5, 3);
+    _platform(g, anchor + 15, ground - 2, 4);
+    _platform(g, anchor + 22, ground - 4, 3);
+    _coin(g, anchor + 4, ground - 4);
+    _coin(g, anchor + 5, ground - 5);
+    _coin(g, anchor + 6, ground - 5);
+    _coin(g, anchor + 7, ground - 4);
+    _coin(g, anchor + 9, ground - 6);
+    _coin(g, anchor + 10, ground - 6);
+    _put(g, anchor + 2, ground - 3, '?');
+    _put(g, anchor + 9, ground - 5, 'M');
     _put(g, anchor + 16, ground - 3, 'S');
     _put(g, anchor + 3, ground - 2, 'K');
     if (level >= 4) {

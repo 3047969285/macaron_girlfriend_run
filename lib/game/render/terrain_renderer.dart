@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
@@ -6,10 +7,15 @@ import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 /// 地形块
 class TerrainTile {
-  const TerrainTile({required this.rect, required this.isGround});
+  const TerrainTile({
+    required this.rect,
+    required this.isGround,
+    this.isDuckCeiling = false,
+  });
 
   final Rect rect;
   final bool isGround;
+  final bool isDuckCeiling;
 }
 
 /// 平台跳跃地形与装饰绘制（离屏 Picture 缓存，避免每帧重绘砖块）
@@ -47,13 +53,7 @@ class TerrainRenderer extends PositionComponent {
     _picture?.dispose();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    for (final tile in solids) {
-      if (tile.isGround) {
-        _drawGroundBlock(canvas, tile.rect);
-      } else {
-        _drawPlatformBlock(canvas, tile.rect);
-      }
-    }
+    _drawTerrain(canvas);
     _drawScenery(canvas);
     _picture = recorder.endRecording();
   }
@@ -65,14 +65,59 @@ class TerrainRenderer extends PositionComponent {
       canvas.drawPicture(pic);
       return;
     }
+    _drawTerrain(canvas);
+    _drawScenery(canvas);
+  }
+
+  void _drawTerrain(Canvas canvas) {
+    final platformRows = <double, List<Rect>>{};
+    final duckCeilingRows = <double, List<Rect>>{};
     for (final tile in solids) {
       if (tile.isGround) {
         _drawGroundBlock(canvas, tile.rect);
       } else {
-        _drawPlatformBlock(canvas, tile.rect);
+        final rows = tile.isDuckCeiling ? duckCeilingRows : platformRows;
+        rows.putIfAbsent(tile.rect.top, () => []).add(tile.rect);
       }
     }
-    _drawScenery(canvas);
+    _drawPlatformRows(canvas, platformRows);
+    _drawPlatformRows(canvas, duckCeilingRows, duckCeiling: true);
+  }
+
+  void _drawPlatformRows(
+    Canvas canvas,
+    Map<double, List<Rect>> rows, {
+    bool duckCeiling = false,
+  }) {
+    // 把同一高度相连的瓦片画成整片软边浮台，去掉逐块描边的砖阶感。
+    for (final row in rows.values) {
+      row.sort((a, b) => a.left.compareTo(b.left));
+      var left = row.first.left;
+      var right = row.first.right;
+      var top = row.first.top;
+      var bottom = row.first.bottom;
+      for (final rect in row.skip(1)) {
+        if (rect.left <= right + 0.5) {
+          right = right > rect.right ? right : rect.right;
+          bottom = bottom > rect.bottom ? bottom : rect.bottom;
+          continue;
+        }
+        _drawPlatformCluster(
+          canvas,
+          Rect.fromLTRB(left, top, right, bottom),
+          duckCeiling: duckCeiling,
+        );
+        left = rect.left;
+        right = rect.right;
+        top = rect.top;
+        bottom = rect.bottom;
+      }
+      _drawPlatformCluster(
+        canvas,
+        Rect.fromLTRB(left, top, right, bottom),
+        duckCeiling: duckCeiling,
+      );
+    }
   }
 
   void _drawGroundBlock(Canvas canvas, Rect r) {
@@ -110,24 +155,54 @@ class TerrainRenderer extends PositionComponent {
     );
   }
 
-  void _drawPlatformBlock(Canvas canvas, Rect r) {
-    final fill = Paint()..color = palette.accent.withValues(alpha: 0.92);
-    final rrect = RRect.fromRectAndRadius(r, const Radius.circular(6));
-    canvas.drawRRect(rrect, fill);
+  void _drawPlatformCluster(
+    Canvas canvas,
+    Rect r, {
+    bool duckCeiling = false,
+  }) {
+    final radius = Radius.circular(r.height * 0.28);
+    final rrect = RRect.fromRectAndRadius(r, radius);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(r.shift(const Offset(0, 4)), radius),
+      Paint()..color = palette.groundDark.withValues(alpha: 0.34),
+    );
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.45)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..color = Color.lerp(
+          palette.accent,
+          palette.ground,
+          0.16,
+        )!.withValues(alpha: 0.96),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(r.left + 4, r.top + 4, r.width - 8, 6),
-        const Radius.circular(3),
-      ),
-      Paint()..color = Colors.white.withValues(alpha: 0.35),
+      rrect,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.52)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
     );
+    canvas.drawLine(
+      Offset(r.left + radius.x, r.top + 3),
+      Offset(r.right - radius.x, r.top + 3),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.48)
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round,
+    );
+    if (duckCeiling) {
+      final marker = Paint()
+        ..color = palette.accent.withValues(alpha: 0.76)
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round;
+      for (var x = r.left + 14; x < r.right - 6; x += 24) {
+        canvas.drawLine(
+          Offset(x, r.bottom - 3),
+          Offset(x + 8, r.bottom - 3),
+          marker,
+        );
+      }
+    }
   }
 
   void _drawScenery(Canvas canvas) {
@@ -136,7 +211,7 @@ class TerrainRenderer extends PositionComponent {
     final pipeColor = Color.lerp(palette.ground, palette.accent, 0.45)!;
     for (var section = 0; section < 4; section++) {
       final center = sectionWidth * (section + 0.5);
-      switch ((sceneVariant + section) % 4) {
+      switch ((sceneVariant + section) % 6) {
         case 0:
           _drawBush(canvas, Offset(center - 170, groundY - 4), bush);
           _drawMacaronPipe(canvas, Offset(center - 22, groundY), pipeColor);
@@ -153,7 +228,79 @@ class TerrainRenderer extends PositionComponent {
         case 3:
           _drawCandyCastle(canvas, center);
           break;
+        case 4:
+          _drawFlowerGarden(canvas, center);
+          break;
+        case 5:
+          _drawRibbonGate(canvas, center);
+          break;
       }
+    }
+  }
+
+  void _drawFlowerGarden(Canvas canvas, double centerX) {
+    final stem = Paint()
+      ..color = const Color(0xFF579A6C)
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final colors = [
+      MacaronColors.rose,
+      MacaronColors.lemon,
+      MacaronColors.lilac,
+    ];
+    for (var i = 0; i < 5; i++) {
+      final x = centerX - 92 + i * 46.0;
+      final height = 32.0 + (i % 3) * 11;
+      final flower = Offset(x, groundY - height);
+      canvas.drawLine(Offset(x, groundY - 4), flower, stem);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(x - 6, groundY - height * 0.45),
+          width: 13,
+          height: 6,
+        ),
+        Paint()..color = MacaronColors.mint,
+      );
+      for (var petal = 0; petal < 5; petal++) {
+        final angle = petal * 1.256;
+        canvas.drawCircle(
+          flower + Offset(math.cos(angle) * 7, math.sin(angle) * 7),
+          5,
+          Paint()..color = colors[i % colors.length],
+        );
+      }
+      canvas.drawCircle(flower, 3.3, Paint()..color = const Color(0xFFFFF1B8));
+    }
+  }
+
+  void _drawRibbonGate(Canvas canvas, double centerX) {
+    final path = Path()
+      ..moveTo(centerX - 64, groundY)
+      ..quadraticBezierTo(centerX - 64, groundY - 112, centerX, groundY - 112)
+      ..quadraticBezierTo(centerX + 64, groundY - 112, centerX + 64, groundY);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = palette.accent.withValues(alpha: 0.88)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 16
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+    for (final side in [-1.0, 1.0]) {
+      final x = centerX + side * 64;
+      canvas.drawCircle(
+        Offset(x, groundY - 8),
+        10,
+        Paint()..color = palette.ground,
+      );
     }
   }
 

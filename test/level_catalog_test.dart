@@ -1,15 +1,52 @@
+import 'package:flame/components.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
 import 'package:macaron_girlfriend_run/data/shop_catalog.dart';
+import 'package:macaron_girlfriend_run/game/entities/entities.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 
 void main() {
+  test(
+    'active skill changes between levels and every world has all skills',
+    () {
+      for (var world = 0; world < GameConstants.worldCount; world++) {
+        final skills = <HeroSkill>{};
+        for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+          final skill = GameConstants.heroSkillForLevel(world, level);
+          skills.add(skill);
+          if (level + 1 < GameConstants.levelsPerWorld) {
+            expect(
+              skill,
+              isNot(GameConstants.heroSkillForLevel(world, level + 1)),
+              reason:
+                  'world $world, level $level must rotate its active skill',
+            );
+          }
+        }
+        expect(skills, HeroSkill.values.toSet(), reason: 'world $world');
+      }
+    },
+  );
+
   test('99 levels catalog loads with spawn and goal', () {
     var count = 0;
+    var trapperCount = 0;
+    var gardenEventCount = 0;
+    var levelsWithDuckTunnel = 0;
+    var levelsWithGun = 0;
+    var levelsWithVehicle = 0;
+    final pickupPatterns = <String>{};
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
+        final map = level.rows.join();
+        trapperCount += map.split('T').length - 1;
+        gardenEventCount += map.contains('N') ? 1 : 0;
+        levelsWithDuckTunnel += map.contains('D') ? 1 : 0;
+        levelsWithGun += map.contains('W') ? 1 : 0;
+        levelsWithVehicle += map.contains('V') ? 1 : 0;
+        pickupPatterns.add(['S', 'N', 'W', 'V'].where(map.contains).join());
         expect(level.width, greaterThanOrEqualTo(100));
         expect(level.rows.any((r) => r.contains('P')), isTrue);
         expect(level.rows.any((r) => r.contains('F')), isTrue);
@@ -18,11 +55,18 @@ void main() {
       }
     }
     expect(count, GameConstants.totalLevels);
+    expect(trapperCount, greaterThan(0));
+    expect(gardenEventCount, greaterThan(GameConstants.totalLevels ~/ 2));
+    expect(levelsWithDuckTunnel, GameConstants.totalLevels);
+    expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
+    expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
+    expect(pickupPatterns.length, greaterThanOrEqualTo(4));
     expect(LevelCatalog.load(8, 10).width, 352);
   });
 
   test('every level is unique and has a traversable ground route', () {
     final signatures = <String>{};
+    final tunnelLengths = <int>{};
     final minJumpRange =
         GameConstants.playerMoveSpeedFor(GameConstants.maxDifficulty) *
         2 *
@@ -42,12 +86,60 @@ void main() {
         final reason = 'world $w, level $l';
         expect(signatures.add(level.rows.join('\n')), isTrue, reason: reason);
         expect(
+          GirlfriendPlayer.duckHeight,
+          lessThan(GameConstants.tileSize),
+          reason: '$reason crouch must fit beneath the tunnel',
+        );
+        expect(
+          GirlfriendPlayer.standHeight,
+          greaterThan(GameConstants.tileSize),
+          reason: '$reason standing must not fit beneath the tunnel',
+        );
+        expect(
           level.rows.join().split('K').length - 1,
           greaterThanOrEqualTo(4),
           reason: '$reason needs frequent checkpoints',
         );
 
         final ground = level.height - 3;
+        final tunnelTiles = [
+          for (var x = 2; x <= level.width - 3; x++)
+            if (level.tileAt(x, ground - 1) == 'D') x,
+        ];
+        expect(
+          tunnelTiles.length,
+          inInclusiveRange(4, 6),
+          reason: reason,
+        );
+        expect(
+          tunnelTiles.any((x) => level.tileAt(x, ground) == 'C'),
+          isTrue,
+          reason: '$reason tunnel needs an optional candy reward',
+        );
+        tunnelLengths.add(tunnelTiles.length);
+        expect(
+          tunnelTiles.last - tunnelTiles.first + 1,
+          tunnelTiles.length,
+          reason: '$reason tunnel roof must be continuous',
+        );
+        for (final x in tunnelTiles) {
+          expect(level.tileAt(x, ground + 1), '#', reason: reason);
+          expect(
+            'PFEGRBTWV'.contains(level.tileAt(x, ground)),
+            isFalse,
+            reason: '$reason tunnel must not be blocked by enemies or exit',
+          );
+        }
+        for (var y = 0; y < level.height; y++) {
+          for (var x = 0; x < level.width; x++) {
+            if (level.tileAt(x, y) != 'T') {
+              continue;
+            }
+            expect(y, ground, reason: '$reason places trapper on ground');
+            expect(level.tileAt(x, ground + 1), '#', reason: reason);
+            expect(level.tileAt(x, ground + 2), '#', reason: reason);
+          }
+        }
         expect(level.tileAt(2, ground), 'P', reason: reason);
         expect(level.tileAt(level.width - 3, ground), 'F', reason: reason);
         expect(level.tileAt(2, ground + 1), '#', reason: reason);
@@ -91,7 +183,7 @@ void main() {
         final enemyCount = level.rows
             .join()
             .split('')
-            .where((tile) => 'EGRB'.contains(tile))
+            .where((tile) => 'EGRBT'.contains(tile))
             .length;
         final conservativeClearTime =
             level.width *
@@ -106,12 +198,59 @@ void main() {
       }
     }
     expect(signatures.length, GameConstants.totalLevels);
+    expect(tunnelLengths.length, 3);
   });
 
   test('boss levels contain boss tile', () {
     for (var w = 0; w < GameConstants.worldCount; w++) {
       final level = LevelCatalog.load(w, 10);
       expect(level.rows.any((r) => r.contains('B')), isTrue);
+    }
+  });
+
+  test('boss attack patterns rotate by world', () {
+    final patterns = List.generate(
+      GameConstants.worldCount,
+      BossAttackPattern.forWorld,
+    );
+    expect(patterns.toSet(), BossAttackPattern.values.toSet());
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      expect(
+        BossAttackPattern.forWorld(world),
+        BossAttackPattern.values[world % BossAttackPattern.values.length],
+      );
+    }
+  });
+
+  test('enraged bosses announce and execute their world attack', () {
+    for (var world = 0; world < BossAttackPattern.values.length; world++) {
+      final shotDirections = <double>[];
+      final boss = MacaronBoss(
+        position: Vector2(200, 120),
+        leftBound: 0,
+        rightBound: 400,
+        worldIndex: world,
+        onShoot: (_, direction) => shotDirections.add(direction),
+      )..targetX = 300;
+      boss.stompHit();
+
+      boss
+        ..update(0.2)
+        ..update(0.6);
+      expect(
+        boss.isSlamming || boss.isRushing || shotDirections.isNotEmpty,
+        isFalse,
+      );
+      boss.update(0.2);
+      switch (boss.attackPattern) {
+        case BossAttackPattern.slam:
+          expect(boss.isSlamming, isTrue);
+        case BossAttackPattern.rush:
+          expect(boss.isRushing, isTrue);
+        case BossAttackPattern.volley:
+          boss.update(0.2);
+          expect(shotDirections, [1]);
+      }
     }
   });
 

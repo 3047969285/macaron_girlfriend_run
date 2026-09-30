@@ -8,4 +8,7 @@ enum EnemyKind {
 
   /// 更胖更慢更耐撞观感
   bruiser,
+
+  /// 会在地面留下减速糖浆的陷阱怪
+  trapper,
 }
