@@ -936,7 +936,13 @@ class PlayerCandyShot extends PositionComponent {
 enum BossAttackPattern {
   slam,
   rush,
-  volley;
+  volley,
+  pounce,
+  trap,
+  doubleRush,
+  slamVolley,
+  trapVolley,
+  longVolley;
 
   static BossAttackPattern forWorld(int worldIndex) =>
       values[worldIndex % values.length];
@@ -950,6 +956,7 @@ class MacaronBoss extends PositionComponent {
     required this.rightBound,
     required this.worldIndex,
     this.onShoot,
+    this.onLayTrap,
     this.maxHp = 3,
   }) : hp = maxHp,
        _baseY = position.y,
@@ -966,6 +973,7 @@ class MacaronBoss extends PositionComponent {
   final int maxHp;
   final double _baseY;
   final void Function(Vector2 at, double direction)? onShoot;
+  final void Function(Vector2 at)? onLayTrap;
   int hp;
   double dir = -1;
   double _wobble = 0;
@@ -974,13 +982,17 @@ class MacaronBoss extends PositionComponent {
   double _attackCooldown = 1.2;
   double _warningTimer = 0;
   double _rushTimer = 0;
+  double _rushPause = 0;
+  int _rushBursts = 0;
   double _attackDirection = 1;
+  double _attackTargetX = 0;
   double _volleyTimer = 0;
   int _volleyShots = 0;
   double _vy = 0;
   bool dead = false;
   bool enraged = false;
   bool isSlamming = false;
+  bool isPouncing = false;
   bool get isRushing => _rushTimer > 0;
 
   BossAttackPattern get attackPattern =>
@@ -1025,11 +1037,32 @@ class MacaronBoss extends PositionComponent {
         }
       } else if (_attackCooldown <= 0 &&
           !isSlamming &&
+          !isPouncing &&
           !isRushing &&
+          _rushPause <= 0 &&
+          _rushBursts == 0 &&
           _volleyShots == 0) {
-        _attackDirection = _directionToTarget();
+        _attackTargetX = (targetX ?? position.x)
+            .clamp(leftBound, rightBound)
+            .toDouble();
+        _attackDirection = _directionToTarget(_attackTargetX);
         dir = _attackDirection;
-        _warningTimer = 0.78;
+        _warningTimer = switch (attackPattern) {
+          BossAttackPattern.trap || BossAttackPattern.trapVolley => 1.0,
+          BossAttackPattern.pounce || BossAttackPattern.doubleRush => 0.9,
+          BossAttackPattern.slamVolley => 0.88,
+          _ => 0.78,
+        };
+        return;
+      }
+
+      if (_rushPause > 0) {
+        _rushPause = (_rushPause - dt).clamp(0.0, 1.0);
+        if (_rushPause <= 0 && _rushBursts > 0) {
+          _attackDirection = -_attackDirection;
+          dir = _attackDirection;
+          _rushTimer = 0.42;
+        }
         return;
       }
 
@@ -1039,6 +1072,13 @@ class MacaronBoss extends PositionComponent {
         if (position.x <= leftBound || position.x >= rightBound) {
           position.x = position.x.clamp(leftBound, rightBound);
           _rushTimer = 0;
+          _rushBursts = 0;
+          _rushPause = 0;
+        } else if (_rushTimer <= 0) {
+          _rushBursts--;
+          if (_rushBursts > 0) {
+            _rushPause = 0.3;
+          }
         }
         return;
       }
@@ -1053,6 +1093,20 @@ class MacaronBoss extends PositionComponent {
           _volleyShots--;
           _volleyTimer = 0.28;
         }
+      }
+
+      if (isPouncing) {
+        _vy += 2200 * dt;
+        position.x = (position.x + _attackDirection * 230 * dt)
+            .clamp(leftBound, rightBound)
+            .toDouble();
+        position.y += _vy * dt;
+        if (position.y >= _baseY) {
+          position.y = _baseY;
+          _vy = 0;
+          isPouncing = false;
+        }
+        return;
       }
     }
 
@@ -1079,8 +1133,8 @@ class MacaronBoss extends PositionComponent {
     }
   }
 
-  double _directionToTarget() {
-    final target = targetX;
+  double _directionToTarget([double? snapshot]) {
+    final target = snapshot ?? targetX;
     if (target == null || target == position.x) {
       return dir;
     }
@@ -1095,12 +1149,40 @@ class MacaronBoss extends PositionComponent {
         _attackCooldown = 2.6;
       case BossAttackPattern.rush:
         _rushTimer = 0.68;
+        _rushBursts = 1;
         _attackCooldown = 3.1;
       case BossAttackPattern.volley:
-        _volleyShots = 3;
-        _volleyTimer = 0.18;
+        _startVolley(3, 0.28);
         _attackCooldown = 3.3;
+      case BossAttackPattern.pounce:
+        isPouncing = true;
+        _vy = -680;
+        _attackCooldown = 3.4;
+      case BossAttackPattern.trap:
+        onLayTrap?.call(Vector2(_attackTargetX, _baseY));
+        _attackCooldown = 4.0;
+      case BossAttackPattern.doubleRush:
+        _rushTimer = 0.42;
+        _rushBursts = 2;
+        _attackCooldown = 4.3;
+      case BossAttackPattern.slamVolley:
+        isSlamming = true;
+        _vy = -780;
+        _startVolley(3, 0.28);
+        _attackCooldown = 3.8;
+      case BossAttackPattern.trapVolley:
+        onLayTrap?.call(Vector2(_attackTargetX, _baseY));
+        _startVolley(2, 0.34);
+        _attackCooldown = 4.5;
+      case BossAttackPattern.longVolley:
+        _startVolley(5, 0.3);
+        _attackCooldown = 4.4;
     }
+  }
+
+  void _startVolley(int shots, double interval) {
+    _volleyShots = shots;
+    _volleyTimer = interval;
   }
 
   @override
@@ -1168,7 +1250,7 @@ class MacaronBoss extends PositionComponent {
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 25);
       final badge = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: center, width: 38, height: 28),
+        Rect.fromCenter(center: center, width: 48, height: 30),
         const Radius.circular(9),
       );
       canvas.drawRRect(
@@ -1189,18 +1271,39 @@ class MacaronBoss extends PositionComponent {
         ..style = PaintingStyle.stroke;
       switch (attackPattern) {
         case BossAttackPattern.slam:
-          canvas.drawLine(center + const Offset(0, -6), center + const Offset(0, 3), cuePaint);
-          canvas.drawCircle(center + const Offset(0, 8), 1.5, cuePaint);
+          _drawSlamCue(canvas, center, cuePaint);
         case BossAttackPattern.rush:
-          final arrow = Path()
-            ..moveTo(center.dx - 7, center.dy - 5)
-            ..lineTo(center.dx + 7, center.dy)
-            ..lineTo(center.dx - 7, center.dy + 5);
-          canvas.drawPath(arrow, cuePaint);
+          _drawRushCue(canvas, center, cuePaint);
         case BossAttackPattern.volley:
-          for (var i = -1; i <= 1; i++) {
-            canvas.drawCircle(center + Offset(i * 7.0, 0), 2, cuePaint);
-          }
+          _drawVolleyCue(canvas, center, cuePaint, 3);
+        case BossAttackPattern.pounce:
+          final arc = Path()
+            ..moveTo(center.dx - 8, center.dy + 4)
+            ..quadraticBezierTo(
+              center.dx,
+              center.dy - 10,
+              center.dx + 8,
+              center.dy + 4,
+            );
+          canvas.drawPath(arc, cuePaint);
+          canvas.drawCircle(center + const Offset(0, 6), 2, cuePaint);
+        case BossAttackPattern.trap:
+          _drawTrapCue(canvas, center, cuePaint);
+        case BossAttackPattern.doubleRush:
+          _drawRushCue(canvas, center, cuePaint);
+          canvas.drawLine(
+            center + const Offset(-8, 10),
+            center + const Offset(8, 10),
+            cuePaint,
+          );
+        case BossAttackPattern.slamVolley:
+          _drawSlamCue(canvas, center + const Offset(-9, 0), cuePaint);
+          _drawVolleyCue(canvas, center + const Offset(9, 0), cuePaint, 3);
+        case BossAttackPattern.trapVolley:
+          _drawTrapCue(canvas, center + const Offset(-9, 0), cuePaint);
+          _drawVolleyCue(canvas, center + const Offset(9, 0), cuePaint, 2);
+        case BossAttackPattern.longVolley:
+          _drawVolleyCue(canvas, center, cuePaint, 5);
       }
     }
     for (var i = 0; i < maxHp; i++) {
@@ -1214,6 +1317,48 @@ class MacaronBoss extends PositionComponent {
       );
     }
     canvas.restore();
+  }
+
+  void _drawSlamCue(Canvas canvas, Offset center, Paint paint) {
+    canvas.drawLine(
+      center + const Offset(0, -7),
+      center + const Offset(0, 3),
+      paint,
+    );
+    canvas.drawCircle(center + const Offset(0, 8), 1.5, paint);
+  }
+
+  void _drawRushCue(Canvas canvas, Offset center, Paint paint) {
+    final arrow = Path()
+      ..moveTo(center.dx - 7, center.dy - 5)
+      ..lineTo(center.dx + 7, center.dy)
+      ..lineTo(center.dx - 7, center.dy + 5);
+    canvas.drawPath(arrow, paint);
+  }
+
+  void _drawVolleyCue(Canvas canvas, Offset center, Paint paint, int count) {
+    final spacing = count == 5 ? 5.0 : 6.0;
+    for (var i = 0; i < count; i++) {
+      canvas.drawCircle(
+        center + Offset((i - (count - 1) / 2) * spacing, 0),
+        2,
+        paint,
+      );
+    }
+  }
+
+  void _drawTrapCue(Canvas canvas, Offset center, Paint paint) {
+    final trap = Path()
+      ..moveTo(center.dx, center.dy - 7)
+      ..lineTo(center.dx + 7, center.dy + 5)
+      ..lineTo(center.dx - 7, center.dy + 5)
+      ..close();
+    canvas.drawPath(trap, paint);
+    canvas.drawLine(
+      center + const Offset(-9, 8),
+      center + const Offset(9, 8),
+      paint,
+    );
   }
 }
 

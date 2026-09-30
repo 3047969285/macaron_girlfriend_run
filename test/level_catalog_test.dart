@@ -225,31 +225,69 @@ void main() {
   test('enraged bosses announce and execute their world attack', () {
     for (var world = 0; world < BossAttackPattern.values.length; world++) {
       final shotDirections = <double>[];
+      final trapPositions = <Vector2>[];
       final boss = MacaronBoss(
         position: Vector2(200, 120),
         leftBound: 0,
         rightBound: 400,
         worldIndex: world,
         onShoot: (_, direction) => shotDirections.add(direction),
+        onLayTrap: trapPositions.add,
       )..targetX = 300;
       boss.stompHit();
 
-      boss
-        ..update(0.2)
-        ..update(0.6);
+      boss.update(0.2);
       expect(
-        boss.isSlamming || boss.isRushing || shotDirections.isNotEmpty,
+        boss.isSlamming ||
+            boss.isPouncing ||
+            boss.isRushing ||
+            shotDirections.isNotEmpty ||
+            trapPositions.isNotEmpty,
         isFalse,
       );
-      boss.update(0.2);
+      var elapsed = 0.0;
+      while (!boss.isSlamming &&
+          !boss.isPouncing &&
+          !boss.isRushing &&
+          shotDirections.isEmpty &&
+          trapPositions.isEmpty &&
+          elapsed < 2) {
+        boss.update(0.05);
+        elapsed += 0.05;
+      }
+      expect(elapsed, lessThan(2));
       switch (boss.attackPattern) {
         case BossAttackPattern.slam:
           expect(boss.isSlamming, isTrue);
         case BossAttackPattern.rush:
           expect(boss.isRushing, isTrue);
         case BossAttackPattern.volley:
-          boss.update(0.2);
           expect(shotDirections, [1]);
+        case BossAttackPattern.pounce:
+          expect(boss.isPouncing, isTrue);
+        case BossAttackPattern.trap:
+          expect(trapPositions, hasLength(1));
+          expect(trapPositions.single.x, 300);
+          expect(trapPositions.single.y, 120);
+        case BossAttackPattern.doubleRush:
+          expect(boss.isRushing, isTrue);
+        case BossAttackPattern.slamVolley:
+          expect(boss.isSlamming, isTrue);
+          for (var frame = 0; frame < 20 && shotDirections.isEmpty; frame++) {
+            boss.update(0.05);
+          }
+          expect(shotDirections, [1]);
+        case BossAttackPattern.trapVolley:
+          expect(trapPositions, hasLength(1));
+          for (var frame = 0; frame < 20 && shotDirections.isEmpty; frame++) {
+            boss.update(0.05);
+          }
+          expect(shotDirections, [1]);
+        case BossAttackPattern.longVolley:
+          for (var shot = 0; shot < 4; shot++) {
+            boss.update(0.31);
+          }
+          expect(shotDirections, hasLength(5));
       }
     }
   });

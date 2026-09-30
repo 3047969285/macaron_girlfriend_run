@@ -282,6 +282,7 @@ class MacaronGame extends FlameGame {
               rightBound: px + tile * 4,
               worldIndex: worldIndex,
               onShoot: _spawnEnemyShot,
+              onLayTrap: _spawnEnemyTrap,
               maxHp: 3 + (worldIndex ~/ 3),
             );
             break;
