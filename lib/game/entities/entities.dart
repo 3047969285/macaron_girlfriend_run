@@ -516,30 +516,77 @@ class SoftEnemy extends PositionComponent {
       );
     }
     if (_warningTimer > 0) {
+      final center = Offset(0, -size.y - 15);
       final badge = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(0, -size.y - 15), width: 18, height: 22),
+        Rect.fromCenter(center: center, width: 24, height: 24),
         const Radius.circular(8),
       );
       canvas.drawRRect(badge, Paint()..color = Colors.white);
       canvas.drawRRect(
         badge,
         Paint()
-          ..color = MacaronColors.rose
+          ..color = _bodyColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(0, -size.y - 18), width: 3, height: 8),
-          const Radius.circular(2),
-        ),
-        Paint()..color = MacaronColors.rose,
-      );
-      canvas.drawCircle(
-        Offset(0, -size.y - 11),
-        1.7,
-        Paint()..color = MacaronColors.rose,
-      );
+      final cuePaint = Paint()
+        ..color = MacaronColors.cocoa
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      switch (kind) {
+        case EnemyKind.walker:
+          canvas.drawCircle(
+            center + const Offset(5, 0),
+            3,
+            Paint()..color = _bodyColor,
+          );
+          for (var i = -1; i <= 1; i++) {
+            canvas.drawLine(
+              center + Offset(-7, i * 4.0),
+              center + Offset(-3, i * 4.0),
+              cuePaint,
+            );
+          }
+        case EnemyKind.hopper:
+          final arc = Path()
+            ..moveTo(center.dx - 7, center.dy + 4)
+            ..quadraticBezierTo(
+              center.dx,
+              center.dy - 8,
+              center.dx + 7,
+              center.dy + 4,
+            );
+          canvas.drawPath(arc, cuePaint);
+          canvas.drawLine(
+            center + const Offset(-8, 7),
+            center + const Offset(8, 7),
+            cuePaint,
+          );
+        case EnemyKind.bruiser:
+          final arrow = Path()
+            ..moveTo(center.dx - 7, center.dy - 5)
+            ..lineTo(center.dx + 7, center.dy)
+            ..lineTo(center.dx - 7, center.dy + 5);
+          canvas.drawPath(arrow, cuePaint);
+          canvas.drawLine(
+            center + const Offset(-8, 9),
+            center + const Offset(1, 9),
+            cuePaint,
+          );
+        case EnemyKind.trapper:
+          final trap = Path()
+            ..moveTo(center.dx, center.dy - 7)
+            ..lineTo(center.dx + 6, center.dy + 4)
+            ..lineTo(center.dx - 6, center.dy + 4)
+            ..close();
+          canvas.drawPath(trap, cuePaint);
+          canvas.drawLine(
+            center + const Offset(-8, 8),
+            center + const Offset(8, 8),
+            cuePaint,
+          );
+      }
     }
     canvas.restore();
   }

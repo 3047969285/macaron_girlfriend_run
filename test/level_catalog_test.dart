@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
 import 'package:macaron_girlfriend_run/data/shop_catalog.dart';
@@ -288,6 +289,50 @@ void main() {
             boss.update(0.31);
           }
           expect(shotDirections, hasLength(5));
+      }
+    }
+  });
+
+  test('enemy skill cues match each attack and allow a warning window', () {
+    for (final kind in EnemyKind.values) {
+      final cues = <EnemyKind>[];
+      var shots = 0;
+      var traps = 0;
+      final enemy = SoftEnemy(
+        position: Vector2(200, 120),
+        leftBound: 0,
+        rightBound: 400,
+        difficulty: 1,
+        kind: kind,
+        onSkillCue: (_, skill) => cues.add(skill),
+        onShoot: (_, _) => shots++,
+        onLayTrap: (_) => traps++,
+      )..targetX = 320;
+      enemy.targetY = 120;
+
+      for (var frame = 0; frame < 140 && cues.isEmpty; frame++) {
+        enemy.update(0.05);
+      }
+      expect(cues, [kind]);
+      expect(shots, 0);
+      expect(traps, 0);
+
+      final warningFrames = (GameConstants.enemySkillWarningFor(1, kind) / 0.05)
+          .ceil();
+      for (var frame = 0; frame < warningFrames; frame++) {
+        enemy.update(0.05);
+      }
+      switch (kind) {
+        case EnemyKind.walker:
+          expect(shots, 1);
+        case EnemyKind.hopper:
+          expect(enemy.position.y, lessThan(120));
+        case EnemyKind.bruiser:
+          final beforeCharge = enemy.position.x;
+          enemy.update(0.05);
+          expect(enemy.position.x, greaterThan(beforeCharge));
+        case EnemyKind.trapper:
+          expect(traps, 1);
       }
     }
   });
