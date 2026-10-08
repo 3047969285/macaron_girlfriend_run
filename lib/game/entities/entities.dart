@@ -323,7 +323,7 @@ class SoftEnemy extends PositionComponent {
       switch (kind) {
         case EnemyKind.walker:
           onShoot?.call(
-            position + Vector2(dir * size.x * 0.55, -size.y * 0.58),
+            position + Vector2(dir * size.x * 0.55, -size.y * 1.65),
             dir,
           );
           _skillCooldown = GameConstants.enemySkillCooldownFor(
@@ -610,6 +610,12 @@ class EnemyCandyShot extends PositionComponent {
   double _life = 2.8;
   double _wobble = 0;
   bool spent = false;
+
+  Rect get hitbox => Rect.fromCenter(
+    center: Offset(position.x, position.y),
+    width: size.x * 0.72,
+    height: size.y * 0.72,
+  );
 
   void consume() {
     if (spent) {

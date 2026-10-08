@@ -36,6 +36,55 @@ void main() {
     },
   );
 
+  test('long and high-difficulty levels provide a small life reserve', () {
+    expect(GameConstants.startingLivesFor(1, mapWidth: 140), 3);
+    expect(GameConstants.startingLivesFor(1, mapWidth: 180), 4);
+    expect(GameConstants.startingLivesFor(1, mapWidth: 140, enemyCount: 14), 4);
+    expect(GameConstants.startingLivesFor(1, mapWidth: 140, enemyCount: 16), 5);
+    expect(
+      GameConstants.startingLivesFor(
+        GameConstants.maxDifficulty,
+        mapWidth: 180,
+        enemyCount: 14,
+      ),
+      5,
+    );
+    expect(
+      GameConstants.playerShieldDurationFor(GameConstants.maxDifficulty),
+      greaterThan(1),
+    );
+  });
+
+  test('walker candy shots hit standing players but clear a crouch', () {
+    const groundY = 576.0;
+    final walker = SoftEnemy(
+      position: Vector2(100, groundY),
+      leftBound: 100,
+      rightBound: 100,
+      difficulty: 1,
+    );
+    final shot = EnemyCandyShot(
+      position: Vector2(100, groundY - walker.size.y * 1.65),
+      direction: 1,
+      speed: 200,
+    );
+
+    Rect playerHitbox(double height) => Rect.fromCenter(
+      center: Offset(100, groundY - height / 2),
+      width: GirlfriendPlayer.standWidth * 0.65,
+      height: height * 0.9,
+    );
+
+    expect(
+      shot.hitbox.overlaps(playerHitbox(GirlfriendPlayer.standHeight)),
+      isTrue,
+    );
+    expect(
+      shot.hitbox.overlaps(playerHitbox(GirlfriendPlayer.duckHeight)),
+      isFalse,
+    );
+  });
+
   test('99 levels catalog loads with spawn and goal', () {
     var count = 0;
     var trapperCount = 0;
@@ -184,6 +233,36 @@ void main() {
         expect(level.tileAt(2, ground + 2), '#', reason: reason);
         expect(level.tileAt(level.width - 3, ground + 1), '#', reason: reason);
         expect(level.tileAt(level.width - 3, ground + 2), '#', reason: reason);
+
+        for (var x = 2; x < level.width - 2; x++) {
+          if (!'EGRT'.contains(level.tileAt(x, ground))) {
+            continue;
+          }
+          expect(
+            level.tileAt(x, ground + 1) == '#' ||
+                level.tileAt(x, ground + 2) == '#',
+            isTrue,
+            reason: '$reason enemy at $x has unsupported ground',
+          );
+          expect(
+            '#=?D'.contains(level.tileAt(x, ground - 1)),
+            isFalse,
+            reason: '$reason enemy at $x blocks its skill lane',
+          );
+          for (
+            var checkpointX = 2;
+            checkpointX < level.width - 2;
+            checkpointX++
+          ) {
+            if (level.tileAt(checkpointX, ground) == 'K') {
+              expect(
+                (checkpointX - x).abs(),
+                greaterThanOrEqualTo(3),
+                reason: '$reason enemy at $x crowds checkpoint at $checkpointX',
+              );
+            }
+          }
+        }
 
         var gapTiles = 0;
         var landingTiles = 2;
@@ -478,7 +557,7 @@ void main() {
   });
 
   testWidgets(
-    'all 99 levels build and terrain routes clear in live game runtime',
+    'all 99 levels clear the guaranteed route with safe enemy layouts',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'sound_on': false,
@@ -501,6 +580,7 @@ void main() {
           await tester.pumpWidget(GameWidget(game: game));
           await tester.pump(const Duration(milliseconds: 100));
           final catalogLevel = LevelCatalog.load(world, level);
+          final ground = game.level.height - 3;
           final map = catalogLevel.rows.join();
           int markerCount(String marker) => map.split(marker).length - 1;
           final enemyMarkers =
@@ -530,6 +610,27 @@ void main() {
             hasLength(enemyMarkers.clamp(0, GameConstants.maxActiveEnemies)),
             reason: 'w$world l$level enemies are built',
           );
+          for (final enemy in game.enemies) {
+            final centerTile = (enemy.position.x / GameConstants.tileSize - 0.5)
+                .round();
+            final patrolLeft = (enemy.leftBound / GameConstants.tileSize - 0.5)
+                .round();
+            final patrolRight =
+                (enemy.rightBound / GameConstants.tileSize - 0.5).round();
+            for (var x = patrolLeft; x <= patrolRight; x++) {
+              expect(
+                game.level.tileAt(x, ground + 1) == '#' ||
+                    game.level.tileAt(x, ground + 2) == '#',
+                isTrue,
+                reason: 'w$world l$level ${enemy.kind} patrol floor at $x',
+              );
+            }
+            expect(
+              centerTile,
+              inInclusiveRange(patrolLeft, patrolRight),
+              reason: 'w$world l$level ${enemy.kind} remains inside patrol',
+            );
+          }
           expect(
             game.checkpoints,
             hasLength(markerCount('K')),
@@ -563,12 +664,11 @@ void main() {
 
           game.boss?.removeFromParent();
           game.boss = null;
-          for (final enemy in List<SoftEnemy>.from(game.enemies)) {
-            enemy.removeFromParent();
+          // Validate the guaranteed route separately from enemy combat behavior.
+          for (final enemy in game.enemies) {
+            enemy.dead = true;
           }
-          game.enemies.clear();
 
-          final ground = game.level.height - 3;
           final routeGaps = <(int, int)>[];
           for (var x = 2; x <= game.level.width - 3;) {
             final isGap =
@@ -594,7 +694,6 @@ void main() {
           final tunnelEnd = (tunnelTiles.last + 1) * GameConstants.tileSize;
           var gapIndex = 0;
           var jumpIssued = false;
-          var lastX = game.player.position.x;
           final maxFrames =
               (GameConstants.timeLimitFor(
                     game.level.difficulty,
@@ -608,19 +707,6 @@ void main() {
             frame++
           ) {
             final x = game.player.position.x;
-            if (x < lastX - GameConstants.tileSize) {
-              gapIndex = routeGaps.indexWhere(
-                (gap) =>
-                    x <
-                    (gap.$1 + gap.$2) * GameConstants.tileSize +
-                        GirlfriendPlayer.standWidth * 0.325,
-              );
-              if (gapIndex < 0) {
-                gapIndex = routeGaps.length;
-              }
-              jumpIssued = false;
-            }
-            lastX = x;
             if (gapIndex < routeGaps.length) {
               final (gapStart, gapLength) = routeGaps[gapIndex];
               final landingX =
@@ -822,6 +908,82 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('ducking safely passes through a walker contact', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 0,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    game.pauseEngine();
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+
+    game.player
+      ..onGround = true
+      ..velocity.setZero()
+      ..invincibleTimer = 0;
+    final walker = SoftEnemy(
+      position: game.player.position.clone(),
+      leftBound: game.player.position.x,
+      rightBound: game.player.position.x,
+      difficulty: game.level.difficulty,
+      speed: 0,
+    );
+    game
+      ..enemies.add(walker)
+      ..world.add(walker)
+      ..setDuckPressed(true);
+    final standingBox = Rect.fromCenter(
+      center: Offset(
+        game.player.position.x,
+        game.player.position.y - GirlfriendPlayer.standHeight / 2,
+      ),
+      width: GirlfriendPlayer.standWidth * 0.65,
+      height: GirlfriendPlayer.standHeight * 0.9,
+    );
+    final duckBox = Rect.fromCenter(
+      center: Offset(
+        game.player.position.x,
+        game.player.position.y - GirlfriendPlayer.duckHeight / 2,
+      ),
+      width: GirlfriendPlayer.standWidth * 0.65,
+      height: GirlfriendPlayer.duckHeight * 0.9,
+    );
+    final walkerBox = Rect.fromCenter(
+      center: Offset(walker.position.x, walker.position.y - walker.size.y / 2),
+      width: walker.size.x * 0.8,
+      height: walker.size.y * 0.8,
+    );
+    expect(standingBox.overlaps(walkerBox), isTrue);
+    expect(duckBox.overlaps(walkerBox), isTrue);
+
+    game.update(1 / 30);
+
+    expect(game.player.ducking, isTrue);
+    expect(game.player.dead, isFalse);
+    expect(
+      game.lives,
+      GameConstants.startingLivesFor(
+        game.level.difficulty,
+        mapWidth: game.level.width,
+        enemyCount: game.level.rows.join().split(RegExp('[EGRT]')).length - 1,
+      ),
+    );
+    expect(walker.dead, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('gun shot damages a boss during its attack warning', (
     tester,
   ) async {
@@ -987,7 +1149,14 @@ void main() {
     }
 
     expect(game.player.dead, isFalse);
-    expect(game.lives, GameConstants.startingLives);
+    expect(
+      game.lives,
+      GameConstants.startingLivesFor(
+        game.level.difficulty,
+        mapWidth: game.level.width,
+        enemyCount: game.level.rows.join().split(RegExp('[EGRT]')).length - 1,
+      ),
+    );
     expect(game.player.position.x, greaterThanOrEqualTo(landingTarget));
     expect(game.player.onGround, isTrue);
     expect(

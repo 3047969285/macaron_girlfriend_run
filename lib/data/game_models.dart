@@ -105,7 +105,26 @@ class GameConstants {
       skillDashDuration - 0.04 * _difficultyProgress(difficulty);
 
   static double playerShieldDurationFor(int difficulty) =>
-      0.95 - 0.2 * _difficultyProgress(difficulty);
+      1.25 - 0.2 * _difficultyProgress(difficulty);
+
+  static int startingLivesFor(
+    int difficulty, {
+    required int mapWidth,
+    int enemyCount = 0,
+  }) {
+    final lengthReserve = mapWidth >= 180 ? 1 : 0;
+    final difficultyReserve = difficulty >= (maxDifficulty * 2 / 3).ceil()
+        ? 1
+        : 0;
+    final combatReserve = enemyCount >= 16
+        ? 2
+        : enemyCount >= 12
+        ? 1
+        : 0;
+    return (startingLives + lengthReserve + difficultyReserve + combatReserve)
+        .clamp(startingLives, maxLives)
+        .toInt();
+  }
 
   static double playerSkillCooldownFor(int difficulty) =>
       4.6 + 2.0 * _difficultyProgress(difficulty);
@@ -155,13 +174,13 @@ class GameConstants {
   static double enemySkillWarningFor(int difficulty, EnemyKind kind) {
     final progress = _difficultyProgress(difficulty);
     final start = switch (kind) {
-      EnemyKind.walker => 0.72,
+      EnemyKind.walker => 0.84,
       EnemyKind.hopper => 0.64,
       EnemyKind.bruiser => 0.78,
       EnemyKind.trapper => 0.9,
     };
     final end = switch (kind) {
-      EnemyKind.walker => 0.60,
+      EnemyKind.walker => 0.72,
       EnemyKind.hopper => 0.52,
       EnemyKind.bruiser => 0.64,
       EnemyKind.trapper => 0.76,
@@ -187,7 +206,7 @@ class GameConstants {
   }
 
   static double enemyProjectileSpeedFor(int difficulty) =>
-      220 + 65 * _difficultyProgress(difficulty);
+      185 + 45 * _difficultyProgress(difficulty);
 
   static double enemyPounceVelocityFor(int difficulty) =>
       -(600 + 80 * _difficultyProgress(difficulty));

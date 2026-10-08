@@ -142,6 +142,11 @@ class MacaronGame extends FlameGame {
   Future<void> onLoad() async {
     await super.onLoad();
     level = LevelCatalog.load(worldIndex, levelIndex);
+    lives = GameConstants.startingLivesFor(
+      level.difficulty,
+      mapWidth: level.width,
+      enemyCount: level.rows.join().split(RegExp('[EGRT]')).length - 1,
+    );
     _buildLevel();
     timeLeft = GameConstants.timeLimitFor(
       level.difficulty,
@@ -373,11 +378,45 @@ class MacaronGame extends FlameGame {
     if (enemies.length >= GameConstants.maxActiveEnemies) {
       return;
     }
+    final enemyTile = (px / tile).round();
+    var patrolLeft = enemyTile;
+    var patrolRight = enemyTile;
+    bool hasSafePatrolTile(int x) {
+      if (x < 2 || x >= level.width - 2) {
+        return false;
+      }
+      if (level.tileAt(x, level.height - 2) != '#' &&
+          level.tileAt(x, level.height - 1) != '#') {
+        return false;
+      }
+      if ('#=?D'.contains(level.tileAt(x, level.height - 4))) {
+        return false;
+      }
+      for (var checkpointX = x - 1; checkpointX <= x + 1; checkpointX++) {
+        if (level.tileAt(checkpointX, level.height - 3) == 'K') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    for (var offset = 1; offset <= 2; offset++) {
+      if (!hasSafePatrolTile(enemyTile - offset)) {
+        break;
+      }
+      patrolLeft = enemyTile - offset;
+    }
+    for (var offset = 1; offset <= 2; offset++) {
+      if (!hasSafePatrolTile(enemyTile + offset)) {
+        break;
+      }
+      patrolRight = enemyTile + offset;
+    }
     enemies.add(
       SoftEnemy(
         position: Vector2(px + tile / 2, py + tile),
-        leftBound: px - tile * 1.5,
-        rightBound: px + tile * 2.5,
+        leftBound: (patrolLeft + 0.5) * tile,
+        rightBound: (patrolRight + 0.5) * tile,
         difficulty: level.difficulty,
         speed:
             GameConstants.enemySpeedFor(level.difficulty) *
@@ -1371,11 +1410,15 @@ class MacaronGame extends FlameGame {
         fx.stompKill(enemy.position.clone());
         continue;
       }
-      if (player.velocity.y > 0 &&
-          player.position.y - player.size.y * 0.2 <
-              enemy.position.y - enemy.size.y * 0.4) {
+      if (player.ducking && enemy.kind == EnemyKind.walker) {
+        continue;
+      }
+      if (player.position.y - player.size.y * 0.2 <
+          enemy.position.y - enemy.size.y * 0.4) {
         final killed = enemy.takeStomp();
-        player.velocity.y = GameConstants.jumpVelocity * 0.55;
+        if (player.velocity.y > 0) {
+          player.velocity.y = GameConstants.jumpVelocity * 0.55;
+        }
         _triggerShake(1);
         AudioService.instance.stomp();
         fx.stompKill(enemy.position.clone());
@@ -1482,11 +1525,7 @@ class MacaronGame extends FlameGame {
       if (shot.spent) {
         continue;
       }
-      final hitbox = Rect.fromCenter(
-        center: Offset(shot.position.x, shot.position.y),
-        width: shot.size.x * 0.72,
-        height: shot.size.y * 0.72,
-      );
+      final hitbox = shot.hitbox;
       final blocked = _nearbySolids(
         hitbox,
       ).any((solid) => solid.overlaps(hitbox));

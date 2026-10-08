@@ -99,8 +99,83 @@ class LevelCatalog {
     _repairGuaranteedGroundRoute(grid);
     _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
+    _repairEnemyPatrolRoutes(grid);
 
     return grid.map((r) => r.join()).toList();
+  }
+
+  /// 敌人的巡逻范围固定延伸两格，不能让整段范围悬在坑上。
+  static void _repairEnemyPatrolRoutes(List<List<String>> grid) {
+    final ground = grid.length - 3;
+    final width = grid.first.length;
+
+    bool hasSafeAnchor(int x) {
+      if (x < 4 ||
+          x >= width - 4 ||
+          (grid[ground + 1][x] != '#' && grid[ground + 2][x] != '#')) {
+        return false;
+      }
+      if ('#=?D'.contains(grid[ground - 1][x])) {
+        return false;
+      }
+      for (var checkpointX = x - 2; checkpointX <= x + 2; checkpointX++) {
+        if (checkpointX >= 0 &&
+            checkpointX < width &&
+            grid[ground][checkpointX] == 'K') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    bool hasClearApproach(int x) {
+      for (var approachX = x - 1; approachX <= x + 1; approachX++) {
+        if ('#=?D'.contains(grid[ground - 1][approachX])) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    bool hasClearTunnelBuffer(int x) {
+      for (var patrolX = x - 2; patrolX <= x + 2; patrolX++) {
+        if (grid[ground - 1][patrolX] == 'D') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    for (var x = 2; x < width - 2; x++) {
+      final enemy = grid[ground][x];
+      if (!'EGRT'.contains(enemy) ||
+          (hasSafeAnchor(x) &&
+              hasClearApproach(x) &&
+              hasClearTunnelBuffer(x))) {
+        continue;
+      }
+
+      grid[ground][x] = ' ';
+      var destination = -1;
+      for (final requireClearApproach in [true, false]) {
+        for (var offset = 1; offset < width && destination < 0; offset++) {
+          for (final candidate in [x + offset, x - offset]) {
+            if (candidate < 4 ||
+                candidate >= width - 4 ||
+                grid[ground][candidate] != ' ' ||
+                !hasSafeAnchor(candidate) ||
+                !hasClearTunnelBuffer(candidate) ||
+                requireClearApproach && !hasClearApproach(candidate)) {
+              continue;
+            }
+            destination = candidate;
+            break;
+          }
+        }
+        if (destination >= 0) break;
+      }
+      grid[ground][destination < 0 ? x : destination] = enemy;
+    }
   }
 
   /// 四段轮换组合不同玩法，保持长关节奏变化且不强迫玩家走危险路线。
@@ -343,7 +418,7 @@ class LevelCatalog {
     final ground = grid.length - 3;
     for (final fraction in const [0.2, 0.4, 0.6, 0.8]) {
       final targetX = (width * fraction).round();
-      for (var offset = 0; offset <= 10; offset++) {
+      for (var offset = 0; offset <= width ~/ 12; offset++) {
         var placed = false;
         for (final direction in offset == 0 ? const [1] : const [1, -1]) {
           final x = targetX + offset * direction;
