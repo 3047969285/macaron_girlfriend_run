@@ -196,6 +196,16 @@ void main() {
             if (gapTiles == 0) {
               expect(landingTiles, greaterThanOrEqualTo(2), reason: reason);
               gapCount++;
+            } else if (gapTiles == 1) {
+              for (var column = x - 3; column <= x + 2; column++) {
+                for (var row = ground - 3; row < ground; row++) {
+                  expect(
+                    '#=?D'.contains(level.tileAt(column, row)),
+                    isFalse,
+                    reason: '$reason double gap needs clear jump headroom',
+                  );
+                }
+              }
             }
             gapTiles++;
             expect(gapTiles, lessThanOrEqualTo(2), reason: reason);
@@ -711,7 +721,7 @@ void main() {
           }
         }
       }
-      if (hasJumpClearance) {
+      if (hasJumpClearance && gapLength >= 2) {
         selectedGap = x;
         selectedGapLength = gapLength;
         break;
@@ -723,6 +733,7 @@ void main() {
       reason: 'the dynamic test must use the highest-difficulty level',
     );
     expect(selectedGap, greaterThanOrEqualTo(0));
+    expect(selectedGapLength, 2);
 
     SharedPreferences.setMockInitialValues({
       'sound_on': false,

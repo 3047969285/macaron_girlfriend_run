@@ -190,10 +190,7 @@ class LevelCatalog {
         final movingEnemies = <(int, String)>[];
         for (var x = candidate; x < candidate + length; x++) {
           final tile = grid[ground][x];
-          if (grid[ground - 1][x] != ' ' ||
-              grid[ground + 1][x] != '#' ||
-              grid[ground + 2][x] != '#' ||
-              'PFBVS?'.contains(tile)) {
+          if (grid[ground - 1][x] != ' ' || 'PFBVS?'.contains(tile)) {
             clear = false;
             break;
           }
@@ -387,6 +384,19 @@ class LevelCatalog {
     const minLandingTiles = 2;
     final ground = grid.length - 3;
     final width = grid.first.length;
+    bool hasGapJumpClearance(int gapStart) {
+      for (var x = gapStart - 2; x <= gapStart + maxGapTiles + 1; x++) {
+        if (x < 0 || x >= width) {
+          continue;
+        }
+        for (var y = ground - 3; y < ground; y++) {
+          if ('#=?D'.contains(grid[y][x])) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
 
     // 低位平台会撞到站立角色的头和身体；移出碰撞范围，保留平台并开放地面通道。
     for (var x = 2; x <= width - 3; x++) {
@@ -424,7 +434,9 @@ class LevelCatalog {
         continue;
       }
 
-      if (gapTiles < maxGapTiles && landingTiles >= minLandingTiles) {
+      final canExtendGap = gapTiles > 0 && hasGapJumpClearance(x - gapTiles);
+      if (gapTiles < maxGapTiles &&
+          (canExtendGap || landingTiles >= minLandingTiles)) {
         gapTiles++;
         landingTiles = 0;
         continue;
