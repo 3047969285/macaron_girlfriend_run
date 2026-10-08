@@ -23355,21 +23355,21 @@ if(g!==" "||a[q][h]!=="#"||a[p][h]!=="#")break A
 if(B.b.ed(A.c([h-2,h-1,h+1,h+2],s),new A.a0I(a,e)))break A
 a[e][h]="K"
 break}++j}if(i)break}}},
-aDJ(a){var s,r,q,p,o,n,m,l,k,j,i,h,g,f=a.length-3,e=B.b.gS(a).length,d=new A.a0K(e,f,a)
-for(s=e-3,r=f-3,q=f-1,p=f-2,o=2;o<=s;++o){n=a[q]
+aDJ(a){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e=a.length-3,d=B.b.gS(a).length,c=new A.a0K(d,e,a)
+for(s=d-3,r=e-3,q=e-1,p=e-2,o=2;o<=s;++o){n=a[q]
 m=n[o]
 if(m!=="="&&m!=="?")continue
 n[o]=" "
 l=p
 for(;;){n=l>=r
 if(!(n&&a[l][o]!==" "))break;--l}if(n)a[l][o]=m
-else if(m==="?"&&a[p][o]==="=")a[p][o]="?"}r=a[f]
+else if(m==="?"&&a[p][o]==="=")a[p][o]="?"}r=a[e]
 r[2]="P"
 r[s]="F"
-r=f+1
+r=e+1
 q=a[r]
 q[2]="#"
-n=f+2
+n=e+2
 k=a[n]
 k[2]="#"
 q[s]="#"
@@ -23377,10 +23377,9 @@ k[s]="#"
 for(j=0,i=2,o=2;o<=s;++o){h=0
 if(!(a[r][o]===" "&&a[n][o]===" ")){++i
 j=h
-continue}g=j>0&&d.$1(o-j)
-if(j<2)q=g||i>=2
-else q=!1
-if(q){++j
+continue}g=j===0&&i>=2&&c.$1(o)
+f=j>0&&j<2&&c.$1(o-j)
+if(g||f){++j
 i=0
 continue}a[r][o]="#"
 a[n][o]="#"
