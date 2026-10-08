@@ -434,9 +434,15 @@ class LevelCatalog {
         continue;
       }
 
-      final canExtendGap = gapTiles > 0 && hasGapJumpClearance(x - gapTiles);
-      if (gapTiles < maxGapTiles &&
-          (canExtendGap || landingTiles >= minLandingTiles)) {
+      final canStartGap =
+          gapTiles == 0 &&
+          landingTiles >= minLandingTiles &&
+          hasGapJumpClearance(x);
+      final canExtendGap =
+          gapTiles > 0 &&
+          gapTiles < maxGapTiles &&
+          hasGapJumpClearance(x - gapTiles);
+      if (canStartGap || canExtendGap) {
         gapTiles++;
         landingTiles = 0;
         continue;

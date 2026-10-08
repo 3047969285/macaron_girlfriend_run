@@ -195,17 +195,16 @@ void main() {
           if (isGap) {
             if (gapTiles == 0) {
               expect(landingTiles, greaterThanOrEqualTo(2), reason: reason);
-              gapCount++;
-            } else if (gapTiles == 1) {
-              for (var column = x - 3; column <= x + 2; column++) {
+              for (var column = x - 2; column <= x + 3; column++) {
                 for (var row = ground - 3; row < ground; row++) {
                   expect(
                     '#=?D'.contains(level.tileAt(column, row)),
                     isFalse,
-                    reason: '$reason double gap needs clear jump headroom',
+                    reason: '$reason gap needs clear takeoff and landing space',
                   );
                 }
               }
+              gapCount++;
             }
             gapTiles++;
             expect(gapTiles, lessThanOrEqualTo(2), reason: reason);
@@ -490,10 +489,14 @@ void main() {
 
       for (var world = 0; world < GameConstants.worldCount; world++) {
         for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+          LevelResult? result;
+          var gameOver = false;
           final game = MacaronGame(
             worldIndex: world,
             levelIndex: level,
             role: PlayerRole.girlfriend,
+            onWin: (value) => result = value,
+            onGameOver: () => gameOver = true,
           );
           await tester.pumpWidget(GameWidget(game: game));
           await tester.pump(const Duration(milliseconds: 100));
@@ -557,6 +560,130 @@ void main() {
             reason: 'w$world l$level boss configuration',
           );
           game.pauseEngine();
+
+          game.boss?.removeFromParent();
+          game.boss = null;
+
+          final ground = game.level.height - 3;
+          final routeGaps = <(int, int)>[];
+          for (var x = 2; x <= game.level.width - 3;) {
+            final isGap =
+                game.level.tileAt(x, ground + 1) == ' ' &&
+                game.level.tileAt(x, ground + 2) == ' ';
+            if (!isGap) {
+              x++;
+              continue;
+            }
+            final gapStart = x;
+            while (x <= game.level.width - 3 &&
+                game.level.tileAt(x, ground + 1) == ' ' &&
+                game.level.tileAt(x, ground + 2) == ' ') {
+              x++;
+            }
+            routeGaps.add((gapStart, x - gapStart));
+          }
+          final tunnelTiles = [
+            for (var x = 0; x < game.level.width; x++)
+              if (game.level.tileAt(x, ground - 1) == 'D') x,
+          ];
+          final tunnelStart = tunnelTiles.first * GameConstants.tileSize;
+          final tunnelEnd = (tunnelTiles.last + 1) * GameConstants.tileSize;
+          var gapIndex = 0;
+          var jumpIssued = false;
+          var lastX = game.player.position.x;
+          final maxFrames =
+              (GameConstants.timeLimitFor(
+                    game.level.difficulty,
+                    mapWidth: game.level.width,
+                  ) +
+                  120) *
+              30;
+          game.player.invincibleTimer = maxFrames / 30 + 1;
+          for (
+            var frame = 0;
+            frame < maxFrames && result == null && !gameOver;
+            frame++
+          ) {
+            final x = game.player.position.x;
+            if (x < lastX - GameConstants.tileSize) {
+              gapIndex = routeGaps.indexWhere(
+                (gap) =>
+                    x <
+                    (gap.$1 + gap.$2) * GameConstants.tileSize +
+                        GirlfriendPlayer.standWidth * 0.325,
+              );
+              if (gapIndex < 0) {
+                gapIndex = routeGaps.length;
+              }
+              jumpIssued = false;
+            }
+            lastX = x;
+            if (gapIndex < routeGaps.length) {
+              final (gapStart, gapLength) = routeGaps[gapIndex];
+              final landingX =
+                  (gapStart + gapLength) * GameConstants.tileSize +
+                  GirlfriendPlayer.standWidth * 0.325;
+              if (x >= landingX) {
+                gapIndex++;
+                jumpIssued = false;
+              }
+            }
+            final gap = gapIndex < routeGaps.length
+                ? routeGaps[gapIndex]
+                : null;
+            final gapDistance = gap == null
+                ? double.infinity
+                : gap.$1 * GameConstants.tileSize - x;
+            final ducking =
+                x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
+                x <= tunnelEnd + GirlfriendPlayer.standWidth;
+            final beforeTunnel =
+                x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
+                x < tunnelStart - 48;
+            final nearGap = gapDistance >= 0 && gapDistance <= 160;
+            final gapStartX = gap == null
+                ? double.infinity
+                : gap.$1 * GameConstants.tileSize;
+            final springCarriesToGap = game.springs.any(
+              (spring) =>
+                  spring.position.x <= gapStartX &&
+                  gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
+            );
+            final waitToLand =
+                !game.player.onGround &&
+                !jumpIssued &&
+                !springCarriesToGap &&
+                (beforeTunnel || nearGap);
+            final jumpNow =
+                gap != null &&
+                !jumpIssued &&
+                game.player.onGround &&
+                !ducking &&
+                gapDistance <= 80 &&
+                gapDistance >= 0;
+            game
+              ..rightPressed = !waitToLand
+              ..runPressed = true
+              ..setDuckPressed(ducking)
+              ..setJumpHeld(false);
+            if (jumpNow) {
+              jumpIssued = true;
+              game.setJumpHeld(true);
+            }
+            game.update(1 / 30);
+          }
+
+          expect(
+            result?.cleared,
+            isTrue,
+            reason:
+                'w$world l$level terrain route; lives=${game.lives}, '
+                'dead=${game.player.dead}, '
+                'x=${game.player.position.x.toStringAsFixed(0)}, '
+                'y=${game.player.position.y.toStringAsFixed(0)}',
+          );
+          expect(gameOver, isFalse);
+          expect(game.lives, greaterThan(0));
           await tester.pumpWidget(const SizedBox.shrink());
         }
       }
