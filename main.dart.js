@@ -23281,46 +23281,50 @@ A.cj(a,k,r,3)
 A.bW(a,k,q)
 if(s)A.r9(a,l+7,h,f,b,c)
 break}}},
-aDA(b1,b2,b3){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c=B.b.gS(b1).length,b=b1.length-3,a=b2+b3,a0=4+B.e.al(a,3),a1=(c/2|0)-B.e.bz(a0,2),a2=t.EW,a3=A.c([],a2),a4=t.S,a5=b-1,a6=b+1,a7=t.Ot,a8=c-6,a9=-1,b0=0
-for(;;){if(!(b0<c&&a9<0))break
+aDA(b1,b2,b3){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d=B.b.gS(b1).length,c=b1.length-3,b=b2+b3,a=4+B.e.al(b,3),a0=(d/2|0)-B.e.bz(a,2),a1=t.EW,a2=A.c([],a1),a3=t.S,a4=c-1,a5=c+1,a6=c+2,a7=t.Ot,a8=d-6,a9=-1,b0=0
+for(;;){if(!(b0<d&&a9<0))break
 s=b0===0?B.GK:B.IS
 r=s.length
 q=0
-for(;q<r;++q){p=a1+b0*s[q]
-if(p<6||p+a0>a8)continue
+for(;q<r;++q){p=a0+b0*s[q]
+if(p<6||p+a>a8)continue
 o=A.c([],a7)
-m=p+a0
+m=p+a
 l=p
 for(;;){if(!(l<m)){n=!0
-break}k=b1[b][l]
-if(b1[a5][l]!==" "||b1[a6][l]!=="#"||B.f.u("PFBVS?",k)){n=!1
-break}if(B.f.u("EGRT",k))o.push(new A.a_(l,k));++l}if(!n)continue
-j=A.aw(a4)
-i=A.c([],a2)
+break}k=b1[c][l]
+if(b1[a4][l]!==" "||b1[a5][l]!=="#"||b1[a6][l]!=="#"||B.f.u("PFBVS?",k)){n=!1
+break}if(B.f.u("EGRT",k))o.push(new A.a_(l,k));++l}if(n){l=p-2
+j=m+2
+for(;;){if(!(l<j)){n=!0
+break}if((l<p||l>=m)&&B.f.u("EGRBT",b1[c][l])){n=!1
+break}++l}}if(!n)continue
+i=A.aw(a3)
+h=A.c([],a1)
 m=o.length
-h=0
-for(;;){if(!(h<o.length)){n=!0
-break}g=o[h]
-f=A.aDF(b1,b,p,a0,j)
+g=0
+for(;;){if(!(g<o.length)){n=!0
+break}j=o[g]
+f=A.aDF(b1,c,p,a,i)
 if(f==null){n=!1
-break}j.A(0,f)
-i.push(new A.f9(g.a,g.b,f))
-o.length===m||(0,A.y)(o);++h}if(n){a3=i
+break}i.A(0,f)
+h.push(new A.f9(j.a,j.b,f))
+o.length===m||(0,A.y)(o);++g}if(n){a2=h
 a9=p
 break}}++b0}if(a9<0)return
-for(a2=a3.length,q=0;q<a2;++q){a4=a3[q]
-a7=b1[b]
-a7[a4.a]=" "
-a7[a4.c]=a4.b}for(e=0;e<a0;++e){a2=a9+e
-b1[a5][a2]="D"
-if((e&1)===1&&b1[b][a2]===" ")b1[b][a2]="C"}d=a9+a0+3
-if(A.a0D(b2,b3)>=5&&(a&1)===0&&d<a8&&b1[b][d]===" "&&b1[a6][d]==="#"&&b1[b+2][d]==="#"&&!B.b.ed(A.c([d-2,d-1,d+1,d+2],t.t),new A.a0B(b1,b)))b1[b][d]="T"},
-aDF(a,b,c,d,e){var s,r,q,p,o,n,m,l,k,j=B.b.gS(a).length
-for(s=c+d,r=s-1,q=j-6,p=b+1,o=4;o<j;++o)for(n=[c-o,r+o],m=0;m<2;++m){l=n[m]
-k=!0
-if(l>=6)if(l<q)k=l>=c&&l<s||e.u(0,l)||a[b][l]!==" "||a[p][l]!=="#"
-if(k)continue
-return l}return null},
+for(l=a9-3,a1=a9+a+3;l<a1;++l){b1[a5][l]="#"
+b1[a6][l]="#"}for(a3=a2.length,q=0;q<a3;++q){a7=a2[q]
+s=b1[c]
+s[a7.a]=" "
+s[a7.c]=a7.b}for(e=0;e<a;++e){a3=a9+e
+b1[a4][a3]="D"
+if((e&1)===1&&b1[c][a3]===" ")b1[c][a3]="C"}if(A.a0D(b2,b3)>=5&&(b&1)===0&&a1<a8&&b1[c][a1]===" "&&b1[a5][a1]==="#"&&b1[a6][a1]==="#"&&!B.b.ed(A.c([a1-2,a1-1,a1+1,a1+2],t.t),new A.a0B(b1,c)))b1[c][a1]="T"},
+aDF(a,b,c,d,e){var s,r,q,p,o,n,m,l,k,j,i=B.b.gS(a).length
+for(s=c+d,r=s-1,q=i-6,p=b+1,o=b+2,n=4;n<i;++n)for(m=[c-n,r+n],l=0;l<2;++l){k=m[l]
+j=!0
+if(k>=6)if(k<q)j=k>=c&&k<s||e.u(0,k)||a[b][k]!==" "||a[p][k]!=="#"||a[o][k]!=="#"
+if(j)continue
+return k}return null},
 r9(a,b,c,d,e,f){var s,r,q,p,o,n,m,l,k=B.b.gS(a),j=B.e.al(e+f,4),i="E"
 if(!(d<3))if(d<4){s=j===0?"T":"E"
 i=s}else{A:{if(0===j){s="T"
