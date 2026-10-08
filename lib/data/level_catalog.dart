@@ -192,12 +192,22 @@ class LevelCatalog {
           final tile = grid[ground][x];
           if (grid[ground - 1][x] != ' ' ||
               grid[ground + 1][x] != '#' ||
+              grid[ground + 2][x] != '#' ||
               'PFBVS?'.contains(tile)) {
             clear = false;
             break;
           }
           if ('EGRT'.contains(tile)) {
             movingEnemies.add((x, tile));
+          }
+        }
+        if (clear) {
+          for (var x = candidate - 2; x < candidate + length + 2; x++) {
+            if ((x < candidate || x >= candidate + length) &&
+                'EGRBT'.contains(grid[ground][x])) {
+              clear = false;
+              break;
+            }
           }
         }
         if (!clear) {
@@ -230,6 +240,12 @@ class LevelCatalog {
     }
     if (start < 0) {
       return;
+    }
+
+    // 保证进出隧道各有三格实地；不能让坑口紧贴低顶，逼玩家边起跳边下蹲。
+    for (var x = start - 3; x < start + length + 3; x++) {
+      grid[ground + 1][x] = '#';
+      grid[ground + 2][x] = '#';
     }
 
     for (final (enemyX, kind, destination) in enemyRelocations) {
@@ -271,7 +287,8 @@ class LevelCatalog {
             x >= start && x < start + length ||
             reserved.contains(x) ||
             grid[ground][x] != ' ' ||
-            grid[ground + 1][x] != '#') {
+            grid[ground + 1][x] != '#' ||
+            grid[ground + 2][x] != '#') {
           continue;
         }
         return x;

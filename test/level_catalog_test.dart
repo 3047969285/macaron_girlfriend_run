@@ -127,6 +127,26 @@ void main() {
           tunnelTiles.length,
           reason: '$reason tunnel roof must be continuous',
         );
+        for (var x = tunnelTiles.first - 3; x <= tunnelTiles.last + 3; x++) {
+          expect(
+            level.tileAt(x, ground + 1),
+            '#',
+            reason: '$reason needs a supported tunnel runway at x=$x',
+          );
+          expect(
+            level.tileAt(x, ground + 2),
+            '#',
+            reason: '$reason needs solid tunnel runway at x=$x',
+          );
+          if (x >= tunnelTiles.first - 2 && x < tunnelTiles.first ||
+              x > tunnelTiles.last && x <= tunnelTiles.last + 2) {
+            expect(
+              'EGRBT'.contains(level.tileAt(x, ground)),
+              isFalse,
+              reason: '$reason keeps threats away from tunnel entrance/exit',
+            );
+          }
+        }
         for (final x in tunnelTiles) {
           expect(level.tileAt(x, ground + 1), '#', reason: reason);
           expect(
