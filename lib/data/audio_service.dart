@@ -185,34 +185,37 @@ class AudioService {
     } catch (_) {}
   }
 
-  Future<void> _playFx(Uint8List bytes) async {
+  Future<void> _playFx(Uint8List Function() loadBytes) async {
+    if (!soundOn) {
+      return;
+    }
     if (!_ready) {
       await init();
     }
-    if (!soundOn || _fxPool.isEmpty) {
+    if (_fxPool.isEmpty) {
       return;
     }
     final player = _fxPool[_fxCursor % _fxPool.length];
     _fxCursor++;
     try {
       await player.stop();
-      await player.play(BytesSource(bytes));
+      await player.play(BytesSource(loadBytes()));
     } catch (_) {}
   }
 
   Future<void> click() async {
-    await _playFx(_wavClick);
+    await _playFx(() => _wavClick);
   }
 
   Future<void> jump() async {
-    await _playFx(_wavJump);
+    await _playFx(() => _wavJump);
     if (hapticOn) {
       await HapticFeedback.selectionClick();
     }
   }
 
   Future<void> coin() async {
-    await _playFx(_wavCoin);
+    await _playFx(() => _wavCoin);
     if (hapticOn) {
       await HapticFeedback.lightImpact();
     }
@@ -220,46 +223,46 @@ class AudioService {
 
   /// 踩怪击杀音效
   Future<void> stomp() async {
-    await _playFx(_wavStomp);
+    await _playFx(() => _wavStomp);
     if (hapticOn) {
       await HapticFeedback.heavyImpact();
     }
   }
 
   Future<void> hurt() async {
-    await _playFx(_wavHurt);
+    await _playFx(() => _wavHurt);
     if (hapticOn) {
       await HapticFeedback.heavyImpact();
     }
   }
 
   Future<void> win() async {
-    await _playFx(_wavWin);
+    await _playFx(() => _wavWin);
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
     }
   }
 
   Future<void> powerUp() async {
-    await _playFx(_wavPower);
+    await _playFx(() => _wavPower);
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
     }
   }
 
   Future<void> skillDash() async {
-    await _playFx(_wavSkillDash);
+    await _playFx(() => _wavSkillDash);
     if (hapticOn) {
       await HapticFeedback.selectionClick();
     }
   }
 
   Future<void> shoot() async {
-    await _playFx(_wavShoot);
+    await _playFx(() => _wavShoot);
   }
 
   Future<void> vehicle() async {
-    await _playFx(_wavVehicle);
+    await _playFx(() => _wavVehicle);
     if (hapticOn) {
       await HapticFeedback.selectionClick();
     }
@@ -267,6 +270,6 @@ class AudioService {
 
   /// 怪物技能蓄力提示音
   Future<void> enemySkill() async {
-    await _playFx(_wavEnemySkill);
+    await _playFx(() => _wavEnemySkill);
   }
 }

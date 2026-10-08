@@ -1,10 +1,14 @@
-import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
+import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/data/shop_catalog.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart';
+import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 
 void main() {
@@ -405,5 +409,159 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets(
+    'all 99 levels build in the live Flame game runtime',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'sound_on': false,
+        'music_on': false,
+        'haptic_on': false,
+      });
+      await SaveService.instance.init();
+
+      for (var world = 0; world < GameConstants.worldCount; world++) {
+        for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+          final game = MacaronGame(
+            worldIndex: world,
+            levelIndex: level,
+            role: PlayerRole.girlfriend,
+          );
+          await tester.pumpWidget(GameWidget(game: game));
+          await tester.pump(const Duration(milliseconds: 100));
+          final catalogLevel = LevelCatalog.load(world, level);
+          final map = catalogLevel.rows.join();
+          int markerCount(String marker) => map.split(marker).length - 1;
+          final enemyMarkers =
+              markerCount('E') +
+              markerCount('G') +
+              markerCount('R') +
+              markerCount('T');
+          final expectedTerrain = map
+              .split('')
+              .where((tile) => '#=D?'.contains(tile))
+              .length;
+
+          expect(game.levelReady, isTrue, reason: 'w$world l$level loads');
+          expect(
+            game.level.width,
+            catalogLevel.width,
+            reason: 'w$world l$level',
+          );
+          expect(game.goal, isNotNull, reason: 'w$world l$level has an exit');
+          expect(
+            game.terrain,
+            hasLength(expectedTerrain),
+            reason: 'w$world l$level terrain is built',
+          );
+          expect(
+            game.enemies,
+            hasLength(enemyMarkers.clamp(0, GameConstants.maxActiveEnemies)),
+            reason: 'w$world l$level enemies are built',
+          );
+          expect(
+            game.checkpoints,
+            hasLength(markerCount('K')),
+            reason: 'w$world l$level checkpoints are built',
+          );
+          expect(game.coins, hasLength(markerCount('C').clamp(0, 96)));
+          expect(game.blocks, hasLength(markerCount('?')));
+          expect(game.powers, hasLength(markerCount('M')));
+          expect(game.gunPickups, hasLength(markerCount('W')));
+          expect(game.peaSeeds, hasLength(markerCount('N')));
+          expect(game.vehiclePickups, hasLength(markerCount('V')));
+          expect(game.hearts, hasLength(markerCount('H')));
+          expect(game.springs, hasLength(markerCount('S')));
+          expect(
+            game.timeLeft,
+            closeTo(
+              GameConstants.timeLimitFor(
+                catalogLevel.difficulty,
+                mapWidth: catalogLevel.width,
+              ),
+              0.001,
+            ),
+            reason: 'w$world l$level time budget',
+          );
+          expect(
+            game.boss != null,
+            level == GameConstants.levelsPerWorld - 1,
+            reason: 'w$world l$level boss configuration',
+          );
+          game.pauseEngine();
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
+
+  testWidgets('starter level clears through live movement and collision', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    LevelResult? result;
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 0,
+      role: PlayerRole.girlfriend,
+      onWin: (value) => result = value,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(game.levelReady, isTrue);
+    game
+      ..pauseEngine()
+      ..onGameResize(Vector2(960, 540));
+
+    final ground = game.level.height - 3;
+    final tunnel = [
+      for (var x = 0; x < game.level.width; x++)
+        if (game.level.tileAt(x, ground - 1) == 'D') x,
+    ];
+    final tunnelStart = tunnel.first * GameConstants.tileSize;
+    final tunnelEnd = (tunnel.last + 1) * GameConstants.tileSize;
+    final maxFrames =
+        (GameConstants.timeLimitFor(
+              game.level.difficulty,
+              mapWidth: game.level.width,
+            ) +
+            120) *
+        30;
+
+    for (var frame = 0; frame < maxFrames && result == null; frame++) {
+      final x = game.player.position.x;
+      final ducking =
+          x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
+          x <= tunnelEnd + GirlfriendPlayer.standWidth;
+      final finalApproach = x >= game.goal!.position.x - 440;
+      game
+        ..rightPressed = true
+        ..runPressed = true
+        ..setDuckPressed(ducking)
+        ..setJumpHeld(false);
+      if (!ducking && !finalApproach) {
+        game.setJumpHeld(true);
+      }
+      if (game.skillCooldownRatio == 0) {
+        game.activateSkill();
+      }
+      game.setShootPressed(true);
+      game.update(1 / 30);
+    }
+
+    expect(
+      result?.cleared,
+      isTrue,
+      reason: 'starter level must be completable',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
