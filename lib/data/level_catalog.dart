@@ -27,7 +27,7 @@ class LevelCatalog {
   }
 
   static List<String> _buildRows(int world, int level) {
-    final width = 100 + world * 14 + level * 14;
+    final width = 130 + world * 18 + level * 18;
     final height = 14;
     final grid = List.generate(height, (_) => List.filled(width, ' '));
 

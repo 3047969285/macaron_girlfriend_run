@@ -32,6 +32,7 @@ class GameConstants {
   static const double gravity = 1950;
   static const double moveSpeed = 255;
   static const double runSpeed = 380;
+  static const double duckMoveSpeedMultiplier = 0.45;
 
   /// 低难度基础跳跃初速度（向上为负）；正式跳跃按关卡难度计算
   static const double jumpVelocity = -1000;

@@ -48,7 +48,7 @@ void main() {
         levelsWithGun += map.contains('W') ? 1 : 0;
         levelsWithVehicle += map.contains('V') ? 1 : 0;
         pickupPatterns.add(['S', 'N', 'W', 'V'].where(map.contains).join());
-        expect(level.width, greaterThanOrEqualTo(100));
+        expect(level.width, greaterThanOrEqualTo(130));
         expect(level.rows.any((r) => r.contains('P')), isTrue);
         expect(level.rows.any((r) => r.contains('F')), isTrue);
         expect(level.rows.any((r) => r.contains('K')), isTrue);
@@ -62,7 +62,7 @@ void main() {
     expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(pickupPatterns.length, greaterThanOrEqualTo(4));
-    expect(LevelCatalog.load(8, 10).width, 352);
+    expect(LevelCatalog.load(8, 10).width, 454);
   });
 
   test('every level is unique and has a traversable ground route', () {
@@ -186,10 +186,17 @@ void main() {
             .split('')
             .where((tile) => 'EGRBT'.contains(tile))
             .length;
+        final walkSpeed = GameConstants.playerMoveSpeedFor(
+          GameConstants.maxDifficulty,
+        );
+        final tunnelDistance = tunnelTiles.length * GameConstants.tileSize;
+        final tunnelSlowdown =
+            (tunnelDistance + GirlfriendPlayer.standWidth) /
+                (walkSpeed * GameConstants.duckMoveSpeedMultiplier) -
+            tunnelDistance / walkSpeed;
         final conservativeClearTime =
-            level.width *
-                GameConstants.tileSize /
-                GameConstants.playerMoveSpeedFor(GameConstants.maxDifficulty) +
+            level.width * GameConstants.tileSize / walkSpeed +
+            tunnelSlowdown +
             (gapCount + enemyCount) * fullJumpTime;
         expect(
           GameConstants.timeLimitFor(level.difficulty, mapWidth: level.width),

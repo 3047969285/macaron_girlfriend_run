@@ -830,7 +830,8 @@ class MacaronGame extends FlameGame {
 
     final ducking = player.ducking;
     final speed = ducking
-        ? GameConstants.playerMoveSpeedFor(level.difficulty) * 0.45
+        ? GameConstants.playerMoveSpeedFor(level.difficulty) *
+              GameConstants.duckMoveSpeedMultiplier
         : (player.wantsRun
               ? GameConstants.playerRunSpeedFor(level.difficulty)
               : GameConstants.playerMoveSpeedFor(level.difficulty));
