@@ -169,6 +169,17 @@ void main() {
         );
 
         final ground = level.height - 3;
+        final bossTile = level.rows[ground].indexOf('B');
+        if (bossTile >= 0) {
+          for (var x = bossTile - 3; x <= bossTile + 3; x++) {
+            expect(
+              level.tileAt(x, ground + 1) == '#' ||
+                  level.tileAt(x, ground + 2) == '#',
+              isTrue,
+              reason: '$reason boss arena patrol floor at $x',
+            );
+          }
+        }
         final tunnelTiles = [
           for (var x = 2; x <= level.width - 3; x++)
             if (level.tileAt(x, ground - 1) == 'D') x,
@@ -189,6 +200,14 @@ void main() {
           tunnelTiles.length,
           reason: '$reason tunnel roof must be continuous',
         );
+        if (bossTile >= 0) {
+          expect(
+            tunnelTiles.first - 3 > bossTile + 4 ||
+                tunnelTiles.last + 3 < bossTile - 3,
+            isTrue,
+            reason: '$reason tunnel runway overlaps the boss patrol area',
+          );
+        }
         for (var x = tunnelTiles.first - 3; x <= tunnelTiles.last + 3; x++) {
           expect(
             level.tileAt(x, ground + 1),
@@ -244,11 +263,37 @@ void main() {
             isTrue,
             reason: '$reason enemy at $x has unsupported ground',
           );
+          for (var laneX = x - 1; laneX <= x + 1; laneX++) {
+            for (var laneY = ground - 3; laneY < ground; laneY++) {
+              expect(
+                '#=?D'.contains(level.tileAt(laneX, laneY)),
+                isFalse,
+                reason: '$reason enemy at $x needs clear jump lane at $laneX',
+              );
+            }
+          }
+          final bossTile = level.rows[ground].indexOf('B');
+          if (bossTile >= 0) {
+            expect(
+              (bossTile - x).abs(),
+              greaterThan(6),
+              reason: '$reason enemy at $x crowds the boss arena',
+            );
+          }
           expect(
-            '#=?D'.contains(level.tileAt(x, ground - 1)),
-            isFalse,
-            reason: '$reason enemy at $x blocks its skill lane',
+            tunnelTiles.every((tunnelX) => (tunnelX - x).abs() > 6),
+            isTrue,
+            reason: '$reason enemy at $x crowds a tunnel approach',
           );
+          for (var springX = 2; springX < level.width - 2; springX++) {
+            if (level.tileAt(springX, ground) == 'S') {
+              expect(
+                (springX - x).abs(),
+                greaterThan(6),
+                reason: '$reason enemy at $x crowds a spring flight path',
+              );
+            }
+          }
           for (
             var checkpointX = 2;
             checkpointX < level.width - 2;
@@ -791,11 +836,13 @@ void main() {
     await SaveService.instance.init();
 
     LevelResult? result;
+    var gameOver = false;
     final game = MacaronGame(
       worldIndex: 0,
       levelIndex: 0,
       role: PlayerRole.girlfriend,
       onWin: (value) => result = value,
+      onGameOver: () => gameOver = true,
     );
     await tester.pumpWidget(GameWidget(game: game));
     await tester.pump(const Duration(milliseconds: 100));
@@ -824,9 +871,13 @@ void main() {
       final ducking =
           x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
           x <= tunnelEnd + GirlfriendPlayer.standWidth;
+      final beforeTunnel =
+          x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
+          x < tunnelStart - 48;
+      final waitToLand = beforeTunnel && !game.player.onGround;
       final finalApproach = x >= game.goal!.position.x - 440;
       game
-        ..rightPressed = true
+        ..rightPressed = !waitToLand
         ..runPressed = true
         ..setDuckPressed(ducking)
         ..setJumpHeld(false);
@@ -840,10 +891,18 @@ void main() {
       game.update(1 / 30);
     }
 
+    final remainingEnemies = game.enemies
+        .where((enemy) => !enemy.dead)
+        .map((enemy) => '${enemy.kind}@${enemy.position.x.round()}')
+        .join(',');
     expect(
       result?.cleared,
       isTrue,
-      reason: 'starter level must be completable',
+      reason:
+          'starter level must be completable; x=${game.player.position.x.round()} '
+          'y=${game.player.position.y.round()} lives=${game.lives} '
+          'time=${game.timeLeft.toStringAsFixed(1)} '
+          'gameOver=$gameOver enemies=$remainingEnemies',
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });

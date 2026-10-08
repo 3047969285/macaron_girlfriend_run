@@ -283,8 +283,8 @@ class MacaronGame extends FlameGame {
           case 'B':
             boss = MacaronBoss(
               position: Vector2(px + tile / 2, py + tile),
-              leftBound: px - tile * 3,
-              rightBound: px + tile * 4,
+              leftBound: px - tile * 2.5,
+              rightBound: px + tile * 3.5,
               worldIndex: worldIndex,
               onShoot: _spawnEnemyShot,
               onLayTrap: _spawnEnemyTrap,

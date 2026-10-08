@@ -104,19 +104,32 @@ class LevelCatalog {
     return grid.map((r) => r.join()).toList();
   }
 
-  /// 敌人的巡逻范围固定延伸两格，不能让整段范围悬在坑上。
+  /// 敌人的巡逻范围固定延伸两格，不能让整段范围悬在坑上或压住隧道缓冲区。
   static void _repairEnemyPatrolRoutes(List<List<String>> grid) {
     final ground = grid.length - 3;
     final width = grid.first.length;
+    final bossTile = grid[ground].indexOf('B');
 
     bool hasSafeAnchor(int x) {
       if (x < 4 ||
           x >= width - 4 ||
+          bossTile >= 0 && (x - bossTile).abs() <= 6 ||
           (grid[ground + 1][x] != '#' && grid[ground + 2][x] != '#')) {
         return false;
       }
       if ('#=?D'.contains(grid[ground - 1][x])) {
         return false;
+      }
+      final springBufferStart = x - 6 < 0 ? 0 : x - 6;
+      final springBufferEnd = x + 6 >= width ? width - 1 : x + 6;
+      for (
+        var springX = springBufferStart;
+        springX <= springBufferEnd;
+        springX++
+      ) {
+        if (grid[ground][springX] == 'S') {
+          return false;
+        }
       }
       for (var checkpointX = x - 2; checkpointX <= x + 2; checkpointX++) {
         if (checkpointX >= 0 &&
@@ -130,15 +143,30 @@ class LevelCatalog {
 
     bool hasClearApproach(int x) {
       for (var approachX = x - 1; approachX <= x + 1; approachX++) {
-        if ('#=?D'.contains(grid[ground - 1][approachX])) {
-          return false;
+        for (var approachY = ground - 3; approachY < ground; approachY++) {
+          if ('#=?D'.contains(grid[approachY][approachX])) {
+            return false;
+          }
         }
       }
       return true;
     }
 
+    void clearApproach(int x) {
+      for (var approachX = x - 1; approachX <= x + 1; approachX++) {
+        for (var approachY = ground - 3; approachY < ground; approachY++) {
+          if ('#=?'.contains(grid[approachY][approachX])) {
+            grid[approachY][approachX] = ' ';
+          }
+        }
+      }
+    }
+
     bool hasClearTunnelBuffer(int x) {
-      for (var patrolX = x - 2; patrolX <= x + 2; patrolX++) {
+      // 角色需在入口前约 4 格开始落地/下蹲；再为敌人的两格巡逻留余量。
+      final bufferStart = x - 6 < 0 ? 0 : x - 6;
+      final bufferEnd = x + 6 >= width ? width - 1 : x + 6;
+      for (var patrolX = bufferStart; patrolX <= bufferEnd; patrolX++) {
         if (grid[ground - 1][patrolX] == 'D') {
           return false;
         }
@@ -174,7 +202,9 @@ class LevelCatalog {
         }
         if (destination >= 0) break;
       }
-      grid[ground][destination < 0 ? x : destination] = enemy;
+      final landing = destination < 0 ? x : destination;
+      clearApproach(landing);
+      grid[ground][landing] = enemy;
     }
   }
 
@@ -252,6 +282,7 @@ class LevelCatalog {
     final ground = grid.length - 3;
     final length = 4 + (world + level) % 3;
     final preferredStart = width ~/ 2 - length ~/ 2;
+    final bossTile = grid[ground].indexOf('B');
     var start = -1;
     var enemyRelocations = <(int, String, int)>[];
 
@@ -259,6 +290,13 @@ class LevelCatalog {
       for (final direction in offset == 0 ? const [0] : const [-1, 1]) {
         final candidate = preferredStart + offset * direction;
         if (candidate < 6 || candidate + length > width - 6) {
+          continue;
+        }
+        final runwayOverlapsBossPatrol =
+            bossTile >= 0 &&
+            candidate - 3 <= bossTile + 4 &&
+            candidate + length + 2 >= bossTile - 3;
+        if (runwayOverlapsBossPatrol) {
           continue;
         }
         var clear = true;
@@ -912,7 +950,7 @@ class LevelCatalog {
     _enemy(g, mid - 2, ground);
     _put(g, mid + 6, ground, 'G');
     _put(g, mid - 6, ground, 'R');
-    _put(g, mid, ground - 5, 'B');
+    _put(g, mid, ground, 'B');
     _gap(g, mid - 6, 3);
     _gap(g, mid + 4, 3);
     _put(g, mid - 10, ground, 'S');
