@@ -38,8 +38,6 @@ class GameConstants {
   static const double jumpVelocity = -1000;
   static const double superJumpVelocity = -1080;
 
-  /// 松开跳跃键后的上升速度上限（可变跳）
-  static const double jumpCutVelocity = -255;
   static const double coyoteTime = 0.14;
   static const double jumpBuffer = 0.14;
   static const double skillDashDuration = 0.34;
@@ -98,7 +96,7 @@ class GameConstants {
       -(1080 - 60 * _difficultyProgress(difficulty));
 
   static double playerJumpCutVelocityFor(int difficulty) =>
-      -(255 - 35 * _difficultyProgress(difficulty));
+      playerJumpVelocityFor(difficulty) * 0.55;
 
   static double playerDashSpeedFor(int difficulty) =>
       610 - 70 * _difficultyProgress(difficulty);

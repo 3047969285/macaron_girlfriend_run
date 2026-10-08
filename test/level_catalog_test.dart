@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flame/game.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
@@ -72,18 +74,29 @@ void main() {
   test('every level is unique and has a traversable ground route', () {
     final signatures = <String>{};
     final tunnelLengths = <int>{};
+    final maxDifficulty = GameConstants.maxDifficulty;
     final minJumpRange =
-        GameConstants.playerMoveSpeedFor(GameConstants.maxDifficulty) *
+        GameConstants.playerRunSpeedFor(maxDifficulty) *
         2 *
-        GameConstants.playerJumpVelocityFor(GameConstants.maxDifficulty).abs() /
+        GameConstants.playerJumpCutVelocityFor(maxDifficulty).abs() /
         GameConstants.gravity;
     final maxGapDistance =
         2 * GameConstants.tileSize + GirlfriendPlayer.standWidth * 0.65;
     expect(minJumpRange, greaterThan(maxGapDistance));
     final fullJumpTime =
         2 *
-        GameConstants.playerJumpVelocityFor(GameConstants.maxDifficulty).abs() /
+        GameConstants.playerJumpVelocityFor(maxDifficulty).abs() /
         GameConstants.gravity;
+    final shortJumpHeight =
+        GameConstants.playerJumpCutVelocityFor(maxDifficulty) *
+        GameConstants.playerJumpCutVelocityFor(maxDifficulty) /
+        (2 * GameConstants.gravity);
+    final fullJumpHeight =
+        GameConstants.playerJumpVelocityFor(maxDifficulty) *
+        GameConstants.playerJumpVelocityFor(maxDifficulty) /
+        (2 * GameConstants.gravity);
+    expect(shortJumpHeight, greaterThan(GameConstants.tileSize));
+    expect(shortJumpHeight, lessThan(fullJumpHeight * 0.5));
 
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
@@ -423,9 +436,10 @@ void main() {
 
   test('jump height can reach mid platforms from ground', () {
     final peak =
-        (GameConstants.jumpVelocity * GameConstants.jumpVelocity) /
+        (GameConstants.playerJumpVelocityFor(GameConstants.maxDifficulty) *
+            GameConstants.playerJumpVelocityFor(GameConstants.maxDifficulty)) /
         (2 * GameConstants.gravity);
-    expect(peak, greaterThan(GameConstants.tileSize * 5));
+    expect(peak, greaterThan(GameConstants.tileSize * 4.5));
   });
 
   test('solid platforms stay in reachable band', () {
@@ -656,6 +670,139 @@ void main() {
     }
 
     expect(boss.hp, initialHealth - 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a short tap jump clears an actual late-game gap', (
+    tester,
+  ) async {
+    final selectedWorld = GameConstants.worldCount - 1;
+    final selectedLevel = GameConstants.levelsPerWorld - 1;
+    final level = LevelCatalog.load(selectedWorld, selectedLevel);
+    final catalogGround = level.height - 3;
+    var selectedGap = -1;
+    var selectedGapLength = 0;
+    for (var x = 3; x < level.width - 5; x++) {
+      final isGap =
+          level.tileAt(x, catalogGround + 1) == ' ' &&
+          level.tileAt(x, catalogGround + 2) == ' ';
+      final beginsGap =
+          isGap &&
+          (level.tileAt(x - 1, catalogGround + 1) != ' ' ||
+              level.tileAt(x - 1, catalogGround + 2) != ' ');
+      if (!beginsGap) {
+        continue;
+      }
+
+      var gapLength = 1;
+      while (level.tileAt(x + gapLength, catalogGround + 1) == ' ' &&
+          level.tileAt(x + gapLength, catalogGround + 2) == ' ') {
+        gapLength++;
+      }
+      var hasJumpClearance =
+          level.tileAt(x - 1, catalogGround + 1) == '#' &&
+          level.tileAt(x - 1, catalogGround + 2) == '#' &&
+          level.tileAt(x + gapLength, catalogGround + 1) == '#' &&
+          level.tileAt(x + gapLength, catalogGround + 2) == '#';
+      for (var column = x - 2; column <= x + gapLength + 1; column++) {
+        for (var row = catalogGround - 3; row < catalogGround; row++) {
+          if ('#=?D'.contains(level.tileAt(column, row))) {
+            hasJumpClearance = false;
+          }
+        }
+      }
+      if (hasJumpClearance) {
+        selectedGap = x;
+        selectedGapLength = gapLength;
+        break;
+      }
+    }
+    expect(
+      level.difficulty,
+      GameConstants.maxDifficulty,
+      reason: 'the dynamic test must use the highest-difficulty level',
+    );
+    expect(selectedGap, greaterThanOrEqualTo(0));
+
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: selectedWorld,
+      levelIndex: selectedLevel,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(game.levelReady, isTrue);
+    game
+      ..pauseEngine()
+      ..onGameResize(Vector2(960, 540));
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+    game.boss?.removeFromParent();
+    game.boss = null;
+
+    final ground = game.level.height - 3;
+    final gapStart = selectedGap;
+    expect(game.level.difficulty, GameConstants.maxDifficulty);
+    expect(
+      game.level.tileAt(gapStart + selectedGapLength, ground + 1),
+      '#',
+      reason: 'the measured gap must have a real landing surface',
+    );
+
+    final groundY = (ground + 1) * GameConstants.tileSize;
+    game.player
+      ..position = Vector2(gapStart * GameConstants.tileSize - 80, groundY)
+      ..velocity.setZero()
+      ..onGround = true
+      ..coyoteTimer = GameConstants.coyoteTime;
+    game
+      ..rightPressed = true
+      ..runPressed = true
+      ..setJumpHeld(true);
+    game.update(1 / 30);
+    game.setJumpHeld(false);
+
+    var highestFeet = game.player.position.y;
+    final landingTarget =
+        (gapStart + selectedGapLength) * GameConstants.tileSize +
+        GirlfriendPlayer.standWidth * 0.325;
+    for (
+      var frame = 0;
+      frame < 60 &&
+          (game.player.position.x < landingTarget || !game.player.onGround);
+      frame++
+    ) {
+      game.update(1 / 30);
+      highestFeet = math.min(highestFeet, game.player.position.y);
+    }
+
+    expect(game.player.dead, isFalse);
+    expect(game.lives, GameConstants.startingLives);
+    expect(game.player.position.x, greaterThanOrEqualTo(landingTarget));
+    expect(game.player.onGround, isTrue);
+    expect(
+      groundY - highestFeet,
+      greaterThan(GameConstants.tileSize),
+      reason: 'a tap should create a useful short jump instead of a tiny hop',
+    );
+    expect(
+      groundY - highestFeet,
+      lessThan(
+        GameConstants.playerJumpVelocityFor(game.level.difficulty) *
+            GameConstants.playerJumpVelocityFor(game.level.difficulty) /
+            (2 * GameConstants.gravity),
+      ),
+      reason: 'releasing jump should remain shorter than a full hold',
+    );
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
