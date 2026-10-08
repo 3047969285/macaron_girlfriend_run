@@ -1025,6 +1025,12 @@ class MacaronGame extends FlameGame {
     );
   }
 
+  Rect _bossHitbox(MacaronBoss boss) => Rect.fromCenter(
+    center: Offset(boss.position.x, boss.position.y - boss.size.y / 2),
+    width: boss.size.x * 0.8,
+    height: boss.size.y * 0.85,
+  );
+
   void _resolveCollectibles() {
     final box = _playerHitbox();
     for (final coin in coins) {
@@ -1270,12 +1276,7 @@ class MacaronGame extends FlameGame {
       return;
     }
     final box = _playerHitbox();
-    final e = Rect.fromCenter(
-      center: Offset(b.position.x, b.position.y - b.size.y / 2),
-      width: b.size.x * 0.8,
-      height: b.size.y * 0.85,
-    );
-    if (!box.overlaps(e)) {
+    if (!box.overlaps(_bossHitbox(b))) {
       return;
     }
     if (player.velocity.y > 0 &&
@@ -1283,34 +1284,52 @@ class MacaronGame extends FlameGame {
             b.position.y - b.size.y * 0.35) {
       final becameEnraged = b.stompHit();
       player.velocity.y = GameConstants.jumpVelocity * 0.6;
-      score += GameConstants.enemyScore;
-      _triggerShake(b.enraged ? 1.8 : 1.4);
-      AudioService.instance.stomp();
-      fx.stompKill(b.position.clone());
-      if (becameEnraged) {
-        fx.powerUp(b.position.clone());
-        score += 200;
-      }
-      if (b.dead) {
-        kills++;
-        score += 1200;
-        b.removeFromParent();
-        for (var i = 0; i < 6; i++) {
-          final c = MacaronCoin(
-            position: b.position + Vector2((i - 2.5) * 16.0, -40),
-          );
-          coins.add(c);
-          totalCoins++;
-          world.add(c);
-        }
-        // 狂暴阶段掉落一颗超级跳
-        final p = PowerMacaron(position: b.position + Vector2(0, -60));
-        powers.add(p);
-        world.add(p);
-      }
+      _registerBossDamage(b, becameEnraged: becameEnraged);
     } else if (b.isSlamming || !player.isInvincible) {
       _hurtOrKill();
     }
+  }
+
+  void _registerBossDamage(
+    MacaronBoss boss, {
+    required bool becameEnraged,
+    bool byProjectile = false,
+  }) {
+    score += GameConstants.enemyScore;
+    _triggerShake(
+      byProjectile
+          ? 0.8
+          : boss.enraged
+          ? 1.8
+          : 1.4,
+    );
+    if (byProjectile) {
+      fx.enemyCandyPop(boss.position.clone());
+    } else {
+      AudioService.instance.stomp();
+      fx.stompKill(boss.position.clone());
+    }
+    if (becameEnraged) {
+      fx.powerUp(boss.position.clone());
+      score += 200;
+    }
+    if (!boss.dead) {
+      return;
+    }
+    kills++;
+    score += 1200;
+    boss.removeFromParent();
+    for (var i = 0; i < 6; i++) {
+      final coin = MacaronCoin(
+        position: boss.position + Vector2((i - 2.5) * 16.0, -40),
+      );
+      coins.add(coin);
+      totalCoins++;
+      world.add(coin);
+    }
+    final power = PowerMacaron(position: boss.position + Vector2(0, -60));
+    powers.add(power);
+    world.add(power);
   }
 
   void _resolveEnemies() {
@@ -1390,6 +1409,23 @@ class MacaronGame extends FlameGame {
       ).any((solid) => solid.overlaps(hitbox));
       if (blocked) {
         shot.consume();
+        continue;
+      }
+      final currentBoss = boss;
+      if (currentBoss != null &&
+          !currentBoss.dead &&
+          hitbox.overlaps(_bossHitbox(currentBoss))) {
+        final wasEnraged = currentBoss.enraged;
+        shot.consume();
+        if (currentBoss.tryProjectileHit()) {
+          _registerBossDamage(
+            currentBoss,
+            becameEnraged: !wasEnraged && currentBoss.enraged,
+            byProjectile: true,
+          );
+        } else {
+          fx.enemyCandyPop(shot.position.clone());
+        }
         continue;
       }
       for (final enemy in List<SoftEnemy>.from(enemies)) {

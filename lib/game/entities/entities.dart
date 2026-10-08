@@ -1028,6 +1028,7 @@ class MacaronBoss extends PositionComponent {
   double? targetX;
   double _attackCooldown = 1.2;
   double _warningTimer = 0;
+  bool _projectileDamageUsed = false;
   double _rushTimer = 0;
   double _rushPause = 0;
   int _rushBursts = 0;
@@ -1044,12 +1045,31 @@ class MacaronBoss extends PositionComponent {
 
   BossAttackPattern get attackPattern =>
       BossAttackPattern.forWorld(worldIndex);
+  bool get isTelegraphing => _warningTimer > 0;
+  bool get canReceiveProjectile => isTelegraphing && !_projectileDamageUsed;
 
   /// 踩踏一次返回是否刚进入狂暴
   bool stompHit() {
     if (dead) {
       return false;
     }
+    if (isTelegraphing) {
+      _projectileDamageUsed = true;
+    }
+    return _takeDamage();
+  }
+
+  /// 每次攻击预警只允许一发远程反击，避免花弹齐射瞬间跳过 Boss 阶段。
+  bool tryProjectileHit() {
+    if (dead || !isTelegraphing || _projectileDamageUsed) {
+      return false;
+    }
+    _projectileDamageUsed = true;
+    _takeDamage();
+    return true;
+  }
+
+  bool _takeDamage() {
     hp--;
     _flash = 0.35;
     var justEnraged = false;
@@ -1100,6 +1120,7 @@ class MacaronBoss extends PositionComponent {
           BossAttackPattern.slamVolley => 0.88,
           _ => 0.78,
         };
+        _projectileDamageUsed = false;
         return;
       }
 

@@ -614,6 +614,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                           hp: game.boss!.hp,
                           maxHp: game.boss!.maxHp,
                           enraged: game.boss!.enraged,
+                          counterWindow: game.boss!.canReceiveProjectile,
                         ),
                       ],
                     ],
@@ -733,15 +734,22 @@ class _BossHpBar extends StatelessWidget {
     required this.hp,
     required this.maxHp,
     required this.enraged,
+    required this.counterWindow,
   });
 
   final int hp;
   final int maxHp;
   final bool enraged;
+  final bool counterWindow;
 
   @override
   Widget build(BuildContext context) {
     final ratio = maxHp <= 0 ? 0.0 : (hp / maxHp).clamp(0.0, 1.0);
+    final status = counterWindow
+        ? 'Boss 狂暴 · 糖弹可反击'
+        : enraged
+        ? 'Boss 狂暴中'
+        : 'Boss';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -752,7 +760,7 @@ class _BossHpBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            enraged ? 'Boss 狂暴中' : 'Boss',
+            status,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,

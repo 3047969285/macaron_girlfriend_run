@@ -324,6 +324,29 @@ void main() {
     }
   });
 
+  test('boss takes one ranged counterattack per attack warning', () {
+    final boss = MacaronBoss(
+      position: Vector2(200, 120),
+      leftBound: 0,
+      rightBound: 400,
+      worldIndex: 0,
+    );
+
+    expect(boss.tryProjectileHit(), isFalse);
+    boss.stompHit();
+    boss.update(0.2);
+    expect(boss.isTelegraphing, isTrue);
+    expect(boss.canReceiveProjectile, isTrue);
+
+    expect(boss.tryProjectileHit(), isTrue);
+    expect(boss.canReceiveProjectile, isFalse);
+    expect(boss.hp, 1);
+    expect(boss.tryProjectileHit(), isFalse);
+    expect(boss.hp, 1);
+    expect(boss.stompHit(), isFalse);
+    expect(boss.dead, isTrue);
+  });
+
   test('enemy skill cues match each attack and allow a warning window', () {
     for (final kind in EnemyKind.values) {
       final cues = <EnemyKind>[];
@@ -582,6 +605,57 @@ void main() {
       isTrue,
       reason: 'starter level must be completable',
     );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('gun shot damages a boss during its attack warning', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: GameConstants.levelsPerWorld - 1,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(game.levelReady, isTrue);
+    game
+      ..pauseEngine()
+      ..onGameResize(Vector2(960, 540));
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+
+    final boss = game.boss!;
+    boss.stompHit();
+    game.player
+      ..position = boss.position + Vector2(-160, 0)
+      ..facingRight = true;
+    game.gunTimer = 10;
+    for (var frame = 0; frame < 60 && !boss.isTelegraphing; frame++) {
+      game.update(1 / 30);
+    }
+    expect(boss.isTelegraphing, isTrue);
+
+    game.player
+      ..position = boss.position + Vector2(-160, -20)
+      ..velocity.setZero()
+      ..onGround = false;
+    final initialHealth = boss.hp;
+    game.setShootPressed(true);
+    for (var frame = 0; frame < 20 && boss.hp == initialHealth; frame++) {
+      game.update(1 / 30);
+    }
+
+    expect(boss.hp, initialHealth - 1);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
