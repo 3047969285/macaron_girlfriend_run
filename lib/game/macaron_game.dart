@@ -1346,6 +1346,20 @@ class MacaronGame extends FlameGame {
       if (!box.overlaps(e)) {
         continue;
       }
+      if (player.skillDashing && player.velocity.x.abs() > 80) {
+        final killed = enemy.takeStomp();
+        AudioService.instance.stomp();
+        if (killed) {
+          fx.stompKill(enemy.position.clone());
+          enemy.removeFromParent();
+          enemies.remove(enemy);
+          _registerEnemyDefeat(enemy);
+        } else {
+          score += 50;
+          fx.enemyCandyPop(enemy.position.clone());
+        }
+        continue;
+      }
       if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
         while (!enemy.dead) {
           enemy.takeStomp();

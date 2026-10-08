@@ -478,7 +478,7 @@ void main() {
   });
 
   testWidgets(
-    'all 99 levels build in the live Flame game runtime',
+    'all 99 levels build and terrain routes clear in live game runtime',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'sound_on': false,
@@ -563,6 +563,10 @@ void main() {
 
           game.boss?.removeFromParent();
           game.boss = null;
+          for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+            enemy.removeFromParent();
+          }
+          game.enemies.clear();
 
           final ground = game.level.height - 3;
           final routeGaps = <(int, int)>[];
@@ -598,7 +602,6 @@ void main() {
                   ) +
                   120) *
               30;
-          game.player.invincibleTimer = maxFrames / 30 + 1;
           for (
             var frame = 0;
             frame < maxFrames && result == null && !gameOver;
@@ -756,6 +759,66 @@ void main() {
       isTrue,
       reason: 'starter level must be completable',
     );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('dash hits enemies and defeats armored enemies on repeat hits', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 0,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(game.levelReady, isTrue);
+    game.pauseEngine();
+
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+
+    final start = game.player.position.clone();
+    final walker = SoftEnemy(
+      position: start + Vector2(30, 0),
+      leftBound: start.x + 30,
+      rightBound: start.x + 30,
+      difficulty: game.level.difficulty,
+      speed: 0,
+      kind: EnemyKind.walker,
+    );
+    final bruiser = SoftEnemy(
+      position: start + Vector2(55, 0),
+      leftBound: start.x + 55,
+      rightBound: start.x + 55,
+      difficulty: game.level.difficulty,
+      speed: 0,
+      kind: EnemyKind.bruiser,
+    );
+    game
+      ..enemies.addAll([walker, bruiser])
+      ..world.addAll([walker, bruiser])
+      ..rightPressed = true;
+    game.activateSkill();
+    game.update(1 / 30);
+
+    expect(walker.dead, isTrue);
+    expect(bruiser.hitPoints, 1);
+    expect(game.player.dead, isFalse);
+
+    game.update(1 / 30);
+    expect(bruiser.dead, isTrue);
+    expect(game.kills, 2);
+    expect(game.player.dead, isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
