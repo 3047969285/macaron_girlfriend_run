@@ -84183,7 +84183,7 @@ return A.qW(s,r,B.aJ,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,q,s,s,s,s,s,s)}}
 A.MY.prototype={
 N(a){var s,r,q,p,o,n,m=this,l=null,k=m.d,j=k<=0?0:B.c.V(m.c/k,0,1)
 if(m.f)s="Boss \u72c2\u66b4 \xb7 \u7cd6\u5f39\u53ef\u53cd\u51fb"
-else s=m.e?"Boss \u72c2\u66b4\u4e2d":"Boss"
+else s=m.e?"Boss \u72c2\u66b4\u4e2d":"Boss \xb7 \u8e29\u8e0f\u7834\u9632"
 r=B.h.a3(0.82)
 q=A.db(14)
 p=m.e
