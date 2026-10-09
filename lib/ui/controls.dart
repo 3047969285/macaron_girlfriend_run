@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
@@ -79,7 +81,12 @@ class TouchControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
-    final controlWidth =
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 560;
+    final horizontalPadding = compact ? 12.0 : 28.0;
+    final availableWidth =
+        screenWidth - pad.left - pad.right - horizontalPadding * 2;
+    final wideControlWidth =
         142.0 +
         (onDuck == null ? 0 : 74) +
         64 +
@@ -87,17 +94,113 @@ class TouchControls extends StatelessWidget {
         (onShoot == null ? 0 : 72) +
         12 +
         78;
-    final availableWidth =
-        MediaQuery.sizeOf(context).width - pad.left - pad.right - 56;
-    final maxScale = (availableWidth / controlWidth).clamp(0.85, 1.25);
-    final s = scale.clamp(0.85, maxScale).toDouble();
+    final compactTopWidth =
+        (onShoot == null ? 0.0 : 54 + (onSkill == null ? 0 : 6)) +
+        (onSkill == null ? 0 : 50);
+    final compactBottomWidth = (onDuck == null ? 0.0 : 58) + 54 + 6 + 68;
+    final controlWidth = compact
+        ? 132 + math.max(compactTopWidth, compactBottomWidth)
+        : wideControlWidth;
+    final minScale = compact ? 0.65 : 0.85;
+    final maxScale = (availableWidth / controlWidth).clamp(minScale, 1.25);
+    final s = scale.clamp(minScale, maxScale).toDouble();
+    final padding = EdgeInsets.fromLTRB(
+      horizontalPadding + pad.left,
+      0,
+      horizontalPadding + pad.right,
+      (compact ? 10 : 18) + pad.bottom,
+    );
+
+    if (compact) {
+      return Padding(
+        padding: padding,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              children: [
+                _RoundHold(
+                  icon: CupertinoIcons.left_chevron,
+                  onChanged: onLeft,
+                  onInteract: onInteract,
+                  size: 56 * s,
+                ),
+                SizedBox(width: 8 * s),
+                _RoundHold(
+                  icon: CupertinoIcons.right_chevron,
+                  onChanged: onRight,
+                  onInteract: onInteract,
+                  size: 56 * s,
+                ),
+              ],
+            ),
+            const Spacer(),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (compactTopWidth > 0)
+                  Row(
+                    children: [
+                      if (onShoot != null)
+                        _RoundHold(
+                          label: '射击',
+                          onChanged: onShoot!,
+                          onInteract: onInteract,
+                          fill: MacaronColors.rose.withValues(alpha: 0.88),
+                          size: 54 * s,
+                        ),
+                      if (onShoot != null && onSkill != null)
+                        SizedBox(width: 6 * s),
+                      if (onSkill != null)
+                        _SkillButton(
+                          onPressed: onSkill!,
+                          onInteract: onInteract,
+                          cooldown: skillCooldown,
+                          label: skillLabel,
+                          size: 50 * s,
+                        ),
+                    ],
+                  ),
+                if (compactTopWidth > 0) SizedBox(height: 6 * s),
+                Row(
+                  children: [
+                    if (onDuck != null) ...[
+                      _RoundHold(
+                        label: '蹲',
+                        onChanged: onDuck!,
+                        onInteract: onInteract,
+                        fill: MacaronColors.lilac.withValues(alpha: 0.85),
+                        size: 52 * s,
+                      ),
+                      SizedBox(width: 6 * s),
+                    ],
+                    _RoundHold(
+                      label: '跑',
+                      onChanged: onRun,
+                      onInteract: onInteract,
+                      fill: MacaronColors.mint.withValues(alpha: 0.85),
+                      size: 54 * s,
+                    ),
+                    SizedBox(width: 6 * s),
+                    _RoundHold(
+                      label: '跳',
+                      onChanged: onJumpHeld,
+                      onInteract: onInteract,
+                      fill: MacaronColors.blush.withValues(alpha: 0.9),
+                      size: 68 * s,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        28 + pad.left,
-        0,
-        28 + pad.right,
-        18 + pad.bottom,
-      ),
+      padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
