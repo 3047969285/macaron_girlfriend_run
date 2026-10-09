@@ -104,14 +104,14 @@ class LevelCatalog {
     return grid.map((r) => r.join()).toList();
   }
 
-  /// 敌人的巡逻范围固定延伸两格，不能让整段范围悬在坑上或压住隧道缓冲区。
+  /// 敌人巡逻范围固定延伸两格；同时留出起跑反应距离，避免开局贴脸。
   static void _repairEnemyPatrolRoutes(List<List<String>> grid) {
     final ground = grid.length - 3;
     final width = grid.first.length;
     final bossTile = grid[ground].indexOf('B');
 
     bool hasSafeAnchor(int x) {
-      if (x < 4 ||
+      if (x < 10 ||
           x >= width - 4 ||
           bossTile >= 0 && (x - bossTile).abs() <= 6 ||
           (grid[ground + 1][x] != '#' && grid[ground + 2][x] != '#')) {
@@ -200,7 +200,7 @@ class LevelCatalog {
       for (final requireClearApproach in [true, false]) {
         for (var offset = 1; offset < width && destination < 0; offset++) {
           for (final candidate in [x + offset, x - offset]) {
-            if (candidate < 4 ||
+            if (candidate < 10 ||
                 candidate >= width - 4 ||
                 grid[ground][candidate] != ' ' ||
                 !hasSafeAnchor(candidate) ||

@@ -214,6 +214,12 @@ void main() {
         );
 
         final ground = level.height - 3;
+        final firstEnemy = level.rows[ground].indexOf(RegExp('[AEGRT]'));
+        expect(
+          firstEnemy < 0 || firstEnemy >= 10,
+          isTrue,
+          reason: '$reason needs a readable runway before the first enemy',
+        );
         final bossTile = level.rows[ground].indexOf('B');
         if (bossTile >= 0) {
           for (var x = bossTile - 3; x <= bossTile + 3; x++) {
