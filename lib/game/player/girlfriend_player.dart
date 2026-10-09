@@ -28,7 +28,6 @@ class GirlfriendPlayer extends PositionComponent {
   bool wantsLeft = false;
   bool wantsRight = false;
   bool wantsRun = false;
-  bool wantsJump = false;
   bool ducking = false;
 
   int coins = 0;
@@ -56,7 +55,6 @@ class GirlfriendPlayer extends PositionComponent {
     wantsLeft = false;
     wantsRight = false;
     wantsRun = false;
-    wantsJump = false;
   }
 
   void applyInput({
