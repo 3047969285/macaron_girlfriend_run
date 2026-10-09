@@ -492,8 +492,10 @@ void main() {
       expect(boss.hp, 3 + world ~/ 3, reason: 'world $world boss health');
       final nearbyWeapons = game.gunPickups.where(
         (pickup) =>
-            pickup.position.x < boss.position.x &&
-            boss.position.x - pickup.position.x <= GameConstants.tileSize * 16,
+            boss.position.x - pickup.position.x >=
+                GameConstants.tileSize * 8 &&
+            boss.position.x - pickup.position.x <=
+                GameConstants.tileSize * 14,
       );
       expect(
         nearbyWeapons,
@@ -1240,8 +1242,9 @@ void main() {
     final boss = game.boss!;
     final bossWeapon = game.gunPickups.firstWhere(
       (pickup) =>
-          pickup.position.x < boss.position.x &&
-          boss.position.x - pickup.position.x <= GameConstants.tileSize * 16,
+          boss.position.x - pickup.position.x >=
+              GameConstants.tileSize * 8 &&
+          boss.position.x - pickup.position.x <= GameConstants.tileSize * 14,
     );
     game.player
       ..position.setFrom(bossWeapon.position)

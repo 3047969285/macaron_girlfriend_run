@@ -101,9 +101,10 @@ class LevelCatalog {
     if (bossTile >= 0) {
       _placeGroundPickup(
         grid,
-        bossTile - 12,
+        bossTile - 11,
         grid.length - 3,
         'W',
+        maxOffset: 3,
         groundOnly: true,
       );
     }
@@ -601,12 +602,13 @@ class LevelCatalog {
     int targetX,
     int ground,
     String pickup, {
+    int maxOffset = 8,
     bool groundOnly = false,
   }) {
     final pickupRows = groundOnly
         ? [ground]
         : [ground, ground - 2, ground - 3, ground - 4, ground - 5];
-    for (var offset = 0; offset <= 8; offset++) {
+    for (var offset = 0; offset <= maxOffset; offset++) {
       for (final direction in offset == 0 ? const [1] : const [1, -1]) {
         final x = targetX + offset * direction;
         if (x < 10 || x >= grid.first.length - 8) {
