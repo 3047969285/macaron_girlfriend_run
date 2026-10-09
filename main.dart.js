@@ -83185,7 +83185,7 @@ k=A.bj(k,o,o,A.cF(o,o,B.k.a2(0.4),o,o,o,o,o,o,o,o,11,o,o,o,o,o,!0,o,o,o,o,o,o,o,
 if(m===0)r="\u4ece\u7b2c 1 \u5173\u5f00\u59cb"
 else{r=l.a
 r=A.ml(r).a+" \xb7 "+A.xT(r,l.b)}q=t.p
-return A.oT(o,A.dH(o,A.lV(!0,A.iO(A.apX(A.dd(A.c([B.bv,B.Wo,B.f_,n,B.b1,s,B.f0,k,B.Qg,new A.jy("\u7ee7\u7eed\u5192\u9669",r,!0,!1,new A.agg(p,a),o),B.bv,new A.jy("\u9009\u5173\u5730\u56fe",o,!1,!1,new A.agh(p),o),B.bv,new A.jy("\u7cd6\u679c\u5546\u5e97",o,!1,!1,new A.agi(p),o),B.bv,A.ea(A.c([A.f7(new A.jy("\u73a9\u6cd5",o,!1,!0,new A.agj(p),o),1),B.kK,A.f7(new A.jy("\u4efb\u52a1",o,!1,!0,new A.agk(p),o),1),B.kK,A.f7(new A.jy("\u8bbe\u7f6e",o,!1,!0,new A.agl(p),o),1)],q),B.M,B.C),B.bv,new A.jy("iPhone \u7248",o,!1,!1,new A.agm(a),o),B.bv,new A.LH(new A.agn(p),o,o,o,o,o,o,!1,o,!0,o,B.Wb,o)],q),B.M,B.C,B.ax),o,B.FI),o,o),B.aE,!0),B.w,o,B.AI,o,o,o,o,o,o,o))}}
+return A.oT(o,A.dH(o,A.lV(!0,A.iO(A.apX(A.dd(A.c([B.bv,B.Wn,B.f_,n,B.b1,s,B.f0,k,B.Qg,new A.jy("\u7ee7\u7eed\u5192\u9669",r,!0,!1,new A.agg(p,a),o),B.bv,new A.jy("\u9009\u5173\u5730\u56fe",o,!1,!1,new A.agh(p),o),B.bv,new A.jy("\u7cd6\u679c\u5546\u5e97",o,!1,!1,new A.agi(p),o),B.bv,A.ea(A.c([A.f7(new A.jy("\u73a9\u6cd5",o,!1,!0,new A.agj(p),o),1),B.kK,A.f7(new A.jy("\u4efb\u52a1",o,!1,!0,new A.agk(p),o),1),B.kK,A.f7(new A.jy("\u8bbe\u7f6e",o,!1,!0,new A.agl(p),o),1)],q),B.M,B.C),B.bv,new A.jy("iPhone \u7248",o,!1,!1,new A.agm(a),o),B.bv,new A.LH(new A.agn(p),o,o,o,o,o,o,!1,o,!0,o,B.Wb,o)],q),B.M,B.C,B.ax),o,B.FI),o,o),B.aE,!0),B.w,o,B.AI,o,o,o,o,o,o,o))}}
 A.agc.prototype={
 $0(){},
 $S:0}
@@ -83358,7 +83358,7 @@ q=g?B.n.a2(0.18):B.m.a2(0.05)
 q=A.dH(B.aj,A.bj(g?j.c:"\ud83d\udd12",k,k,B.zm,k),B.w,k,new A.bP(q,k,k,k,k,k,B.d_),k,54,k,k,k,k,54)
 p=t.p
 o=A.c([A.f7(A.bj(j.a,k,k,A.cF(k,k,g?B.k:B.k.a2(0.75),k,k,k,k,k,k,k,k,15,k,k,B.b7,k,k,!0,k,k,k,k,k,k,k,k),k),1)],p)
-if(g)o.push(A.dH(k,B.W8,B.w,k,new A.bP(B.n,k,k,A.db(10),k,k,B.a0),k,k,k,B.FK,k,k,k))
+if(g)o.push(A.dH(k,B.W9,B.w,k,new A.bP(B.n,k,k,A.db(10),k,k,B.a0),k,k,k,B.FK,k,k,k))
 o=A.ea(o,B.M,B.C)
 j=A.bj(j.b,k,k,A.cF(k,k,B.k.a2(0.58),k,k,k,k,k,k,k,k,12,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k)
 n=A.db(8)
@@ -83386,7 +83386,7 @@ b===$&&A.a()
 b=A.aq7(B.n,new A.akj(f),B.Wi,b)
 s=f.r
 s===$&&A.a()
-s=A.aq7(B.n,new A.akk(f),B.VY,s)
+s=A.aq7(B.n,new A.akk(f),B.VZ,s)
 r=f.x
 r===$&&A.a()
 r=A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,e,!1,e,e,e,e,e,A.aq_(B.n,e,e,1,0,new A.akl(f),r),e,B.Wx,e,e)
@@ -83395,11 +83395,11 @@ q===$&&A.a()
 q=A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,e,!1,e,e,e,e,e,A.aq_(B.a3,e,e,1,0,new A.akm(f),q),e,B.WB,e,e)
 p=f.w
 p===$&&A.a()
-p=A.aq7(B.n,new A.akn(f),B.Wn,p)
+p=A.aq7(B.n,new A.akn(f),B.Wm,p)
 o=f.tn("\u89e6\u63a7")
 n=f.z
 n===$&&A.a()
-n=A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,e,!1,e,e,e,e,e,A.aq_(B.Y,8,B.c.a5(n,2),1.25,0.85,new A.ako(f),n),e,B.W5,e,e)
+n=A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,e,!1,e,e,e,e,e,A.aq_(B.Y,8,B.c.a5(n,2),1.25,0.85,new A.ako(f),n),e,B.W7,e,e)
 m=f.tn("\u5e27\u7387")
 l=t.p
 k=A.c([],l)
@@ -83411,7 +83411,7 @@ k.push(A.aoA(h,new A.akp(f,i),g===i.a,B.U))}k=A.aqs(k,8)
 h=f.tn("\u89d2\u8272\u5916\u89c2")
 g=f.e
 g===$&&A.a()
-return A.oT(B.aM,A.lV(!0,A.aue(A.c([d,c,b,s,r,q,new A.x_(B.Gn,B.Wf,B.Wr,B.Ia,B.aE,B.Fx,e),p,o,n,m,k,B.f_,h,A.aqs(A.c([A.aoA(B.VW,new A.akq(f),g===B.ds,B.U),A.aoA(B.We,new A.akr(f),g===B.ch,B.bK)],l),8),B.bw,B.W_,B.f_,f.tn("\u6559\u7a0b\u4e0e\u5b58\u6863"),A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,new A.aks(a),!1,e,e,e,e,e,B.Wq,e,B.Wz,B.Gk,e),A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,new A.akt(a),!1,e,e,e,e,e,B.Wh,e,B.Wp,B.Go,e)],l),B.FD),B.aE,!0))},
+return A.oT(B.aM,A.lV(!0,A.aue(A.c([d,c,b,s,r,q,new A.x_(B.Gn,B.Wf,B.Wr,B.Ia,B.aE,B.Fx,e),p,o,n,m,k,B.f_,h,A.aqs(A.c([A.aoA(B.VX,new A.akq(f),g===B.ds,B.U),A.aoA(B.We,new A.akr(f),g===B.ch,B.bK)],l),8),B.bw,B.W0,B.f_,f.tn("\u6559\u7a0b\u4e0e\u5b58\u6863"),A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,new A.aks(a),!1,e,e,e,e,e,B.Wp,e,B.Wz,B.Gk,e),A.ri(!1,e,e,e,!0,e,e,e,!0,e,e,e,e,e,e,new A.akt(a),!1,e,e,e,e,e,B.Wh,e,B.Wo,B.Go,e)],l),B.FD),B.aE,!0))},
 tn(a){var s=null
 return new A.c3(B.Ft,A.bj(a,s,s,A.cF(s,s,B.k.a2(0.55),s,s,s,s,s,s,s,s,s,s,s,B.aK,s,s,!0,s,s,s,s,s,s,s,s),s),s)}}
 A.akj.prototype={
@@ -83576,7 +83576,7 @@ case 3:return A.u(null,r)}})
 return A.v($async$$0,r)},
 $S:9}
 A.ak9.prototype={
-$1(a){return A.aoK(A.c([A.Xb(B.W1,!1,!1,new A.ak7(a)),A.Xb(B.VV,!1,!0,new A.ak8(a))],t.p),B.VM,B.VT)},
+$1(a){return A.aoK(A.c([A.Xb(B.W2,!1,!1,new A.ak7(a)),A.Xb(B.VW,!1,!0,new A.ak8(a))],t.p),B.VO,B.VU)},
 $S:115}
 A.ak7.prototype={
 $0(){A.cl(this.a,!1).df(!1)
@@ -84130,7 +84130,7 @@ return A.cS(A.nu(q,A.bj(a,s,s,A.cF(s,s,c?B.h:B.k,s,s,s,s,s,s,s,s,s,s,s,B.aK,s,s,
 OT(a,b){return this.OU(a,b,!1)}}
 A.SU.prototype={
 N(a){var s=null,r=A.db(22)
-return A.w2(A.iO(A.dH(s,A.dd(A.c([B.WC,B.bv,B.VJ,B.W6,B.Wk,B.W7,B.VS,B.W9,B.f_,A.cS(A.nu(A.db(16),B.VX,B.n,this.c,s),s,1/0)],t.p),B.aR,B.C,B.bs),B.w,s,new A.bP(B.aM,s,s,r,s,s,B.a0),s,s,B.nn,B.no,s,s,340),s,s),B.P,!0)}}
+return A.w2(A.iO(A.dH(s,A.dd(A.c([B.WC,B.bv,B.W8,B.Wq,B.W4,B.VN,B.VJ,B.VK,B.f_,A.cS(A.nu(A.db(16),B.VY,B.n,this.c,s),s,1/0)],t.p),B.aR,B.C,B.bs),B.w,s,new A.bP(B.aM,s,s,r,s,s,B.a0),s,s,B.nn,B.no,s,s,340),s,s),B.P,!0)}}
 A.Ts.prototype={}
 A.A9.prototype={
 am(){return new A.RH()}}
@@ -84189,7 +84189,7 @@ case 1:return A.u(q,r)}})
 return A.v($async$$0,r)},
 $S:9}
 A.aky.prototype={
-$1(a){return A.aoK(A.c([A.Xb(B.W3,!1,!1,new A.akx(a))],t.p),B.VK,B.W2)},
+$1(a){return A.aoK(A.c([A.Xb(B.W5,!1,!1,new A.akx(a))],t.p),B.VL,B.W3)},
 $S:115}
 A.akx.prototype={
 $0(){A.cl(this.a,!1).df(null)
@@ -88768,8 +88768,8 @@ B.SM=new A.m(!0,B.k,null,null,null,null,28,B.bZ,null,null,null,null,null,null,nu
 B.Wc=new A.aU("\u9a6c\u5361\u9f99\u5973\u53cb\u8dd1\u9177",null,B.SM,null,null,null,null)
 B.bw=new A.d2(null,8,null,null)
 B.TN=new A.m(!0,B.k,null,null,null,null,null,null,null,1.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.VN=new A.aU("Macaron Girlfriend Run",null,B.TN,null,null,null,null)
-B.Ij=s([B.Wj,B.bv,B.Wc,B.bw,B.VN],t.p)
+B.VP=new A.aU("Macaron Girlfriend Run",null,B.TN,null,null,null,null)
+B.Ij=s([B.Wj,B.bv,B.Wc,B.bw,B.VP],t.p)
 B.Ej=new A.nn(B.aq,B.eB,B.ax,B.M,null,B.cm,null,0,B.Ij,null)
 B.n0=new A.w5(0,"none")
 B.Ek=new A.w5(1,"waiting")
@@ -89205,15 +89205,15 @@ B.cA=s([B.Im,B.I0,B.Jv],t.zg)
 B.nV=s([0,4,12,1,5,13,3,7,15],t.t)
 B.HJ=s(["audio/slow_jam.mp3","audio/smooth_lovin.mp3","audio/morning.mp3"],t.s)
 B.SJ=new A.m(!0,null,null,null,null,null,18,B.bZ,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.W0=new A.aU("\u9a6c\u5361\u9f99\u5973\u53cb\u8dd1\u9177",null,B.SJ,null,null,null,null)
-B.Wm=new A.aU("\u7248\u672c 1.5.0 \xb7 \u5b8c\u5168\u4f53",null,null,null,null,null,null)
+B.W1=new A.aU("\u9a6c\u5361\u9f99\u5973\u53cb\u8dd1\u9177",null,B.SJ,null,null,null,null)
+B.Wl=new A.aU("\u7248\u672c 1.5.0 \xb7 \u5b8c\u5168\u4f53",null,null,null,null,null,null)
 B.b1=new A.d2(null,10,null,null)
-B.VZ=new A.aU("\u539f\u521b\u751c\u871c\u5e73\u53f0\u8df3\u8dc3\u5355\u673a\u300299 \u5173\u3001\u771f\u6682\u505c\u3001Boss \u8840\u6761\u3001\u68c0\u67e5\u70b9\u3001\u72c2\u66b4 Boss\u3001\u8010\u6253\u7ea2\u80d6\u602a\u3001\u7cd6\u679c\u5546\u5e97\u3001\u771f\u62d6\u5c3e\u5916\u89c2\u3001\u89c6\u5dee\u3001\u5206\u4e16\u754c BGM\u3001\u952e\u76d8\u64cd\u4f5c\u3001\u5173\u5361\u9884\u89c8\u4e0e\u901a\u5173\u4eea\u5f0f\u3001\u672c\u5730\u5b58\u6863\uff0c\u65e0\u8054\u7f51\u65e0\u5e7f\u544a\u3002\u5df2\u4f18\u5316\u7ee7\u7eed\u5192\u9669\u3001\u7c98\u952e\u3001\u8d85\u65f6\u7eed\u65f6\u3001\u95ee\u53f7\u7816\u4e09\u661f\u3001\u89e6\u63a7\u53cd\u9988\u3001\u76f8\u673a\u524d\u77bb\u3001\u957f\u5173\u6027\u80fd\u4e0e iPhone \u7f51\u9875\u52a0\u8f7d\u3002",null,null,null,null,null,null)
-B.VO=new A.aU("Android\uff1aGoogle Play / \u5404\u5b89\u5353\u5546\u5e97 \u2014 \u5b89\u88c5 apk \u6216\u81ea\u884c\u7b7e\u540d\u4e0a\u67b6\u3002",null,null,null,null,null,null)
-B.VL=new A.aU("iPhone\uff1aApp Store \u9700 Mac \u6216 Codemagic \u4e91\u6784\u5efa ipa\uff08\u89c1 docs/BUILD_IOS.md\uff09\uff1b\u65e0 Mac \u53ef\u7528 Safari \u7f51\u9875\u7248 + \u6dfb\u52a0\u5230\u4e3b\u5c4f\u5e55\u3002",null,null,null,null,null,null)
+B.W_=new A.aU("\u539f\u521b\u751c\u871c\u5e73\u53f0\u8df3\u8dc3\u5355\u673a\u300299 \u5173\u3001\u771f\u6682\u505c\u3001Boss \u8840\u6761\u3001\u68c0\u67e5\u70b9\u3001\u72c2\u66b4 Boss\u3001\u8010\u6253\u7ea2\u80d6\u602a\u3001\u7cd6\u679c\u5546\u5e97\u3001\u771f\u62d6\u5c3e\u5916\u89c2\u3001\u89c6\u5dee\u3001\u5206\u4e16\u754c BGM\u3001\u952e\u76d8\u64cd\u4f5c\u3001\u5173\u5361\u9884\u89c8\u4e0e\u901a\u5173\u4eea\u5f0f\u3001\u672c\u5730\u5b58\u6863\uff0c\u65e0\u8054\u7f51\u65e0\u5e7f\u544a\u3002\u5df2\u4f18\u5316\u7ee7\u7eed\u5192\u9669\u3001\u7c98\u952e\u3001\u8d85\u65f6\u7eed\u65f6\u3001\u95ee\u53f7\u7816\u4e09\u661f\u3001\u89e6\u63a7\u53cd\u9988\u3001\u76f8\u673a\u524d\u77bb\u3001\u957f\u5173\u6027\u80fd\u4e0e iPhone \u7f51\u9875\u52a0\u8f7d\u3002",null,null,null,null,null,null)
+B.VQ=new A.aU("Android\uff1aGoogle Play / \u5404\u5b89\u5353\u5546\u5e97 \u2014 \u5b89\u88c5 apk \u6216\u81ea\u884c\u7b7e\u540d\u4e0a\u67b6\u3002",null,null,null,null,null,null)
+B.VM=new A.aU("iPhone\uff1aApp Store \u9700 Mac \u6216 Codemagic \u4e91\u6784\u5efa ipa\uff08\u89c1 docs/BUILD_IOS.md\uff09\uff1b\u65e0 Mac \u53ef\u7528 Safari \u7f51\u9875\u7248 + \u6dfb\u52a0\u5230\u4e3b\u5c4f\u5e55\u3002",null,null,null,null,null,null)
 B.Wt=new A.aU("\u9690\u79c1\uff1a\u8fdb\u5ea6\u4ec5\u4fdd\u5b58\u5728\u672c\u673a\uff0c\u65e0\u8d26\u53f7\u3001\u65e0\u8054\u7f51\u3001\u65e0\u5e7f\u544a\u8ffd\u8e2a\u3002",null,null,null,null,null,null)
-B.Wl=new A.aU("\u9002\u9f84\u63d0\u793a\uff1a\u4f11\u95f2\u76ca\u667a\uff0c\u5efa\u8bae 4+\u3002",null,null,null,null,null,null)
-B.HL=s([B.W0,B.Wm,B.b1,B.VZ,B.b1,B.VO,B.b1,B.VL,B.b1,B.Wt,B.b1,B.Wl],t.p)
+B.Wk=new A.aU("\u9002\u9f84\u63d0\u793a\uff1a\u4f11\u95f2\u76ca\u667a\uff0c\u5efa\u8bae 4+\u3002",null,null,null,null,null,null)
+B.HL=s([B.W1,B.Wl,B.b1,B.W_,B.b1,B.VQ,B.b1,B.VM,B.b1,B.Wt,B.b1,B.Wk],t.p)
 B.cl=new A.ks(0,"left")
 B.dD=new A.ks(1,"right")
 B.f2=new A.ks(3,"justify")
@@ -89255,14 +89255,14 @@ B.I9=s([B.AP],t.b)
 B.JE=new A.oc("en",null,"US")
 B.nX=s([B.JE],t.ss)
 B.nY=s([0,41,61,101,131,181,251,301,360],t.n)
-B.VP=new A.aU("Slow Jam \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600015",null,null,null,null,null,null)
-B.A8=new A.dU(B.co,null,null,B.VP,null)
-B.W4=new A.aU("Smooth Lovin \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700077",null,null,null,null,null,null)
-B.A6=new A.dU(B.co,null,null,B.W4,null)
-B.VR=new A.aU("Morning \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003",null,null,null,null,null,null)
-B.A7=new A.dU(B.co,null,null,B.VR,null)
-B.VU=new A.aU("\u8bb8\u53ef\uff1aCreative Commons Attribution 4.0 International\nhttps://creativecommons.org/licenses/by/4.0/",null,null,null,null,null,null)
-B.A9=new A.dU(B.co,null,null,B.VU,null)
+B.VR=new A.aU("Slow Jam \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600015",null,null,null,null,null,null)
+B.A8=new A.dU(B.co,null,null,B.VR,null)
+B.W6=new A.aU("Smooth Lovin \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700077",null,null,null,null,null,null)
+B.A6=new A.dU(B.co,null,null,B.W6,null)
+B.VT=new A.aU("Morning \u2014 Kevin MacLeod\nhttps://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003",null,null,null,null,null,null)
+B.A7=new A.dU(B.co,null,null,B.VT,null)
+B.VV=new A.aU("\u8bb8\u53ef\uff1aCreative Commons Attribution 4.0 International\nhttps://creativecommons.org/licenses/by/4.0/",null,null,null,null,null,null)
+B.A9=new A.dU(B.co,null,null,B.VV,null)
 B.Ia=s([B.A8,B.bw,B.A6,B.bw,B.A7,B.bw,B.A9],t.p)
 B.Yg=new A.kE(0,0)
 B.Yl=new A.kE(1,0.05)
@@ -90769,9 +90769,9 @@ B.Qq=new A.jl(3,"hide")
 B.ZA=new A.jl(4,"remove")
 B.Qr=new A.jl(5,"timeout")
 B.Qs=new A.ti(null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.VQ=new A.aU("\u5df2\u91cd\u7f6e\u6559\u7a0b\uff0c\u4e0b\u6b21\u8fdb\u5173\u4f1a\u518d\u51fa\u73b0",null,null,null,null,null,null)
+B.VS=new A.aU("\u5df2\u91cd\u7f6e\u6559\u7a0b\uff0c\u4e0b\u6b21\u8fdb\u5173\u4f1a\u518d\u51fa\u73b0",null,null,null,null,null,null)
 B.nh=new A.aB(4e6)
-B.Qt=new A.m7(B.VQ,null,null,null,null,null,null,null,null,null,null,null,null,B.nh,!1,null,null,null,B.as,null)
+B.Qt=new A.m7(B.VS,null,null,null,null,null,null,null,null,null,null,null,null,B.nh,!1,null,null,null,B.as,null)
 B.Wd=new A.aU("\u8fdb\u5ea6\u5df2\u6e05\u9664",null,null,null,null,null,null)
 B.Qu=new A.m7(B.Wd,null,null,null,null,null,null,null,null,null,null,null,null,B.nh,!1,null,null,null,B.as,null)
 B.z0=new A.Ak(0,"permissive")
@@ -91135,38 +91135,38 @@ B.Ud=new A.m(!0,B.T,null,".AppleSystemUIFont",null,null,null,null,null,null,null
 B.Uy=new A.m(!0,B.m,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelMedium",null,null,null,null)
 B.Rr=new A.m(!0,B.m,null,".AppleSystemUIFont",null,null,null,null,null,null,null,null,null,null,null,null,null,B.i,null,null,null,"blackRedwoodCity labelSmall",null,null,null,null)
 B.VI=new A.dD(B.To,B.Se,B.Tp,B.TT,B.RT,B.S2,B.Sx,B.TO,B.SL,B.Ug,B.Rk,B.RC,B.Ud,B.Uy,B.Rr)
-B.VJ=new A.aU("\u2022 A/D \u6216\u5de6\u53f3\u952e\u79fb\u52a8\uff0c\u7a7a\u683c\u8df3\uff1b\u77ed\u6309\u4f4e\u8df3\uff0c\u957f\u6309\u9ad8\u8df3",null,null,null,null,null,null)
-B.VK=new A.aU("\u518d\u53bb\u95ef\u5173\u6512\u4e00\u70b9\u5427",null,null,null,null,null,null)
-B.VM=new A.aU("\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\uff0c\u97f3\u91cf\u4e0e\u5e27\u7387\u8bbe\u7f6e\u4f1a\u4fdd\u7559",null,null,null,null,null,null)
-B.VS=new A.aU("\u2022 \u8c4c\u8c46\u4f19\u4f34\u81ea\u52a8\u5c04\u51fb\uff1b\u62ff\u67aa\u6309 F\uff0c\u5c0f\u8f66\u52a0\u901f\u5e76\u6321\u4e00\u6b21",null,null,null,null,null,null)
-B.VT=new A.aU("\u786e\u8ba4\u6e05\u6863\uff1f",null,null,null,null,null,null)
-B.VV=new A.aU("\u6e05\u9664",null,null,null,null,null,null)
-B.VW=new A.aU("\u5973\u53cb",null,null,null,null,null,null)
-B.VX=new A.aU("\u5f00\u59cb\u5192\u9669",null,B.zj,null,null,null,null)
-B.VY=new A.aU("\u80cc\u666f\u97f3\u4e50",null,null,null,null,null,null)
+B.VJ=new A.aU("\u2022 \u8c4c\u8c46\u81ea\u52a8\u653b\u51fb\uff1b\u62fe\u67aaF/\u70b9\u5c04\u51fb\uff0c\u5c0f\u8f66\u53ef\u6321\u4e00\u6b21",null,null,null,null,null,null)
+B.VK=new A.aU("\u2022 E/\u6280\u80fd\u952e\uff1a\u95ea\u51b2 / \u7cd6\u76fe / \u82b1\u5f39",null,null,null,null,null,null)
+B.VL=new A.aU("\u518d\u53bb\u95ef\u5173\u6512\u4e00\u70b9\u5427",null,null,null,null,null,null)
+B.VN=new A.aU("\u2022 \u95ee\u53f7\u7816\u3001\u7cd6\u679c\u6709\u5956\uff0c\u84dd\u65d7\u68c0\u67e5\u70b9",null,null,null,null,null,null)
+B.VO=new A.aU("\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\uff0c\u97f3\u91cf\u4e0e\u5e27\u7387\u8bbe\u7f6e\u4f1a\u4fdd\u7559",null,null,null,null,null,null)
+B.VU=new A.aU("\u786e\u8ba4\u6e05\u6863\uff1f",null,null,null,null,null,null)
+B.VW=new A.aU("\u6e05\u9664",null,null,null,null,null,null)
+B.VX=new A.aU("\u5973\u53cb",null,null,null,null,null,null)
+B.VY=new A.aU("\u5f00\u59cb\u5192\u9669",null,B.zj,null,null,null,null)
+B.VZ=new A.aU("\u80cc\u666f\u97f3\u4e50",null,null,null,null,null,null)
 B.RH=new A.m(!0,B.k,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.W_=new A.aU("\u66f4\u591a\u88c5\u626e\u8bf7\u53bb\u9996\u9875\u300c\u7cd6\u679c\u5546\u5e97\u300d",null,B.RH,null,null,null,null)
-B.W1=new A.aU("\u53d6\u6d88",null,null,null,null,null,null)
-B.W2=new A.aU("\u7cd6\u679c\u4e0d\u591f",null,null,null,null,null,null)
-B.W3=new A.aU("\u597d",null,null,null,null,null,null)
-B.W5=new A.aU("\u6309\u94ae\u5927\u5c0f",null,null,null,null,null,null)
-B.W6=new A.aU("\u2022 \u624b\u673a\u6309\u4f4f\u5de6\u53f3\u952e\u79fb\u52a8\uff0c\u53f3\u4fa7\u6709\u8dd1\u6b65\u3001\u4e0b\u8e72\u548c\u8df3\u8dc3",null,null,null,null,null,null)
-B.W7=new A.aU("\u2022 \u95ee\u53f7\u7816\u548c\u7cd6\u679c\u6709\u5956\u52b1\uff0c\u84dd\u65d7\u662f\u68c0\u67e5\u70b9",null,null,null,null,null,null)
+B.W0=new A.aU("\u66f4\u591a\u88c5\u626e\u8bf7\u53bb\u9996\u9875\u300c\u7cd6\u679c\u5546\u5e97\u300d",null,B.RH,null,null,null,null)
+B.W2=new A.aU("\u53d6\u6d88",null,null,null,null,null,null)
+B.W3=new A.aU("\u7cd6\u679c\u4e0d\u591f",null,null,null,null,null,null)
+B.W4=new A.aU("\u2022 \u8fde\u51fb\u52a0\u5206\uff1b\u7ea2\u80d6\u602a\u9700\u8e29\u4e24\u6b21\uff0cBoss\u8df3\u7838\u8981\u8eb2",null,null,null,null,null,null)
+B.W5=new A.aU("\u597d",null,null,null,null,null,null)
+B.W7=new A.aU("\u6309\u94ae\u5927\u5c0f",null,null,null,null,null,null)
+B.W8=new A.aU("\u2022 A/D \u6216\u2190\u2192\u79fb\u52a8\uff0cShift/K\u8dd1\uff0cS/\u2193\u8e72",null,null,null,null,null,null)
 B.Uz=new A.m(!0,B.h,null,null,null,null,11,B.aK,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.W8=new A.aU("\u5b8c\u6210",null,B.Uz,null,null,null,null)
-B.W9=new A.aU("\u2022 E \u4f7f\u7528\u672c\u5173\u6280\u80fd\uff1a\u95ea\u51b2 / \u7cd6\u76fe / \u82b1\u5f39",null,null,null,null,null,null)
+B.W9=new A.aU("\u5b8c\u6210",null,B.Uz,null,null,null,null)
 B.Wa=new A.aU("\u4e0d\u5fc5\u540c Wi-Fi\uff0c\u53ef\u4ee5\u90e8\u7f72\u5230\u516c\u7f51\uff1a\n\n\u2460 \u6700\u5feb\uff1a\u8fd0\u884c\u300c\u90e8\u7f72iPhone\u516c\u7f51.bat\u300d\u2192 \u6253\u5f00 netlify.com/drop \u2192 \u62d6\u5165\u684c\u9762\u300c\u9a6c\u5361\u9f99-iPhone\u7f51\u9875\u7248\u300d\u2192 \u5f97\u5230 netlify.app \u94fe\u63a5\n\n\u2461 \u6c38\u4e45\uff1a\u5de5\u7a0b\u63a8 GitHub \u2192 Pages \u5f00 GitHub Actions\n\n\u2462 \u540c Wi-Fi\uff1a\u8fd0\u884c\u300c\u7ed9iPhone\u73a9.bat\u300d\n\nSafari \u6253\u5f00 \u2192 \u5206\u4eab \u2192 \u6dfb\u52a0\u5230\u4e3b\u5c4f\u5e55",null,null,null,null,null,null)
 B.Wb=new A.aU("\u5173\u4e8e\u4e0e\u4e0a\u67b6\u8bf4\u660e",null,null,null,null,null,null)
 B.We=new A.aU("\u7537\u53cb",null,null,null,null,null,null)
 B.Wf=new A.aU("\u97f3\u4e50\u6765\u6e90\u4e0e\u6388\u6743",null,null,null,null,null,null)
 B.Wh=new A.aU("\u661f\u7ea7\u3001\u89e3\u9501\u3001\u94b1\u5305\u4e0e\u5916\u89c2\u8d2d\u4e70\u4f1a\u6e05\u7a7a",null,null,null,null,null,null)
 B.Wi=new A.aU("\u64cd\u4f5c\u97f3\u6548",null,null,null,null,null,null)
-B.Wk=new A.aU("\u2022 \u8fde\u7eed\u51fb\u8d25\u53ef\u53e0\u8fde\u51fb\u5206\uff1b\u7ea2\u80d6\u602a\u4e24\u6b21\uff0cBoss \u8df3\u7838\u8981\u8eb2",null,null,null,null,null,null)
-B.Wn=new A.aU("\u9707\u52a8\u53cd\u9988",null,null,null,null,null,null)
+B.Wm=new A.aU("\u9707\u52a8\u53cd\u9988",null,null,null,null,null,null)
 B.RW=new A.m(!0,B.k,null,null,null,null,30,B.bZ,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.Wo=new A.aU("\u9a6c\u5361\u9f99\u5973\u53cb\u8dd1\u9177",null,B.RW,null,null,null,null)
-B.Wp=new A.aU("\u6e05\u9664\u6e38\u620f\u8fdb\u5ea6",null,null,null,null,null,null)
-B.Wq=new A.aU("\u4e0b\u6b21\u8fdb\u5173\u5361\u65f6\u518d\u6b21\u663e\u793a",null,null,null,null,null,null)
+B.Wn=new A.aU("\u9a6c\u5361\u9f99\u5973\u53cb\u8dd1\u9177",null,B.RW,null,null,null,null)
+B.Wo=new A.aU("\u6e05\u9664\u6e38\u620f\u8fdb\u5ea6",null,null,null,null,null,null)
+B.Wp=new A.aU("\u4e0b\u6b21\u8fdb\u5173\u5361\u65f6\u518d\u6b21\u663e\u793a",null,null,null,null,null,null)
+B.Wq=new A.aU("\u2022 \u7a7a\u683c\u8df3\uff1a\u77ed\u6309\u4f4e\u3001\u957f\u6309\u9ad8\uff1b\u624b\u673a\u53f3\u4fa7\u6709\u52a8\u4f5c\u952e",null,null,null,null,null,null)
 B.Wr=new A.aU("Kevin MacLeod \xb7 CC BY 4.0",null,null,null,null,null,null)
 B.Ws=new A.aU("iPhone \u600e\u4e48\u73a9",null,null,null,null,null,null)
 B.Wv=new A.aU("\u77e5\u9053\u4e86",null,null,null,null,null,null)
