@@ -13,6 +13,99 @@ import 'package:macaron_girlfriend_run/game/entities/entities.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 
+class _RoutePilot {
+  _RoutePilot(this.game) {
+    final ground = game.level.height - 3;
+    gaps = [];
+    for (var x = 2; x <= game.level.width - 3;) {
+      if (game.level.tileAt(x, ground + 1) != ' ' ||
+          game.level.tileAt(x, ground + 2) != ' ') {
+        x++;
+        continue;
+      }
+      final start = x;
+      while (x <= game.level.width - 3 &&
+          game.level.tileAt(x, ground + 1) == ' ' &&
+          game.level.tileAt(x, ground + 2) == ' ') {
+        x++;
+      }
+      gaps.add((start, x - start));
+    }
+    final tunnelTiles = [
+      for (var x = 0; x < game.level.width; x++)
+        if (game.level.tileAt(x, ground - 1) == 'D') x,
+    ];
+    tunnelStart = tunnelTiles.isEmpty
+        ? double.infinity
+        : tunnelTiles.first * GameConstants.tileSize;
+    tunnelEnd = tunnelTiles.isEmpty
+        ? double.negativeInfinity
+        : (tunnelTiles.last + 1) * GameConstants.tileSize;
+  }
+
+  final MacaronGame game;
+  late final List<(int, int)> gaps;
+  late final double tunnelStart;
+  late final double tunnelEnd;
+  int gapIndex = 0;
+  bool jumpIssued = false;
+
+  void step() {
+    final x = game.player.position.x;
+    if (gapIndex < gaps.length) {
+      final (start, length) = gaps[gapIndex];
+      final landingX =
+          (start + length) * GameConstants.tileSize +
+          GirlfriendPlayer.standWidth * 0.325;
+      if (x >= landingX) {
+        gapIndex++;
+        jumpIssued = false;
+      }
+    }
+    final gap = gapIndex < gaps.length ? gaps[gapIndex] : null;
+    final gapDistance = gap == null
+        ? double.infinity
+        : gap.$1 * GameConstants.tileSize - x;
+    final ducking =
+        x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
+        x <= tunnelEnd + GirlfriendPlayer.standWidth;
+    final beforeTunnel =
+        x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
+        x < tunnelStart - 48;
+    final nearGap = gapDistance >= 0 && gapDistance <= 160;
+    final gapStartX = gap == null
+        ? double.infinity
+        : gap.$1 * GameConstants.tileSize;
+    final springCarriesToGap = game.springs.any(
+      (spring) =>
+          spring.position.x <= gapStartX &&
+          gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
+    );
+    final waitToLand =
+        !game.player.onGround &&
+        !jumpIssued &&
+        !springCarriesToGap &&
+        (beforeTunnel || nearGap);
+    final jumpNow =
+        gap != null &&
+        !jumpIssued &&
+        game.player.onGround &&
+        !ducking &&
+        gapDistance <= 80 &&
+        gapDistance >= 0;
+    game
+      ..rightPressed = !waitToLand
+      ..leftPressed = false
+      ..runPressed = true
+      ..setDuckPressed(ducking)
+      ..setJumpHeld(false);
+    if (jumpNow) {
+      jumpIssued = true;
+      game.setJumpHeld(true);
+    }
+  }
+}
+
 void main() {
   test('every level has a stable unique scenery seed', () {
     final seeds = <int>{};
@@ -43,8 +136,7 @@ void main() {
             expect(
               skill,
               isNot(GameConstants.heroSkillForLevel(world, level + 1)),
-              reason:
-                  'world $world, level $level must rotate its active skill',
+              reason: 'world $world, level $level must rotate its active skill',
             );
           }
         }
@@ -235,11 +327,7 @@ void main() {
           for (var x = 2; x <= level.width - 3; x++)
             if (level.tileAt(x, ground - 1) == 'D') x,
         ];
-        expect(
-          tunnelTiles.length,
-          inInclusiveRange(4, 6),
-          reason: reason,
-        );
+        expect(tunnelTiles.length, inInclusiveRange(4, 6), reason: reason);
         expect(
           tunnelTiles.any((x) => level.tileAt(x, ground) == 'C'),
           isTrue,
@@ -492,10 +580,8 @@ void main() {
       expect(boss.hp, 3 + world ~/ 3, reason: 'world $world boss health');
       final nearbyWeapons = game.gunPickups.where(
         (pickup) =>
-            boss.position.x - pickup.position.x >=
-                GameConstants.tileSize * 8 &&
-            boss.position.x - pickup.position.x <=
-                GameConstants.tileSize * 14,
+            boss.position.x - pickup.position.x >= GameConstants.tileSize * 8 &&
+            boss.position.x - pickup.position.x <= GameConstants.tileSize * 14,
       );
       expect(
         nearbyWeapons,
@@ -560,6 +646,149 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
+
+  testWidgets(
+    'a boss level clears with continuous movement and combat input',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'sound_on': false,
+        'music_on': false,
+        'haptic_on': false,
+      });
+      await SaveService.instance.init();
+
+      LevelResult? result;
+      final game = MacaronGame(
+        worldIndex: 0,
+        levelIndex: GameConstants.levelsPerWorld - 1,
+        role: PlayerRole.girlfriend,
+        onWin: (value) => result = value,
+      );
+      await tester.pumpWidget(GameWidget(game: game));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.levelReady, isTrue);
+      game.pauseEngine();
+      for (final enemy in game.enemies) {
+        enemy.dead = true;
+      }
+
+      final boss = game.boss!;
+      final weapon = game.gunPickups.firstWhere(
+        (pickup) =>
+            boss.position.x - pickup.position.x >= GameConstants.tileSize * 8 &&
+            boss.position.x - pickup.position.x <= GameConstants.tileSize * 14,
+      );
+      final routePilot = _RoutePilot(game);
+      const dt = 1 / 30;
+      final stagingX =
+          boss.leftBound -
+          GirlfriendPlayer.standWidth / 2 -
+          boss.size.x * 0.4 -
+          28;
+
+      for (var frame = 0; frame < 2400; frame++) {
+        routePilot.step();
+        game.update(dt);
+        if (weapon.collected &&
+            game.player.onGround &&
+            game.player.position.x >= stagingX) {
+          break;
+        }
+      }
+      expect(weapon.collected, isTrue, reason: 'the player runs into the gun');
+      expect(game.weaponVisible, isTrue);
+      expect(
+        game.player.position.x,
+        greaterThanOrEqualTo(stagingX - 20),
+        reason: 'normal running and jumps reach the boss arena',
+      );
+
+      var jumpFrames = 0;
+      final initialBossHp = boss.hp;
+      for (var frame = 0; frame < 1800 && boss.hp == initialBossHp; frame++) {
+        final dx = boss.position.x - game.player.position.x;
+        if (game.player.onGround) {
+          game.setJumpHeld(false);
+          if (dx.abs() <= 145) {
+            game.activateSkill();
+            game.setJumpHeld(true);
+            jumpFrames = 1;
+            game
+              ..rightPressed = dx > 16
+              ..leftPressed = dx < -16
+              ..runPressed = true;
+          } else {
+            game
+              ..rightPressed = dx > 0
+              ..leftPressed = dx < 0
+              ..runPressed = true;
+          }
+        } else {
+          jumpFrames++;
+          game.setJumpHeld(jumpFrames <= 9);
+          game
+            ..rightPressed = dx > 16
+            ..leftPressed = dx < -16
+            ..runPressed = true;
+        }
+        game.update(dt);
+      }
+      expect(
+        boss.hp,
+        lessThan(initialBossHp),
+        reason:
+            'a timed jump from live controls must stomp the boss; '
+            'player=${game.player.position}, boss=${boss.position}, '
+            'lives=${game.lives}',
+      );
+
+      final safeX = stagingX;
+      for (var frame = 0; frame < 120; frame++) {
+        if (game.player.position.x > safeX) {
+          game
+            ..leftPressed = true
+            ..rightPressed = false
+            ..runPressed = true;
+        } else {
+          game
+            ..leftPressed = false
+            ..rightPressed = false
+            ..runPressed = false;
+          break;
+        }
+        game.update(dt);
+      }
+      game
+        ..setJumpHeld(false)
+        ..player.facingRight = true
+        ..rightPressed = false
+        ..leftPressed = false
+        ..runPressed = false;
+      final gunTimeAtRetreat = game.gunTimer;
+      for (var frame = 0; frame < 900 && !boss.dead; frame++) {
+        game.setShootPressed(boss.canReceiveProjectile);
+        game.update(dt);
+      }
+      game.setShootPressed(false);
+      expect(
+        boss.dead,
+        isTrue,
+        reason:
+            'the collected gun counters each boss warning from safe ground; '
+            'gun time=$gunTimeAtRetreat, remaining=${game.gunTimer}',
+      );
+
+      for (var frame = 0; frame < 2400 && result == null; frame++) {
+        routePilot.step();
+        game.update(dt);
+      }
+      expect(result?.cleared, isTrue, reason: 'the unlocked exit is reachable');
+      expect(result?.bossCleared, isTrue);
+      expect(game.lives, greaterThan(0));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
 
   test('enraged bosses announce and execute their world attack', () {
     for (var world = 0; world < BossAttackPattern.values.length; world++) {
@@ -884,31 +1113,7 @@ void main() {
             enemy.dead = true;
           }
 
-          final routeGaps = <(int, int)>[];
-          for (var x = 2; x <= game.level.width - 3;) {
-            final isGap =
-                game.level.tileAt(x, ground + 1) == ' ' &&
-                game.level.tileAt(x, ground + 2) == ' ';
-            if (!isGap) {
-              x++;
-              continue;
-            }
-            final gapStart = x;
-            while (x <= game.level.width - 3 &&
-                game.level.tileAt(x, ground + 1) == ' ' &&
-                game.level.tileAt(x, ground + 2) == ' ') {
-              x++;
-            }
-            routeGaps.add((gapStart, x - gapStart));
-          }
-          final tunnelTiles = [
-            for (var x = 0; x < game.level.width; x++)
-              if (game.level.tileAt(x, ground - 1) == 'D') x,
-          ];
-          final tunnelStart = tunnelTiles.first * GameConstants.tileSize;
-          final tunnelEnd = (tunnelTiles.last + 1) * GameConstants.tileSize;
-          var gapIndex = 0;
-          var jumpIssued = false;
+          final routePilot = _RoutePilot(game);
           final maxFrames =
               (GameConstants.timeLimitFor(
                     game.level.difficulty,
@@ -921,59 +1126,7 @@ void main() {
             frame < maxFrames && result == null && !gameOver;
             frame++
           ) {
-            final x = game.player.position.x;
-            if (gapIndex < routeGaps.length) {
-              final (gapStart, gapLength) = routeGaps[gapIndex];
-              final landingX =
-                  (gapStart + gapLength) * GameConstants.tileSize +
-                  GirlfriendPlayer.standWidth * 0.325;
-              if (x >= landingX) {
-                gapIndex++;
-                jumpIssued = false;
-              }
-            }
-            final gap = gapIndex < routeGaps.length
-                ? routeGaps[gapIndex]
-                : null;
-            final gapDistance = gap == null
-                ? double.infinity
-                : gap.$1 * GameConstants.tileSize - x;
-            final ducking =
-                x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
-                x <= tunnelEnd + GirlfriendPlayer.standWidth;
-            final beforeTunnel =
-                x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
-                x < tunnelStart - 48;
-            final nearGap = gapDistance >= 0 && gapDistance <= 160;
-            final gapStartX = gap == null
-                ? double.infinity
-                : gap.$1 * GameConstants.tileSize;
-            final springCarriesToGap = game.springs.any(
-              (spring) =>
-                  spring.position.x <= gapStartX &&
-                  gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
-            );
-            final waitToLand =
-                !game.player.onGround &&
-                !jumpIssued &&
-                !springCarriesToGap &&
-                (beforeTunnel || nearGap);
-            final jumpNow =
-                gap != null &&
-                !jumpIssued &&
-                game.player.onGround &&
-                !ducking &&
-                gapDistance <= 80 &&
-                gapDistance >= 0;
-            game
-              ..rightPressed = !waitToLand
-              ..runPressed = true
-              ..setDuckPressed(ducking)
-              ..setJumpHeld(false);
-            if (jumpNow) {
-              jumpIssued = true;
-              game.setJumpHeld(true);
-            }
+            routePilot.step();
             game.update(1 / 30);
           }
 
@@ -1242,8 +1395,7 @@ void main() {
     final boss = game.boss!;
     final bossWeapon = game.gunPickups.firstWhere(
       (pickup) =>
-          boss.position.x - pickup.position.x >=
-              GameConstants.tileSize * 8 &&
+          boss.position.x - pickup.position.x >= GameConstants.tileSize * 8 &&
           boss.position.x - pickup.position.x <= GameConstants.tileSize * 14,
     );
     game.player
