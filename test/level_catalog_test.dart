@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
@@ -12,6 +12,7 @@ import 'package:macaron_girlfriend_run/data/shop_catalog.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
+import 'package:macaron_girlfriend_run/ui/play_page.dart';
 
 class _RoutePilot {
   _RoutePilot(this.game) {
@@ -789,6 +790,24 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );
+
+  testWidgets('boss HUD teaches the first required counter', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+      'tutorial_done': true,
+    });
+    await SaveService.instance.init();
+
+    await tester.pumpWidget(
+      const MaterialApp(home: PlayPage(worldIndex: 0, levelIndex: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.text('Boss · 踩踏破防'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   test('enraged bosses announce and execute their world attack', () {
     for (var world = 0; world < BossAttackPattern.values.length; world++) {

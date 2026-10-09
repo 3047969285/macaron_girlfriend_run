@@ -749,7 +749,7 @@ class _BossHpBar extends StatelessWidget {
         ? 'Boss 狂暴 · 糖弹可反击'
         : enraged
         ? 'Boss 狂暴中'
-        : 'Boss';
+        : 'Boss · 踩踏破防';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
