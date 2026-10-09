@@ -152,6 +152,17 @@ class LevelCatalog {
       return true;
     }
 
+    bool hasClearSwoopSpace(int x) {
+      for (var approachX = x - 2; approachX <= x + 2; approachX++) {
+        for (var approachY = ground - 2; approachY < ground; approachY++) {
+          if ('#=?D'.contains(grid[approachY][approachX])) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
     void clearApproach(int x) {
       for (var approachX = x - 1; approachX <= x + 1; approachX++) {
         for (var approachY = ground - 3; approachY < ground; approachY++) {
@@ -176,10 +187,11 @@ class LevelCatalog {
 
     for (var x = 2; x < width - 2; x++) {
       final enemy = grid[ground][x];
-      if (!'EGRT'.contains(enemy) ||
+      if (!'AEGRT'.contains(enemy) ||
           (hasSafeAnchor(x) &&
               hasClearApproach(x) &&
-              hasClearTunnelBuffer(x))) {
+              hasClearTunnelBuffer(x) &&
+              (enemy != 'A' || hasClearSwoopSpace(x)))) {
         continue;
       }
 
@@ -193,6 +205,7 @@ class LevelCatalog {
                 grid[ground][candidate] != ' ' ||
                 !hasSafeAnchor(candidate) ||
                 !hasClearTunnelBuffer(candidate) ||
+                enemy == 'A' && !hasClearSwoopSpace(candidate) ||
                 requireClearApproach && !hasClearApproach(candidate)) {
               continue;
             }
@@ -201,6 +214,9 @@ class LevelCatalog {
           }
         }
         if (destination >= 0) break;
+      }
+      if (destination < 0 && enemy == 'A') {
+        continue;
       }
       final landing = destination < 0 ? x : destination;
       clearApproach(landing);
@@ -307,14 +323,14 @@ class LevelCatalog {
             clear = false;
             break;
           }
-          if ('EGRT'.contains(tile)) {
+          if ('AEGRT'.contains(tile)) {
             movingEnemies.add((x, tile));
           }
         }
         if (clear) {
           for (var x = candidate - 2; x < candidate + length + 2; x++) {
             if ((x < candidate || x >= candidate + length) &&
-                'EGRBT'.contains(grid[ground][x])) {
+                'AEGRBT'.contains(grid[ground][x])) {
               clear = false;
               break;
             }
@@ -377,7 +393,7 @@ class LevelCatalog {
         grid[ground + 1][guardX] == '#' &&
         grid[ground + 2][guardX] == '#' &&
         ![guardX - 2, guardX - 1, guardX + 1, guardX + 2].any(
-          (x) => 'EGRBT'.contains(grid[ground][x]),
+          (x) => 'AEGRBT'.contains(grid[ground][x]),
         )) {
       grid[ground][guardX] = 'T';
     }
@@ -416,7 +432,7 @@ class LevelCatalog {
     int level,
   ) {
     final width = grid.first.length;
-    final sceneType = (world + level) % 4;
+    final sceneType = (world + level) % 5;
     final kind = difficulty < 3
         ? 'E'
         : difficulty < 4
@@ -425,7 +441,8 @@ class LevelCatalog {
             0 => 'T',
             1 => 'G',
             2 => 'R',
-            _ => 'E',
+            3 => 'E',
+            _ => 'A',
           };
     for (var offset = 0; offset <= 5; offset++) {
       for (final direction in offset == 0 ? const [1] : const [1, -1]) {
@@ -441,7 +458,7 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'EGRBTWV'.contains(grid[ground][near]))) {
+        ].any((near) => 'AEGRBTWV'.contains(grid[ground][near]))) {
           continue;
         }
         grid[ground][x] = kind;
@@ -477,7 +494,7 @@ class LevelCatalog {
             x - 1,
             x + 1,
             x + 2,
-          ].any((near) => 'EGRBTWV'.contains(grid[ground][near]))) {
+          ].any((near) => 'AEGRBTWV'.contains(grid[ground][near]))) {
             continue;
           }
           grid[ground][x] = 'K';
@@ -598,7 +615,7 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'EGRBT'.contains(grid[pickupY][near]));
+        ].any((near) => 'AEGRBT'.contains(grid[pickupY][near]));
         if (nearEnemy) {
           continue;
         }

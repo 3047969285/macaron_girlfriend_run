@@ -145,7 +145,7 @@ class MacaronGame extends FlameGame {
     lives = GameConstants.startingLivesFor(
       level.difficulty,
       mapWidth: level.width,
-      enemyCount: level.rows.join().split(RegExp('[EGRT]')).length - 1,
+      enemyCount: level.rows.join().split(RegExp('[AEGRT]')).length - 1,
     );
     _buildLevel();
     timeLeft = GameConstants.timeLimitFor(
@@ -279,6 +279,9 @@ class MacaronGame extends FlameGame {
             break;
           case 'T':
             _addEnemy(px, py, tile, EnemyKind.trapper);
+            break;
+          case 'A':
+            _addEnemy(px, py, tile, EnemyKind.swooper);
             break;
           case 'B':
             boss = MacaronBoss(

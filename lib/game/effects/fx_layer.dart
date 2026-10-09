@@ -180,6 +180,7 @@ class FxLayer extends PositionComponent {
       EnemyKind.hopper => MacaronColors.lemon,
       EnemyKind.bruiser => MacaronColors.lilac,
       EnemyKind.trapper => MacaronColors.mint,
+      EnemyKind.swooper => MacaronColors.sky,
     };
     _spawn(
       at + Vector2(0, -24),
@@ -198,6 +199,7 @@ class FxLayer extends PositionComponent {
       EnemyKind.hopper => '跳!',
       EnemyKind.bruiser => '冲!',
       EnemyKind.trapper => '黏!',
+      EnemyKind.swooper => '俯冲!',
     };
     _labels.add(
       _FxLabel(

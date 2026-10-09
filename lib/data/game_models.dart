@@ -168,12 +168,14 @@ class GameConstants {
       EnemyKind.hopper => 5.8,
       EnemyKind.bruiser => 6.2,
       EnemyKind.trapper => 6.6,
+      EnemyKind.swooper => 6.0,
     };
     final end = switch (kind) {
       EnemyKind.walker => 4.0,
       EnemyKind.hopper => 4.2,
       EnemyKind.bruiser => 4.8,
       EnemyKind.trapper => 5.2,
+      EnemyKind.swooper => 4.6,
     };
     return start + (end - start) * progress;
   }
@@ -185,12 +187,14 @@ class GameConstants {
       EnemyKind.hopper => 0.64,
       EnemyKind.bruiser => 0.78,
       EnemyKind.trapper => 0.9,
+      EnemyKind.swooper => 0.86,
     };
     final end = switch (kind) {
       EnemyKind.walker => 0.72,
       EnemyKind.hopper => 0.52,
       EnemyKind.bruiser => 0.64,
       EnemyKind.trapper => 0.76,
+      EnemyKind.swooper => 0.72,
     };
     return start + (end - start) * progress;
   }
@@ -202,12 +206,14 @@ class GameConstants {
       EnemyKind.hopper => 235.0,
       EnemyKind.bruiser => 270.0,
       EnemyKind.trapper => 245.0,
+      EnemyKind.swooper => 270.0,
     };
     final end = switch (kind) {
       EnemyKind.walker => 350.0,
       EnemyKind.hopper => 290.0,
       EnemyKind.bruiser => 330.0,
       EnemyKind.trapper => 305.0,
+      EnemyKind.swooper => 330.0,
     };
     return start + (end - start) * progress;
   }
@@ -223,6 +229,12 @@ class GameConstants {
 
   static double enemyChargeSpeedMultiplierFor(int difficulty) =>
       2.35 + 0.35 * _difficultyProgress(difficulty);
+
+  static double enemySwoopSpeedFor(int difficulty) =>
+      300 + 40 * _difficultyProgress(difficulty);
+
+  static double enemySwoopSpeedMultiplierFor(int difficulty) =>
+      1.8 + 0.2 * _difficultyProgress(difficulty);
 
   /// 按关卡难度与地图长度计算限时秒数
   static double timeLimitFor(int difficulty, {required int mapWidth}) {

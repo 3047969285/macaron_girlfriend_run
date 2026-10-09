@@ -109,6 +109,7 @@ void main() {
     var levelsWithDuckTunnel = 0;
     var levelsWithGun = 0;
     var levelsWithVehicle = 0;
+    final swooperWorlds = <int>{};
     final pickupPatterns = <String>{};
     final worldModes = List.generate(
       GameConstants.worldCount,
@@ -118,6 +119,9 @@ void main() {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
         final map = level.rows.join();
+        if (map.contains('A')) {
+          swooperWorlds.add(w);
+        }
         final modes = {'S', 'N', 'W', 'V'}.where(map.contains).toSet();
         expect(
           modes.length,
@@ -145,6 +149,11 @@ void main() {
     expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(pickupPatterns.length, greaterThanOrEqualTo(4));
+    expect(
+      swooperWorlds,
+      containsAll(List.generate(GameConstants.worldCount, (world) => world)),
+      reason: 'every world must feature the new diving enemy',
+    );
     for (var world = 0; world < GameConstants.worldCount; world++) {
       expect(
         worldModes[world],
@@ -258,7 +267,7 @@ void main() {
           if (x >= tunnelTiles.first - 2 && x < tunnelTiles.first ||
               x > tunnelTiles.last && x <= tunnelTiles.last + 2) {
             expect(
-              'EGRBT'.contains(level.tileAt(x, ground)),
+              'AEGRBT'.contains(level.tileAt(x, ground)),
               isFalse,
               reason: '$reason keeps threats away from tunnel entrance/exit',
             );
@@ -267,7 +276,7 @@ void main() {
         for (final x in tunnelTiles) {
           expect(level.tileAt(x, ground + 1), '#', reason: reason);
           expect(
-            'PFEGRBTWV'.contains(level.tileAt(x, ground)),
+            'PFAEGRBTWV'.contains(level.tileAt(x, ground)),
             isFalse,
             reason: '$reason tunnel must not be blocked by enemies or exit',
           );
@@ -290,7 +299,7 @@ void main() {
         expect(level.tileAt(level.width - 3, ground + 2), '#', reason: reason);
 
         for (var x = 2; x < level.width - 2; x++) {
-          if (!'EGRT'.contains(level.tileAt(x, ground))) {
+          if (!'AEGRT'.contains(level.tileAt(x, ground))) {
             continue;
           }
           expect(
@@ -306,6 +315,17 @@ void main() {
                 isFalse,
                 reason: '$reason enemy at $x needs clear jump lane at $laneX',
               );
+            }
+          }
+          if (level.tileAt(x, ground) == 'A') {
+            for (var laneX = x - 2; laneX <= x + 2; laneX++) {
+              for (var laneY = ground - 2; laneY < ground; laneY++) {
+                expect(
+                  '#=?D'.contains(level.tileAt(laneX, laneY)),
+                  isFalse,
+                  reason: '$reason swooper at $x needs clear flight space',
+                );
+              }
             }
           }
           final bossTile = level.rows[ground].indexOf('B');
@@ -390,7 +410,7 @@ void main() {
         final enemyCount = level.rows
             .join()
             .split('')
-            .where((tile) => 'EGRBT'.contains(tile))
+            .where((tile) => 'AEGRBT'.contains(tile))
             .length;
         final walkSpeed = GameConstants.playerMoveSpeedFor(
           GameConstants.maxDifficulty,
@@ -569,6 +589,14 @@ void main() {
           expect(enemy.position.x, greaterThan(beforeCharge));
         case EnemyKind.trapper:
           expect(traps, 1);
+        case EnemyKind.swooper:
+          final hoveringY = enemy.position.y;
+          enemy.update(0.15);
+          expect(enemy.position.y, greaterThan(hoveringY));
+          for (var frame = 0; frame < 20; frame++) {
+            enemy.update(0.05);
+          }
+          expect(enemy.position.y, lessThan(120));
       }
     }
   });
@@ -668,7 +696,8 @@ void main() {
               markerCount('E') +
               markerCount('G') +
               markerCount('R') +
-              markerCount('T');
+              markerCount('T') +
+              markerCount('A');
           final expectedTerrain = map
               .split('')
               .where((tile) => '#=D?'.contains(tile))
@@ -1072,7 +1101,7 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[EGRT]')).length - 1,
+        enemyCount: game.level.rows.join().split(RegExp('[AEGRT]')).length - 1,
       ),
     );
     expect(walker.dead, isFalse);
@@ -1249,7 +1278,7 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[EGRT]')).length - 1,
+        enemyCount: game.level.rows.join().split(RegExp('[AEGRT]')).length - 1,
       ),
     );
     expect(game.player.position.x, greaterThanOrEqualTo(landingTarget));

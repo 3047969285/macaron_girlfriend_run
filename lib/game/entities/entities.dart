@@ -237,6 +237,9 @@ class SpringPad extends PositionComponent {
 
 /// 软萌小怪
 class SoftEnemy extends PositionComponent {
+  static const _swoopHeight = 80.0;
+  static const _swoopRecoveryDuration = 0.36;
+
   SoftEnemy({
     required Vector2 position,
     required this.leftBound,
@@ -285,6 +288,9 @@ class SoftEnemy extends PositionComponent {
   double? targetY;
   bool _justLanded = true;
   bool _pouncing = false;
+  double _swoopTimer = 0;
+  double _swoopRecoveryTimer = 0;
+  double _swoopTargetX = 0;
   bool dead = false;
 
   /// 镜头外跳过移动，减负长关
@@ -312,6 +318,11 @@ class SoftEnemy extends PositionComponent {
     _wobble += dt * 8;
     if (_flash > 0) {
       _flash -= dt;
+    }
+    if (kind == EnemyKind.swooper &&
+        _swoopTimer <= 0 &&
+        _swoopRecoveryTimer <= 0) {
+      position.y = _baseY - _swoopHeight + math.sin(_wobble * 0.65) * 4;
     }
     _skillCooldown = (_skillCooldown - dt).clamp(0.0, 10.0);
 
@@ -351,10 +362,45 @@ class SoftEnemy extends PositionComponent {
             difficulty,
             kind,
           );
+        case EnemyKind.swooper:
+          _swoopTargetX = (targetX ?? position.x)
+              .clamp(leftBound, rightBound)
+              .toDouble();
+          _swoopTimer = 0.44;
+          _skillCooldown = GameConstants.enemySkillCooldownFor(
+            difficulty,
+            kind,
+          );
       }
       if (kind != EnemyKind.hopper) {
         return;
       }
+    }
+
+    if (_swoopTimer > 0) {
+      _swoopTimer = (_swoopTimer - dt).clamp(0.0, 1.0);
+      final maxStep =
+          speed * GameConstants.enemySwoopSpeedMultiplierFor(difficulty) * dt;
+      position.x += (_swoopTargetX - position.x)
+          .clamp(-maxStep, maxStep)
+          .toDouble();
+      position.x = position.x.clamp(leftBound, rightBound).toDouble();
+      position.y = math.min(
+        _baseY,
+        position.y + GameConstants.enemySwoopSpeedFor(difficulty) * dt,
+      );
+      if (position.y >= _baseY || _swoopTimer <= 0) {
+        position.y = _baseY;
+        _swoopTimer = 0;
+        _swoopRecoveryTimer = _swoopRecoveryDuration;
+      }
+      return;
+    }
+    if (_swoopRecoveryTimer > 0) {
+      _swoopRecoveryTimer = (_swoopRecoveryTimer - dt).clamp(0.0, 1.0);
+      final recovery = 1 - _swoopRecoveryTimer / _swoopRecoveryDuration;
+      position.y = _baseY - _swoopHeight * recovery;
+      return;
     }
 
     if (_chargeTimer > 0) {
@@ -395,6 +441,9 @@ class SoftEnemy extends PositionComponent {
               distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
         EnemyKind.trapper =>
           distance >= 80 &&
+              distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
+        EnemyKind.swooper =>
+          distance >= 90 &&
               distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
       };
       if (canUseSkill) {
@@ -443,6 +492,8 @@ class SoftEnemy extends PositionComponent {
         return const Color(0xFFE57373);
       case EnemyKind.trapper:
         return const Color(0xFF72CDB1);
+      case EnemyKind.swooper:
+        return const Color(0xFF82B7EC);
       case EnemyKind.walker:
         return const Color(0xFFFF8A80);
     }
@@ -460,6 +511,26 @@ class SoftEnemy extends PositionComponent {
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale(dir * squash, 1 / squash);
+    if (kind == EnemyKind.swooper) {
+      final wingPaint = Paint()
+        ..color = const Color(0xFFB8D8FF).withValues(alpha: 0.9);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(-size.x * 0.34, -size.y * 0.5),
+          width: 16,
+          height: 9,
+        ),
+        wingPaint,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(size.x * 0.34, -size.y * 0.5),
+          width: 16,
+          height: 9,
+        ),
+        wingPaint,
+      );
+    }
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(0, -size.y * 0.45),
@@ -584,6 +655,17 @@ class SoftEnemy extends PositionComponent {
           canvas.drawLine(
             center + const Offset(-8, 8),
             center + const Offset(8, 8),
+            cuePaint,
+          );
+        case EnemyKind.swooper:
+          final dive = Path()
+            ..moveTo(center.dx - 6, center.dy - 4)
+            ..lineTo(center.dx, center.dy + 4)
+            ..lineTo(center.dx + 6, center.dy - 4);
+          canvas.drawPath(dive, cuePaint);
+          canvas.drawLine(
+            center + const Offset(0, -8),
+            center + const Offset(0, 1),
             cuePaint,
           );
       }
