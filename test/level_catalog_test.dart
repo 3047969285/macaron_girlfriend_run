@@ -110,10 +110,21 @@ void main() {
     var levelsWithGun = 0;
     var levelsWithVehicle = 0;
     final pickupPatterns = <String>{};
+    final worldModes = List.generate(
+      GameConstants.worldCount,
+      (_) => <String>{},
+    );
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
         final map = level.rows.join();
+        final modes = {'S', 'N', 'W', 'V'}.where(map.contains).toSet();
+        expect(
+          modes.length,
+          greaterThanOrEqualTo(3),
+          reason: 'world $w level $l must offer three gameplay modes',
+        );
+        worldModes[w].addAll(modes);
         trapperCount += map.split('T').length - 1;
         gardenEventCount += map.contains('N') ? 1 : 0;
         levelsWithDuckTunnel += map.contains('D') ? 1 : 0;
@@ -134,6 +145,14 @@ void main() {
     expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(pickupPatterns.length, greaterThanOrEqualTo(4));
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      expect(
+        worldModes[world],
+        containsAll({'S', 'N', 'W', 'V'}),
+        reason:
+            'world $world must include bounce, plant, gun, and vehicle play',
+      );
+    }
     expect(LevelCatalog.load(8, 10).width, 454);
   });
 
