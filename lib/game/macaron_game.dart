@@ -203,7 +203,7 @@ class MacaronGame extends FlameGame {
 
     final tile = GameConstants.tileSize;
     final mapWidth = level.width * tile;
-    final sceneVariant = (worldIndex + levelIndex) % 4;
+    final sceneSeed = GameConstants.sceneSeedFor(worldIndex, levelIndex);
     spawnPoint = Vector2(tile * 2, tile * 8);
     final groundY = (level.height - 1) * tile;
 
@@ -217,7 +217,7 @@ class MacaronGame extends FlameGame {
       WorldBackdrop(
         palette: palette,
         mapWidth: mapWidth,
-        sceneVariant: sceneVariant,
+        sceneSeed: sceneSeed,
       ),
     );
     world.add(AmbientSparkles(mapWidth: mapWidth, tint: palette.accent));
@@ -346,7 +346,7 @@ class MacaronGame extends FlameGame {
         palette: palette,
         mapWidth: mapWidth,
         groundY: groundY,
-        sceneVariant: sceneVariant,
+        sceneSeed: sceneSeed,
       ),
     );
     for (final component in <Component>[

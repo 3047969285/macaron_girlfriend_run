@@ -14,6 +14,23 @@ import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 
 void main() {
+  test('every level has a stable unique scenery seed', () {
+    final seeds = <int>{};
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+        seeds.add(GameConstants.sceneSeedFor(world, level));
+      }
+    }
+    expect(seeds.length, GameConstants.totalLevels);
+    expect(seeds, contains(0));
+    expect(seeds, contains(GameConstants.totalLevels - 1));
+    expect(GameConstants.sceneSeedFor(-5, -2), 0);
+    expect(
+      GameConstants.sceneSeedFor(GameConstants.worldCount + 1, 99),
+      GameConstants.totalLevels - 1,
+    );
+  });
+
   test(
     'active skill changes between levels and every world has all skills',
     () {

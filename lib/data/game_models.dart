@@ -82,6 +82,13 @@ class GameConstants {
   static double _difficultyProgress(int difficulty) =>
       ((difficulty - 1) / (maxDifficulty - 1)).clamp(0.0, 1.0);
 
+  /// 每关稳定且唯一的装饰种子，不参与地形、碰撞或关卡难度计算。
+  static int sceneSeedFor(int worldIndex, int levelIndex) {
+    final world = worldIndex.clamp(0, worldCount - 1).toInt();
+    final level = levelIndex.clamp(0, levelsPerWorld - 1).toInt();
+    return world * levelsPerWorld + level;
+  }
+
   /// 玩家能力随关卡难度平滑收紧，保留可通关的基础跳跃与冲刺距离
   static double playerMoveSpeedFor(int difficulty) =>
       moveSpeed - 18 * _difficultyProgress(difficulty);

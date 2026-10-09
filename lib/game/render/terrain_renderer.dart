@@ -5,6 +5,9 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
+int _sceneValue(int seed, int lane, int salt) =>
+    (seed * 73 + lane * 151 + salt * 199 + (seed ~/ 3) * 17) % 997;
+
 /// 地形块
 class TerrainTile {
   const TerrainTile({
@@ -25,14 +28,14 @@ class TerrainRenderer extends PositionComponent {
     required this.palette,
     required this.mapWidth,
     required this.groundY,
-    required this.sceneVariant,
+    required this.sceneSeed,
   }) : super(priority: 0);
 
   final List<TerrainTile> solids;
   final WorldPalette palette;
   final double mapWidth;
   final double groundY;
-  final int sceneVariant;
+  final int sceneSeed;
 
   ui.Picture? _picture;
 
@@ -155,11 +158,7 @@ class TerrainRenderer extends PositionComponent {
     );
   }
 
-  void _drawPlatformCluster(
-    Canvas canvas,
-    Rect r, {
-    bool duckCeiling = false,
-  }) {
+  void _drawPlatformCluster(Canvas canvas, Rect r, {bool duckCeiling = false}) {
     final radius = Radius.circular(r.height * 0.28);
     final rrect = RRect.fromRectAndRadius(r, radius);
     canvas.drawRRect(
@@ -210,8 +209,10 @@ class TerrainRenderer extends PositionComponent {
     final bush = Paint()..color = palette.groundDark;
     final pipeColor = Color.lerp(palette.ground, palette.accent, 0.45)!;
     for (var section = 0; section < 4; section++) {
-      final center = sectionWidth * (section + 0.5);
-      switch ((sceneVariant + section) % 6) {
+      final center =
+          sectionWidth * (section + 0.5) +
+          (_sceneValue(sceneSeed, section, 1) % 81 - 40) * 1.4;
+      switch (_sceneValue(sceneSeed, section, 2) % 6) {
         case 0:
           _drawBush(canvas, Offset(center - 170, groundY - 4), bush);
           _drawMacaronPipe(canvas, Offset(center - 22, groundY), pipeColor);
@@ -435,12 +436,12 @@ class WorldBackdrop extends PositionComponent {
   WorldBackdrop({
     required this.palette,
     required this.mapWidth,
-    required this.sceneVariant,
+    required this.sceneSeed,
   }) : super(priority: -10);
 
   final WorldPalette palette;
   final double mapWidth;
-  final int sceneVariant;
+  final int sceneSeed;
   ui.Picture? _picture;
 
   @override
@@ -487,35 +488,44 @@ class WorldBackdrop extends PositionComponent {
     ];
     final sectionWidth = mapWidth / 4;
     for (var section = 0; section < 4; section++) {
-      final tint = tints[(sceneVariant + section) % tints.length];
+      final tint = tints[_sceneValue(sceneSeed, section, 4) % tints.length];
+      final alpha = 0.045 + (_sceneValue(sceneSeed, section, 5) % 36) / 1000;
       canvas.drawRect(
         Rect.fromLTWH(section * sectionWidth, 0, sectionWidth, 640),
-        Paint()..color = tint.withValues(alpha: 0.075),
+        Paint()..color = tint.withValues(alpha: alpha),
       );
     }
   }
 
   void _drawHills(Canvas canvas) {
     final hill = Paint()..color = palette.ground.withValues(alpha: 0.45);
-    for (var x = 0.0; x < mapWidth + 400; x += 320) {
+    var x = -180.0 + _sceneValue(sceneSeed, 0, 6) % 240;
+    for (var index = 0; x < mapWidth + 400; index++) {
+      final peak = 235.0 + _sceneValue(sceneSeed, index, 7) % 86;
       canvas.drawPath(
         Path()
           ..moveTo(x, 380)
-          ..quadraticBezierTo(x + 90, 260, x + 180, 380)
+          ..quadraticBezierTo(x + 90, peak, x + 180, 380)
           ..quadraticBezierTo(x + 260, 460, x + 360, 380)
           ..lineTo(x + 360, 560)
           ..lineTo(x, 560)
           ..close(),
         hill,
       );
+      x += 280 + _sceneValue(sceneSeed, index, 8) % 101;
     }
   }
 
   void _drawClouds(Canvas canvas) {
     final cloud = Paint()..color = Colors.white.withValues(alpha: 0.85);
-    for (var x = 60.0; x < mapWidth + 200; x += 240) {
-      _cloud(canvas, Offset(x, 70), cloud);
-      _cloud(canvas, Offset(x + 80, 110), cloud);
+    var x = -120.0 + _sceneValue(sceneSeed, 0, 9) % 240;
+    for (var index = 0; x < mapWidth + 200; index++) {
+      final y = 48.0 + _sceneValue(sceneSeed, index, 10) % 74;
+      _cloud(canvas, Offset(x, y), cloud);
+      if (_sceneValue(sceneSeed, index, 11) % 3 != 0) {
+        _cloud(canvas, Offset(x + 80, y + 24), cloud);
+      }
+      x += 200 + _sceneValue(sceneSeed, index, 12) % 91;
     }
   }
 
