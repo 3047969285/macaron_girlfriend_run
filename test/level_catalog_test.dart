@@ -462,6 +462,71 @@ void main() {
     }
   });
 
+  testWidgets('every world boss can be defeated and unlocks its exit', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      LevelResult? result;
+      final game = MacaronGame(
+        worldIndex: world,
+        levelIndex: GameConstants.levelsPerWorld - 1,
+        role: PlayerRole.girlfriend,
+        onWin: (value) => result = value,
+      );
+      await tester.pumpWidget(GameWidget(game: game));
+      await tester.pump(const Duration(milliseconds: 100));
+      game.pauseEngine();
+      for (final enemy in game.enemies) {
+        enemy.dead = true;
+      }
+
+      final boss = game.boss!;
+      final goal = game.goal!;
+      expect(boss.hp, 3 + world ~/ 3, reason: 'world $world boss health');
+
+      game.player
+        ..position.setFrom(goal.position)
+        ..velocity.setZero()
+        ..onGround = true;
+      game.update(1 / 30);
+      expect(result, isNull, reason: 'world $world exit stays locked');
+
+      for (var hit = 0; hit < boss.maxHp; hit++) {
+        game.player
+          ..position.setValues(boss.position.x, boss.position.y - 45)
+          ..velocity.setValues(0, 600)
+          ..onGround = false;
+        game.update(1 / 30);
+        expect(
+          boss.hp,
+          boss.maxHp - hit - 1,
+          reason: 'world $world registers stomp ${hit + 1}',
+        );
+      }
+      expect(boss.dead, isTrue, reason: 'world $world boss is defeated');
+
+      game.player
+        ..position.setFrom(goal.position)
+        ..velocity.setZero()
+        ..onGround = true;
+      game.update(1 / 30);
+      expect(
+        result?.cleared,
+        isTrue,
+        reason: 'world $world exit unlocks after boss defeat',
+      );
+      expect(result?.bossCleared, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   test('enraged bosses announce and execute their world attack', () {
     for (var world = 0; world < BossAttackPattern.values.length; world++) {
       final shotDirections = <double>[];
