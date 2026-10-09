@@ -23386,7 +23386,7 @@ j=1
 for(;;){if(!(j<c&&m<0))break
 for(i=[q+j,q-j],h=0;h<2;++h){g=i[h]
 f=!0
-if(g>=4)if(g<r)if(a3[d][g]===" ")if(b.$1(g))if(a2.$1(g))if(!(n&&!a0.$1(g)))f=k&&!a.$1(g)
+if(g>=10)if(g<r)if(a3[d][g]===" ")if(b.$1(g))if(a2.$1(g))if(!(n&&!a0.$1(g)))f=k&&!a.$1(g)
 if(f)continue
 m=g
 break}++j}if(m>=0)break}o=m<0
@@ -78536,7 +78536,7 @@ $1(a){return J.aok(a)},
 $S:494}
 A.a13.prototype={
 $1(a){var s,r,q,p,o,n,m,l=this,k=!0
-if(a>=4)if(a<l.a-4){s=l.b
+if(a>=10)if(a<l.a-4){s=l.b
 if(!(s>=0&&Math.abs(a-s)<=6)){k=l.c
 s=l.d
 k=k[s+1][a]!=="#"&&k[s+2][a]!=="#"}}if(k)return!1
