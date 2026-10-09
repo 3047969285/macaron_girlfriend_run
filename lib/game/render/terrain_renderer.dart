@@ -124,37 +124,40 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawGroundBlock(Canvas canvas, Rect r) {
+    final isSurface = r.bottom <= groundY + 0.5;
     final body = Paint()
-      ..color = Color.lerp(const Color(0xFFC68642), palette.groundDark, 0.35)!;
+      ..color = isSurface
+          ? Color.lerp(palette.ground, palette.groundDark, 0.3)!
+          : Color.lerp(palette.groundDark, palette.skyBottom, 0.16)!;
     canvas.drawRect(r, body);
-    final line = Paint()
-      ..color = Color.lerp(const Color(0xFF9A6530), palette.groundDark, 0.4)!
-      ..strokeWidth = 1.2;
-    for (var y = r.top + 8; y < r.bottom; y += 16) {
-      canvas.drawLine(Offset(r.left, y), Offset(r.right, y), line);
-    }
-    for (var x = r.left + 12; x < r.right; x += 24) {
-      canvas.drawLine(Offset(x, r.top), Offset(x, r.bottom), line);
-    }
-    final grass = Paint()..color = palette.ground;
-    canvas.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 10), grass);
-    final grassDark = Paint()..color = palette.groundDark;
-    for (var i = 0; i < r.width / 12; i++) {
-      final gx = r.left + i * 12 + 2;
-      canvas.drawPath(
-        Path()
-          ..moveTo(gx, r.top + 10)
-          ..lineTo(gx + 3, r.top - 2)
-          ..lineTo(gx + 6, r.top + 10),
-        grassDark,
+    final crumbs = Paint()..color = palette.accent.withValues(alpha: 0.22);
+    final tileX = (r.left / r.width).round();
+    for (var i = 0; i < 2; i++) {
+      final x = r.left + 8 + _sceneValue(sceneSeed, tileX, i + 7) % 32;
+      final y = r.top + 16 + _sceneValue(sceneSeed, tileX, i + 11) % 24;
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(x, y), width: 3.5, height: 2.5),
+        crumbs,
       );
     }
-    canvas.drawRect(
-      r,
+    if (!isSurface) return;
+
+    final grass = Paint()..color = palette.ground;
+    canvas.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 8), grass);
+    final softEdge = Paint()
+      ..color = Color.lerp(palette.ground, Colors.white, 0.18)!;
+    for (var x = r.left + 8; x < r.right; x += 16) {
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(x, r.top + 5), width: 12, height: 8),
+        softEdge,
+      );
+    }
+    canvas.drawLine(
+      Offset(r.left, r.top),
+      Offset(r.right, r.top),
       Paint()
-        ..color = palette.groundDark
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..color = Colors.white.withValues(alpha: 0.38)
+        ..strokeWidth = 1.2,
     );
   }
 
