@@ -915,7 +915,10 @@ class _TutorialOverlay extends StatelessWidget {
               const SizedBox(height: 12),
               const Text('• A/D 或←→移动，Shift/K跑，S/↓蹲'),
               const Text('• 空格跳：短按低、长按高；手机右侧有动作键'),
-              const Text('• 连击加分；红胖怪需踩两次，Boss跳砸要躲'),
+              const Text(
+                '• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲',
+              ),
+              const Text('• 连击加分；Boss 半血狂暴跳砸'),
               const Text('• 问号砖、糖果有奖，蓝旗检查点'),
               const Text('• 豌豆自动攻击；拾枪F/点射击，小车可挡一次'),
               const Text('• E/技能键：闪冲 / 糖盾 / 花弹'),

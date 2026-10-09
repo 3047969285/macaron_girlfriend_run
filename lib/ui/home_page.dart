@@ -505,7 +505,9 @@ class HowToPlayPage extends StatelessWidget {
           emoji: '🏳️',
           title: '检查点与敌人',
           body:
-              '蓝色小旗：摸到后本局复活点前移。\n粉怪巡逻、橙怪会跳、红胖怪要踩两次。\nBoss 半血后变红狂暴并跳砸，踩多次才倒。',
+              '蓝色小旗：摸到后本局复活点前移。\n'
+              '看头顶预警：粉怪射糖可蹲躲、橙怪扑击、红胖冲撞、薄荷怪设陷阱、蓝飞怪俯冲。\n'
+              '红胖要踩两次；Boss 半血狂暴并跳砸。',
         ),
         SizedBox(height: 10),
         _TipCard(
