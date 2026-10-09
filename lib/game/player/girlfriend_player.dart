@@ -714,6 +714,12 @@ class GirlfriendPlayer extends PositionComponent {
 
   void _drawFace(Canvas canvas, Offset center) {
     const skin = Color(0xFFFFE4D6);
+    final irisTop = role == PlayerRole.girlfriend
+        ? (poweredUp ? const Color(0xFFFF82A8) : const Color(0xFFBD7895))
+        : const Color(0xFF77A8E4);
+    final irisBottom = role == PlayerRole.girlfriend
+        ? const Color(0xFF65445F)
+        : const Color(0xFF354B78);
     final face = Rect.fromCenter(center: center, width: 32, height: 34);
     canvas.drawOval(
       face.shift(const Offset(1.2, 1.8)),
@@ -758,20 +764,38 @@ class GirlfriendPlayer extends PositionComponent {
             ..strokeCap = StrokeCap.round,
         );
       } else {
-        final eyeWhite = Rect.fromCenter(center: eye, width: 6, height: 8);
+        final eyeWhite = Rect.fromCenter(center: eye, width: 6.6, height: 8.8);
         canvas.drawOval(eyeWhite, Paint()..color = Colors.white);
+        final iris = Rect.fromCenter(
+          center: eye.translate(0.45, 0.8),
+          width: 4.6,
+          height: 6.4,
+        );
         canvas.drawOval(
-          Rect.fromCenter(
-            center: eye.translate(0.5, 0.7),
-            width: 4,
-            height: 5.8,
-          ),
-          Paint()..color = MacaronColors.cocoa,
+          iris,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [irisTop, irisBottom],
+            ).createShader(iris),
+        );
+        canvas.drawOval(
+          iris,
+          Paint()
+            ..color = MacaronColors.cocoa.withValues(alpha: 0.3)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.55,
         );
         canvas.drawCircle(
-          eye.translate(-0.3, -0.8),
-          1.25,
+          eye.translate(-0.45, -0.85),
+          1.35,
           Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(
+          eye.translate(1.25, 1.65),
+          0.55,
+          Paint()..color = Colors.white.withValues(alpha: 0.78),
         );
       }
       canvas.drawLine(
