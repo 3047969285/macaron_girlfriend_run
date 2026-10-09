@@ -23370,7 +23370,7 @@ A.aEb(c,a,b)
 if(b===10)A.aEd(c,a)
 A.aEj(c)
 e=B.b.jG(c[c.length-3],"B")
-if(e>=0)A.a0U(c,e-12,c.length-3,"W",!0)
+if(e>=0)A.a0U(c,e-11,c.length-3,"W",!0,3)
 A.aEa(c,a,b)
 A.aEh(c)
 A.aEi(c)
@@ -23408,16 +23408,16 @@ A.bY(a,k,n)
 A.bY(a,l+5,n)
 A.bY(a,j,q)
 break
-case 1:A.a0U(a,l,h,"N",!1)
+case 1:A.a0U(a,l,h,"N",!1,8)
 A.re(a,l+5,h,f,b,c)
 A.bY(a,l+2,p)
 A.bY(a,l+3,p)
 break
-case 2:A.a0U(a,l,h,"W",!1)
+case 2:A.a0U(a,l,h,"W",!1,8)
 A.re(a,l+5,h,f,b,c)
 if(o)A.re(a,l+9,h,f,b,c)
 break
-case 3:A.a0U(a,l,h,"V",!1)
+case 3:A.a0U(a,l,h,"V",!1,8)
 A.re(a,l+5,h,f,b,c)
 if(s)A.re(a,l+9,h,f,b,c)
 A.bY(a,l+6,p)
@@ -23535,8 +23535,8 @@ continue}a[r][o]="#"
 a[n][o]="#"
 j=h
 i=1}},
-a0U(a,b,c,d,e){var s,r,q,p,o,n,m,l=t.t,k=e?A.c([c],l):A.c([c,c-2,c-3,c-4,c-5],l)
-for(s=A.a0(k).h("am<1>"),r=0;r<=8;++r){q=r===0?B.jC:B.jD
+a0U(a,b,c,d,e,f){var s,r,q,p,o,n,m,l=t.t,k=e?A.c([c],l):A.c([c,c-2,c-3,c-4,c-5],l)
+for(s=A.a0(k).h("am<1>"),r=0;r<=f;++r){q=r===0?B.jC:B.jD
 p=q.length
 o=0
 for(;o<p;++o){n=b+r*q[o]
