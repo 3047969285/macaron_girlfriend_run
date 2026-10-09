@@ -4,12 +4,12 @@ Flutter + Flame 手机横屏单机平台跳跃。马卡龙配色、低多边形�
 
 ## 位置
 
-`桌面\macaron_girlfriend_run`
+`D:\项目\game\马里奥`
 
 ## 运行
 
 ```bash
-cd %USERPROFILE%\Desktop\macaron_girlfriend_run
+cd /d D:\项目\game\马里奥
 flutter pub get
 flutter run
 ```
@@ -30,8 +30,9 @@ flutter run
 
 - “Slow Jam” — Kevin MacLeod，来自 [incompetech](https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1600015)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权。
 - “Smooth Lovin” — Kevin MacLeod，来自 [incompetech](https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1700077)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权。
+- “Morning” — Kevin MacLeod，来自 [incompetech](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003)，按 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权。
 
-曲目用于游戏内背景音乐；音频文件位于 `assets/audio/`。
+曲目用于游戏内背景音乐；音频文件位于 `assets/audio/`。设置页的“音乐来源与授权”也可查看完整署名。
 
 ## Android
 

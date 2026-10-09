@@ -63,6 +63,7 @@ flutter:
   assets:
     - assets/audio/slow_jam.mp3
     - assets/audio/smooth_lovin.mp3
+    - assets/audio/morning.mp3
 
   # To add assets to your application, add an assets section, like this:
   # assets:

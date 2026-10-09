@@ -931,6 +931,46 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: const Icon(CupertinoIcons.music_note_2),
+              title: const Text('音乐来源与授权'),
+              subtitle: const Text('Kevin MacLeod · CC BY 4.0'),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              children: const [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Slow Jam — Kevin MacLeod\n'
+                    'https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600015',
+                  ),
+                ),
+                SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Smooth Lovin — Kevin MacLeod\n'
+                    'https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700077',
+                  ),
+                ),
+                SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Morning — Kevin MacLeod\n'
+                    'https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003',
+                  ),
+                ),
+                SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '许可：Creative Commons Attribution 4.0 International\n'
+                    'https://creativecommons.org/licenses/by/4.0/',
+                  ),
+                ),
+              ],
+            ),
             SwitchListTile(
               title: const Text('震动反馈'),
               value: haptic,

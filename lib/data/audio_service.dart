@@ -12,6 +12,7 @@ class AudioService {
   static const List<String> _bgmAssets = [
     'audio/slow_jam.mp3',
     'audio/smooth_lovin.mp3',
+    'audio/morning.mp3',
   ];
 
   final AudioPlayer _bgm = AudioPlayer();
@@ -108,7 +109,7 @@ class AudioService {
     return _bgmByWorld.putIfAbsent(w, () => SynthWav.bgmLoopForWorld(w));
   }
 
-  /// 关卡内开始循环授权 R&B / 慢拍 BGM，按世界轮换。
+  /// 关卡内开始循环授权慢拍 BGM，按世界轮换。
   Future<void> startBgm({int worldIndex = 0}) async {
     await init();
     if (!musicOn) {
