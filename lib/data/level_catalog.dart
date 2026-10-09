@@ -97,6 +97,16 @@ class LevelCatalog {
     }
 
     _repairGuaranteedGroundRoute(grid);
+    final bossTile = grid[grid.length - 3].indexOf('B');
+    if (bossTile >= 0) {
+      _placeGroundPickup(
+        grid,
+        bossTile - 12,
+        grid.length - 3,
+        'W',
+        groundOnly: true,
+      );
+    }
     _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
     _repairEnemyPatrolRoutes(grid);
@@ -319,7 +329,7 @@ class LevelCatalog {
         final movingEnemies = <(int, String)>[];
         for (var x = candidate; x < candidate + length; x++) {
           final tile = grid[ground][x];
-          if (grid[ground - 1][x] != ' ' || 'PFBVS?'.contains(tile)) {
+          if (grid[ground - 1][x] != ' ' || 'PFBVSW?'.contains(tile)) {
             clear = false;
             break;
           }
@@ -590,15 +600,19 @@ class LevelCatalog {
     List<List<String>> grid,
     int targetX,
     int ground,
-    String pickup,
-  ) {
+    String pickup, {
+    bool groundOnly = false,
+  }) {
+    final pickupRows = groundOnly
+        ? [ground]
+        : [ground, ground - 2, ground - 3, ground - 4, ground - 5];
     for (var offset = 0; offset <= 8; offset++) {
       for (final direction in offset == 0 ? const [1] : const [1, -1]) {
         final x = targetX + offset * direction;
         if (x < 10 || x >= grid.first.length - 8) {
           continue;
         }
-        final pickupY = [ground, ground - 2, ground - 3, ground - 4, ground - 5]
+        final pickupY = pickupRows
             .where((y) => y > 0 && y + 1 < grid.length)
             .firstWhere(
               (y) =>

@@ -490,6 +490,38 @@ void main() {
       final boss = game.boss!;
       final goal = game.goal!;
       expect(boss.hp, 3 + world ~/ 3, reason: 'world $world boss health');
+      final nearbyWeapons = game.gunPickups.where(
+        (pickup) =>
+            pickup.position.x < boss.position.x &&
+            boss.position.x - pickup.position.x <= GameConstants.tileSize * 16,
+      );
+      expect(
+        nearbyWeapons,
+        isNotEmpty,
+        reason: 'world $world offers a ranged option before its boss',
+      );
+      final weapon = nearbyWeapons.first;
+      expect(
+        weapon.position.y,
+        closeTo(
+          (game.level.height - 3) * GameConstants.tileSize +
+              GameConstants.tileSize / 2,
+          0.001,
+        ),
+        reason: 'world $world boss weapon sits on the approach runway',
+      );
+      game.player
+        ..position.setFrom(weapon.position)
+        ..velocity.setZero()
+        ..onGround = false;
+      game.update(1 / 30);
+      expect(
+        game.weaponVisible,
+        isTrue,
+        reason:
+            'world $world boss weapon at ${weapon.position} was not collected; '
+            'player=${game.player.position}, onGround=${game.player.onGround}',
+      );
 
       game.player
         ..position.setFrom(goal.position)
@@ -1206,11 +1238,22 @@ void main() {
     game.enemies.clear();
 
     final boss = game.boss!;
+    final bossWeapon = game.gunPickups.firstWhere(
+      (pickup) =>
+          pickup.position.x < boss.position.x &&
+          boss.position.x - pickup.position.x <= GameConstants.tileSize * 16,
+    );
+    game.player
+      ..position.setFrom(bossWeapon.position)
+      ..velocity.setZero()
+      ..onGround = false;
+    game.update(1 / 30);
+    expect(game.weaponVisible, isTrue);
+
     boss.stompHit();
     game.player
       ..position = boss.position + Vector2(-160, 0)
       ..facingRight = true;
-    game.gunTimer = 10;
     for (var frame = 0; frame < 60 && !boss.isTelegraphing; frame++) {
       game.update(1 / 30);
     }
