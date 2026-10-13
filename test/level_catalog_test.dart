@@ -107,7 +107,14 @@ class _RoutePilot {
   }
 }
 
-Future<({LevelResult? result, bool gameOver, MacaronGame game})>
+Future<
+  ({
+    LevelResult? result,
+    bool gameOver,
+    MacaronGame game,
+    List<String> deathTrace,
+  })
+>
 _clearLevelWithLiveControls(
   WidgetTester tester, {
   required int worldIndex,
@@ -115,6 +122,7 @@ _clearLevelWithLiveControls(
 }) async {
   LevelResult? result;
   var gameOver = false;
+  final deathTrace = <String>[];
   final game = MacaronGame(
     worldIndex: worldIndex,
     levelIndex: levelIndex,
@@ -129,15 +137,55 @@ _clearLevelWithLiveControls(
     game,
     isCleared: () => result?.cleared == true,
     isGameOver: () => gameOver,
+    onPlayerDeath: (before) {
+      final nearbyEnemies = game.enemies
+          .where(
+            (enemy) =>
+                !enemy.dead &&
+                (enemy.position.x - game.player.position.x).abs() < 500,
+          )
+          .map(
+            (enemy) =>
+                '${enemy.kind}@${enemy.position.x.round()}/${enemy.position.y.round()}',
+          )
+          .join(',');
+      final shots = game.world.children
+          .whereType<EnemyCandyShot>()
+          .where((shot) => !shot.spent)
+          .map(
+            (shot) => '${shot.position.x.round()}/${shot.position.y.round()}',
+          )
+          .join(',');
+      final traps = game.world.children
+          .whereType<StickyCandyPatch>()
+          .where((trap) => trap.armed)
+          .map((trap) => trap.position.x.round())
+          .join(',');
+      deathTrace.add(
+        '$before -> '
+        'x=${game.player.position.x.round()} '
+        'y=${game.player.position.y.round()} '
+        'vy=${game.player.velocity.y.round()} '
+        'lives=${game.lives} time=${game.timeLeft.toStringAsFixed(1)} '
+        'invincible=${game.player.isInvincible} '
+        'enemies=[$nearbyEnemies] shots=[$shots] traps=[$traps]',
+      );
+    },
   );
 
-  return (result: result, gameOver: gameOver, game: game);
+  return (
+    result: result,
+    gameOver: gameOver,
+    game: game,
+    deathTrace: deathTrace,
+  );
 }
 
 void _runWithLiveControls(
   MacaronGame game, {
   required bool Function() isCleared,
   required bool Function() isGameOver,
+  void Function(String before)? onPlayerDeath,
 }) {
   game
     ..pauseEngine()
@@ -188,8 +236,21 @@ void _runWithLiveControls(
     if (game.skillCooldownRatio == 0) {
       game.activateSkill();
     }
+    final before =
+        'x=${game.player.position.x.round()} '
+        'y=${game.player.position.y.round()} '
+        'vy=${game.player.velocity.y.round()} '
+        'lives=${game.lives} time=${game.timeLeft.toStringAsFixed(1)} '
+        'invincible=${game.player.isInvincible} '
+        'enemies=[${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 500).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}/${enemy.position.y.round()}').join(',')}] '
+        'shots=[${game.world.children.whereType<EnemyCandyShot>().where((shot) => !shot.spent).map((shot) => '${shot.position.x.round()}/${shot.position.y.round()}').join(',')}] '
+        'traps=[${game.world.children.whereType<StickyCandyPatch>().where((trap) => trap.armed).map((trap) => trap.position.x.round()).join(',')}]';
+    final wasDead = game.player.dead;
     game.setShootPressed(true);
     game.update(1 / 30);
+    if (!wasDead && game.player.dead) {
+      onPlayerDeath?.call(before);
+    }
   }
 }
 
@@ -1315,7 +1376,12 @@ void main() {
         }
       }
       expect(archetypeLevels.keys, containsAll(enemyMarkers));
-      final scenarios = <(int, int)>{(0, 0), (1, 6), ...archetypeLevels.values};
+      final scenarios = <(int, int)>{
+        (0, 0),
+        (0, 2), // Regression for landing on an enemy during fast movement.
+        (1, 6),
+        ...archetypeLevels.values,
+      };
       for (final (world, level) in scenarios) {
         final run = await _clearLevelWithLiveControls(
           tester,
@@ -1332,6 +1398,7 @@ void main() {
               'lives=${run.game.lives} '
               'time=${run.game.timeLeft.toStringAsFixed(1)} '
               'gameOver=${run.gameOver} '
+              'deaths=${run.deathTrace.join('; ')} '
               'enemies=${run.game.enemies.where((enemy) => !enemy.dead).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')}',
         );
         expect(run.gameOver, isFalse);

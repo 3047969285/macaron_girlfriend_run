@@ -829,6 +829,7 @@ class MacaronGame extends FlameGame {
     _stickySlowTimer = (_stickySlowTimer - clampedDt).clamp(0.0, 2.0);
     player.skillDashing = _skillDashTimer > 0;
 
+    final previousPlayerBottom = _playerHitbox().bottom;
     _simulatePlayer(clampedDt);
     if (shootPressed) {
       _firePlayerShot();
@@ -843,7 +844,7 @@ class MacaronGame extends FlameGame {
     _resolveHearts();
     _resolveSprings();
     _resolveCheckpoints();
-    _resolveEnemies();
+    _resolveEnemies(previousPlayerBottom: previousPlayerBottom);
     _resolveEnemyTraps();
     _resolvePlayerShots();
     _resolveEnemyShots();
@@ -1374,7 +1375,7 @@ class MacaronGame extends FlameGame {
     world.add(power);
   }
 
-  void _resolveEnemies() {
+  void _resolveEnemies({required double previousPlayerBottom}) {
     final box = _playerHitbox();
     for (final enemy in List<SoftEnemy>.from(enemies)) {
       if (enemy.dead) {
@@ -1416,8 +1417,11 @@ class MacaronGame extends FlameGame {
       if (player.ducking && enemy.kind == EnemyKind.walker) {
         continue;
       }
-      if (player.position.y - player.size.y * 0.2 <
-          enemy.position.y - enemy.size.y * 0.4) {
+      // Ground resolution may clamp a fast landing below the enemy's top.
+      final landedOnEnemy =
+          box.bottom > previousPlayerBottom &&
+          previousPlayerBottom <= e.top + 12;
+      if (landedOnEnemy) {
         final killed = enemy.takeStomp();
         if (player.velocity.y > 0) {
           player.velocity.y = GameConstants.jumpVelocity * 0.55;
