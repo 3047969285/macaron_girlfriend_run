@@ -47,6 +47,17 @@
     #boot .candy { font-size: 48px; }
     #boot .title { font-size: 22px; font-weight: 800; }
     #boot .hint { font-size: 13px; opacity: 0.7; line-height: 1.5; }
+    #boot .retry {
+      display: none;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 999px;
+      background: #FFFFFFCC;
+      color: #5C4033;
+      font: inherit;
+      font-weight: 700;
+    }
+    #boot.slow .retry { display: inline-flex; }
     #boot.hidden { display: none; }
   </style>
 </head>
@@ -54,20 +65,25 @@
   <div id="boot">
     <div class="candy">🍬</div>
     <div class="title">马卡龙加载中…</div>
-    <div class="hint">请横屏 · 首次加载大约需要几秒<br>若一直黑屏，请关掉蜂窝网络代理/VPN 后刷新</div>
+    <div class="hint" role="status" aria-live="polite">横屏体验 · 首次加载需几秒</div>
+    <button class="retry" type="button">重新加载</button>
   </div>
   <script>
     (function () {
       var boot = document.getElementById('boot');
+      var hint = boot.querySelector('.hint');
+      var retry = boot.querySelector('.retry');
       var hide = function () {
         if (boot) boot.classList.add('hidden');
       };
-      window.addEventListener('flutter-first-frame', hide);
-      setTimeout(hide, 12000);
+      window.addEventListener('flutter-first-frame', hide, { once: true });
+      retry.addEventListener('click', function () {
+        window.location.reload();
+      });
       setTimeout(function () {
         if (!boot || boot.classList.contains('hidden')) return;
-        boot.querySelector('.hint').textContent =
-          '加载偏慢：请确认用 Safari 打开，并带末尾斜杠的完整链接刷新一次';
+        hint.textContent = '加载较慢，请检查网络后重试';
+        boot.classList.add('slow');
       }, 8000);
     })();
   </script>
