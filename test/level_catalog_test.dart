@@ -1272,6 +1272,30 @@ void main() {
               reason: 'w$world l$level ${enemy.kind} remains inside patrol',
             );
           }
+          for (var first = 0; first < game.enemies.length; first++) {
+            for (
+              var second = first + 1;
+              second < game.enemies.length;
+              second++
+            ) {
+              final a = game.enemies[first];
+              final b = game.enemies[second];
+              final verticalOverlap =
+                  a.position.y - a.size.y < b.position.y &&
+                  b.position.y - b.size.y < a.position.y;
+              if (!verticalOverlap) {
+                continue;
+              }
+              final left = a.position.x < b.position.x ? a : b;
+              final right = identical(left, a) ? b : a;
+              expect(
+                left.position.x + left.size.x / 2,
+                lessThanOrEqualTo(right.position.x - right.size.x / 2 + 0.001),
+                reason:
+                    'w$world l$level ${left.kind}/${right.kind} spawn hitboxes overlap',
+              );
+            }
+          }
           expect(
             game.checkpoints,
             hasLength(markerCount('K')),

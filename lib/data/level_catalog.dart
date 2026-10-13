@@ -152,6 +152,24 @@ class LevelCatalog {
       return true;
     }
 
+    double enemyHalfWidth(String marker) => marker == 'R' ? 26 : 21;
+
+    bool hasEnemyClearance(int x, String enemy) {
+      final center = (x + 0.5) * GameConstants.tileSize;
+      for (var otherX = 0; otherX < width; otherX++) {
+        final other = grid[ground][otherX];
+        if (otherX == x || !'AEGRT'.contains(other)) {
+          continue;
+        }
+        final requiredGap = enemyHalfWidth(enemy) + enemyHalfWidth(other);
+        final otherCenter = (otherX + 0.5) * GameConstants.tileSize;
+        if ((center - otherCenter).abs() < requiredGap) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     bool hasClearApproach(int x) {
       for (var approachX = x - 1; approachX <= x + 1; approachX++) {
         for (var approachY = ground - 3; approachY < ground; approachY++) {
@@ -200,6 +218,7 @@ class LevelCatalog {
       final enemy = grid[ground][x];
       if (!'AEGRT'.contains(enemy) ||
           (hasSafeAnchor(x) &&
+              hasEnemyClearance(x, enemy) &&
               hasClearApproach(x) &&
               hasClearTunnelBuffer(x) &&
               (enemy != 'A' || hasClearSwoopSpace(x)))) {
@@ -215,6 +234,7 @@ class LevelCatalog {
                 candidate >= width - 4 ||
                 grid[ground][candidate] != ' ' ||
                 !hasSafeAnchor(candidate) ||
+                !hasEnemyClearance(candidate, enemy) ||
                 !hasClearTunnelBuffer(candidate) ||
                 enemy == 'A' && !hasClearSwoopSpace(candidate) ||
                 requireClearApproach && !hasClearApproach(candidate)) {
