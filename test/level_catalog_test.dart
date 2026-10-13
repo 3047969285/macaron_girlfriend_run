@@ -107,6 +107,92 @@ class _RoutePilot {
   }
 }
 
+Future<({LevelResult? result, bool gameOver, MacaronGame game})>
+_clearLevelWithLiveControls(
+  WidgetTester tester, {
+  required int worldIndex,
+  required int levelIndex,
+}) async {
+  LevelResult? result;
+  var gameOver = false;
+  final game = MacaronGame(
+    worldIndex: worldIndex,
+    levelIndex: levelIndex,
+    role: PlayerRole.girlfriend,
+    onWin: (value) => result = value,
+    onGameOver: () => gameOver = true,
+  );
+  await tester.pumpWidget(GameWidget(game: game));
+  await tester.pump(const Duration(milliseconds: 100));
+  expect(game.levelReady, isTrue, reason: 'w$worldIndex l$levelIndex loads');
+  _runWithLiveControls(
+    game,
+    isCleared: () => result?.cleared == true,
+    isGameOver: () => gameOver,
+  );
+
+  return (result: result, gameOver: gameOver, game: game);
+}
+
+void _runWithLiveControls(
+  MacaronGame game, {
+  required bool Function() isCleared,
+  required bool Function() isGameOver,
+}) {
+  game
+    ..pauseEngine()
+    ..onGameResize(Vector2(960, 540));
+
+  final ground = game.level.height - 3;
+  final tunnel = [
+    for (var x = 0; x < game.level.width; x++)
+      if (game.level.tileAt(x, ground - 1) == 'D') x,
+  ];
+  final tunnelStart = tunnel.isEmpty
+      ? double.infinity
+      : tunnel.first * GameConstants.tileSize;
+  final tunnelEnd = tunnel.isEmpty
+      ? double.negativeInfinity
+      : (tunnel.last + 1) * GameConstants.tileSize;
+  final maxFrames =
+      (GameConstants.timeLimitFor(
+            game.level.difficulty,
+            mapWidth: game.level.width,
+          ) +
+          120) *
+      30;
+
+  for (
+    var frame = 0;
+    frame < maxFrames && !isCleared() && !isGameOver();
+    frame++
+  ) {
+    final x = game.player.position.x;
+    final ducking =
+        x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
+        x <= tunnelEnd + GirlfriendPlayer.standWidth;
+    final beforeTunnel =
+        x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
+        x < tunnelStart - 48;
+    final waitToLand = beforeTunnel && !game.player.onGround;
+    final finalApproach = x >= game.goal!.position.x - 440;
+    game
+      ..rightPressed = !waitToLand
+      ..leftPressed = false
+      ..runPressed = true
+      ..setDuckPressed(ducking)
+      ..setJumpHeld(false);
+    if (!ducking && !finalApproach) {
+      game.setJumpHeld(true);
+    }
+    if (game.skillCooldownRatio == 0) {
+      game.activateSkill();
+    }
+    game.setShootPressed(true);
+    game.update(1 / 30);
+  }
+}
+
 void main() {
   test('every level has a stable unique scenery seed', () {
     final seeds = <int>{};
@@ -1158,7 +1244,7 @@ void main() {
 
           game.boss?.removeFromParent();
           game.boss = null;
-          // Validate the guaranteed route separately from enemy combat behavior.
+          // Terrain reachability is isolated here; combat is covered by live enemy scenarios.
           for (final enemy in game.enemies) {
             enemy.dead = true;
           }
@@ -1187,7 +1273,9 @@ void main() {
                 'w$world l$level terrain route; lives=${game.lives}, '
                 'dead=${game.player.dead}, '
                 'x=${game.player.position.x.toStringAsFixed(0)}, '
-                'y=${game.player.position.y.toStringAsFixed(0)}',
+                'y=${game.player.position.y.toStringAsFixed(0)}, '
+                'nearbyEnemies=${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 420).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')}, '
+                'nearbyGaps=${_RoutePilot(game).gaps.where((gap) => (gap.$1 * GameConstants.tileSize - game.player.position.x).abs() < 420).map((gap) => '${gap.$1}+${gap.$2}').join(',')}',
           );
           expect(gameOver, isFalse);
           expect(game.lives, greaterThan(0));
@@ -1198,87 +1286,60 @@ void main() {
     timeout: const Timeout(Duration(minutes: 10)),
   );
 
-  testWidgets('starter level clears through live movement and collision', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'sound_on': false,
-      'music_on': false,
-      'haptic_on': false,
-    });
-    await SaveService.instance.init();
+  testWidgets(
+    'live traversal clears a starter, threat level, and each enemy archetype',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'sound_on': false,
+        'music_on': false,
+        'haptic_on': false,
+      });
+      await SaveService.instance.init();
 
-    LevelResult? result;
-    var gameOver = false;
-    final game = MacaronGame(
-      worldIndex: 0,
-      levelIndex: 0,
-      role: PlayerRole.girlfriend,
-      onWin: (value) => result = value,
-      onGameOver: () => gameOver = true,
-    );
-    await tester.pumpWidget(GameWidget(game: game));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(game.levelReady, isTrue);
-    game
-      ..pauseEngine()
-      ..onGameResize(Vector2(960, 540));
-
-    final ground = game.level.height - 3;
-    final tunnel = [
-      for (var x = 0; x < game.level.width; x++)
-        if (game.level.tileAt(x, ground - 1) == 'D') x,
-    ];
-    final tunnelStart = tunnel.first * GameConstants.tileSize;
-    final tunnelEnd = (tunnel.last + 1) * GameConstants.tileSize;
-    final maxFrames =
-        (GameConstants.timeLimitFor(
-              game.level.difficulty,
-              mapWidth: game.level.width,
-            ) +
-            120) *
-        30;
-
-    for (var frame = 0; frame < maxFrames && result == null; frame++) {
-      final x = game.player.position.x;
-      final ducking =
-          x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
-          x <= tunnelEnd + GirlfriendPlayer.standWidth;
-      final beforeTunnel =
-          x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
-          x < tunnelStart - 48;
-      final waitToLand = beforeTunnel && !game.player.onGround;
-      final finalApproach = x >= game.goal!.position.x - 440;
-      game
-        ..rightPressed = !waitToLand
-        ..runPressed = true
-        ..setDuckPressed(ducking)
-        ..setJumpHeld(false);
-      if (!ducking && !finalApproach) {
-        game.setJumpHeld(true);
+      const enemyMarkers = ['E', 'G', 'R', 'T', 'A'];
+      final archetypeLevels = <String, (int, int)>{};
+      for (var world = 0; world < GameConstants.worldCount; world++) {
+        for (var level = 0; level < GameConstants.levelsPerWorld - 1; level++) {
+          final rows = LevelCatalog.load(world, level).rows.join();
+          for (final marker in enemyMarkers) {
+            if (rows.contains(marker)) {
+              archetypeLevels.putIfAbsent(marker, () => (world, level));
+            }
+          }
+          if (archetypeLevels.length == enemyMarkers.length) {
+            break;
+          }
+        }
+        if (archetypeLevels.length == enemyMarkers.length) {
+          break;
+        }
       }
-      if (game.skillCooldownRatio == 0) {
-        game.activateSkill();
+      expect(archetypeLevels.keys, containsAll(enemyMarkers));
+      final scenarios = <(int, int)>{(0, 0), (1, 6), ...archetypeLevels.values};
+      for (final (world, level) in scenarios) {
+        final run = await _clearLevelWithLiveControls(
+          tester,
+          worldIndex: world,
+          levelIndex: level,
+        );
+        expect(
+          run.result?.cleared,
+          isTrue,
+          reason:
+              'w$world l$level must be completable; '
+              'x=${run.game.player.position.x.round()} '
+              'y=${run.game.player.position.y.round()} '
+              'lives=${run.game.lives} '
+              'time=${run.game.timeLeft.toStringAsFixed(1)} '
+              'gameOver=${run.gameOver} '
+              'enemies=${run.game.enemies.where((enemy) => !enemy.dead).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')}',
+        );
+        expect(run.gameOver, isFalse);
+        expect(run.game.lives, greaterThan(0));
+        await tester.pumpWidget(const SizedBox.shrink());
       }
-      game.setShootPressed(true);
-      game.update(1 / 30);
-    }
-
-    final remainingEnemies = game.enemies
-        .where((enemy) => !enemy.dead)
-        .map((enemy) => '${enemy.kind}@${enemy.position.x.round()}')
-        .join(',');
-    expect(
-      result?.cleared,
-      isTrue,
-      reason:
-          'starter level must be completable; x=${game.player.position.x.round()} '
-          'y=${game.player.position.y.round()} lives=${game.lives} '
-          'time=${game.timeLeft.toStringAsFixed(1)} '
-          'gameOver=$gameOver enemies=$remainingEnemies',
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+    },
+  );
 
   testWidgets('dash hits enemies and defeats armored enemies on repeat hits', (
     tester,
