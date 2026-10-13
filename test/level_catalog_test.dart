@@ -649,7 +649,7 @@ void main() {
   });
 
   testWidgets(
-    'a boss level clears with continuous movement and combat input',
+    'every world boss clears with continuous movement and combat input',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'sound_on': false,
@@ -658,135 +658,166 @@ void main() {
       });
       await SaveService.instance.init();
 
-      LevelResult? result;
-      final game = MacaronGame(
-        worldIndex: 0,
-        levelIndex: GameConstants.levelsPerWorld - 1,
-        role: PlayerRole.girlfriend,
-        onWin: (value) => result = value,
-      );
-      await tester.pumpWidget(GameWidget(game: game));
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(game.levelReady, isTrue);
-      game.pauseEngine();
-      for (final enemy in game.enemies) {
-        enemy.dead = true;
-      }
-
-      final boss = game.boss!;
-      final weapon = game.gunPickups.firstWhere(
-        (pickup) =>
-            boss.position.x - pickup.position.x >= GameConstants.tileSize * 8 &&
-            boss.position.x - pickup.position.x <= GameConstants.tileSize * 14,
-      );
-      final routePilot = _RoutePilot(game);
-      const dt = 1 / 30;
-      final stagingX =
-          boss.leftBound -
-          GirlfriendPlayer.standWidth / 2 -
-          boss.size.x * 0.4 -
-          28;
-
-      for (var frame = 0; frame < 2400; frame++) {
-        routePilot.step();
-        game.update(dt);
-        if (weapon.collected &&
-            game.player.onGround &&
-            game.player.position.x >= stagingX) {
-          break;
+      for (
+        var worldIndex = 0;
+        worldIndex < GameConstants.worldCount;
+        worldIndex++
+      ) {
+        LevelResult? result;
+        final game = MacaronGame(
+          worldIndex: worldIndex,
+          levelIndex: GameConstants.levelsPerWorld - 1,
+          role: PlayerRole.girlfriend,
+          onWin: (value) => result = value,
+        );
+        await tester.pumpWidget(GameWidget(game: game));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(game.levelReady, isTrue, reason: 'world $worldIndex loads');
+        game.pauseEngine();
+        for (final enemy in game.enemies) {
+          enemy.dead = true;
         }
-      }
-      expect(weapon.collected, isTrue, reason: 'the player runs into the gun');
-      expect(game.weaponVisible, isTrue);
-      expect(
-        game.player.position.x,
-        greaterThanOrEqualTo(stagingX - 20),
-        reason: 'normal running and jumps reach the boss arena',
-      );
 
-      var jumpFrames = 0;
-      final initialBossHp = boss.hp;
-      for (var frame = 0; frame < 1800 && boss.hp == initialBossHp; frame++) {
-        final dx = boss.position.x - game.player.position.x;
-        if (game.player.onGround) {
-          game.setJumpHeld(false);
-          if (dx.abs() <= 145) {
-            game.activateSkill();
-            game.setJumpHeld(true);
-            jumpFrames = 1;
+        final boss = game.boss!;
+        final weapon = game.gunPickups.firstWhere(
+          (pickup) =>
+              boss.position.x - pickup.position.x >=
+                  GameConstants.tileSize * 8 &&
+              boss.position.x - pickup.position.x <=
+                  GameConstants.tileSize * 14,
+        );
+        final routePilot = _RoutePilot(game);
+        const dt = 1 / 30;
+        final stagingX =
+            boss.leftBound -
+            GirlfriendPlayer.standWidth / 2 -
+            boss.size.x * 0.4 -
+            28;
+
+        for (var frame = 0; frame < 2400; frame++) {
+          routePilot.step();
+          game.update(dt);
+          if (weapon.collected &&
+              game.player.onGround &&
+              game.player.position.x >= stagingX) {
+            break;
+          }
+        }
+        expect(
+          weapon.collected,
+          isTrue,
+          reason: 'world $worldIndex player runs into the gun',
+        );
+        expect(game.weaponVisible, isTrue);
+        expect(
+          game.player.position.x,
+          greaterThanOrEqualTo(stagingX - 20),
+          reason: 'world $worldIndex route reaches the boss arena',
+        );
+
+        var jumpFrames = 0;
+        final initialBossHp = boss.hp;
+        for (
+          var frame = 0;
+          frame < 3600 &&
+              !boss.dead &&
+              (worldIndex != 0 || boss.hp == initialBossHp);
+          frame++
+        ) {
+          final dx = boss.position.x - game.player.position.x;
+          if (game.player.onGround) {
+            game.setJumpHeld(false);
+            if (dx.abs() <= 145) {
+              game.activateSkill();
+              game.setJumpHeld(true);
+              jumpFrames = 1;
+              game
+                ..rightPressed = dx > 16
+                ..leftPressed = dx < -16
+                ..runPressed = true;
+            } else {
+              game
+                ..rightPressed = dx > 0
+                ..leftPressed = dx < 0
+                ..runPressed = true;
+            }
+          } else {
+            jumpFrames++;
+            game.setJumpHeld(jumpFrames <= 9);
             game
               ..rightPressed = dx > 16
               ..leftPressed = dx < -16
               ..runPressed = true;
-          } else {
-            game
-              ..rightPressed = dx > 0
-              ..leftPressed = dx < 0
-              ..runPressed = true;
           }
-        } else {
-          jumpFrames++;
-          game.setJumpHeld(jumpFrames <= 9);
-          game
-            ..rightPressed = dx > 16
-            ..leftPressed = dx < -16
-            ..runPressed = true;
+          game.setShootPressed(boss.canReceiveProjectile);
+          game.update(dt);
         }
-        game.update(dt);
-      }
-      expect(
-        boss.hp,
-        lessThan(initialBossHp),
-        reason:
-            'a timed jump from live controls must stomp the boss; '
-            'player=${game.player.position}, boss=${boss.position}, '
-            'lives=${game.lives}',
-      );
-
-      final safeX = stagingX;
-      for (var frame = 0; frame < 120; frame++) {
-        if (game.player.position.x > safeX) {
+        game.setShootPressed(false);
+        expect(
+          boss.hp,
+          lessThan(initialBossHp),
+          reason: 'world $worldIndex boss takes damage under live controls',
+        );
+        if (worldIndex == 0) {
+          expect(boss.dead, isFalse);
+          for (var frame = 0; frame < 120; frame++) {
+            if (game.player.position.x > stagingX) {
+              game
+                ..leftPressed = true
+                ..rightPressed = false
+                ..runPressed = true;
+            } else {
+              game
+                ..leftPressed = false
+                ..rightPressed = false
+                ..runPressed = false;
+              break;
+            }
+            game.update(dt);
+          }
           game
-            ..leftPressed = true
+            ..setJumpHeld(false)
+            ..player.facingRight = true
             ..rightPressed = false
-            ..runPressed = true;
-        } else {
-          game
             ..leftPressed = false
-            ..rightPressed = false
             ..runPressed = false;
-          break;
+          final gunTimeAtRetreat = game.gunTimer;
+          for (var frame = 0; frame < 900 && !boss.dead; frame++) {
+            game.setShootPressed(boss.canReceiveProjectile);
+            game.update(dt);
+          }
+          game.setShootPressed(false);
+          expect(
+            boss.dead,
+            isTrue,
+            reason:
+                'world 0 gun counters attack warnings from safe ground; '
+                'gun time=$gunTimeAtRetreat, remaining=${game.gunTimer}',
+          );
+        } else {
+          expect(
+            boss.dead,
+            isTrue,
+            reason:
+                'live jumps and ranged input clear world $worldIndex; '
+                'hp=${boss.hp}, lives=${game.lives}, '
+                'weaponRemaining=${game.gunTimer}',
+          );
         }
-        game.update(dt);
-      }
-      game
-        ..setJumpHeld(false)
-        ..player.facingRight = true
-        ..rightPressed = false
-        ..leftPressed = false
-        ..runPressed = false;
-      final gunTimeAtRetreat = game.gunTimer;
-      for (var frame = 0; frame < 900 && !boss.dead; frame++) {
-        game.setShootPressed(boss.canReceiveProjectile);
-        game.update(dt);
-      }
-      game.setShootPressed(false);
-      expect(
-        boss.dead,
-        isTrue,
-        reason:
-            'the collected gun counters each boss warning from safe ground; '
-            'gun time=$gunTimeAtRetreat, remaining=${game.gunTimer}',
-      );
 
-      for (var frame = 0; frame < 2400 && result == null; frame++) {
-        routePilot.step();
-        game.update(dt);
+        for (var frame = 0; frame < 2400 && result == null; frame++) {
+          routePilot.step();
+          game.update(dt);
+        }
+        expect(
+          result?.cleared,
+          isTrue,
+          reason: 'world $worldIndex unlocked exit is reachable',
+        );
+        expect(result?.bossCleared, isTrue);
+        expect(game.lives, greaterThan(0));
+        await tester.pumpWidget(const SizedBox.shrink());
       }
-      expect(result?.cleared, isTrue, reason: 'the unlocked exit is reachable');
-      expect(result?.bossCleared, isTrue);
-      expect(game.lives, greaterThan(0));
-      await tester.pumpWidget(const SizedBox.shrink());
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );
