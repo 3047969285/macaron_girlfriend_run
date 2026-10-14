@@ -78595,7 +78595,7 @@ A.a15.prototype={
 $2(a,b){var s,r,q,p,o,n,m=this,l=(a+0.5)*48
 for(s=m.a,r=m.d,q=m.b,p=m.c,o=0;o<s;++o){n=q[p][o]
 if(o===a||!B.f.t("AEGRT",n))continue
-if(Math.abs(l-(o+0.5)*48)<r.$1(b)+r.$1(n))return!1}return!0},
+if(Math.abs(l-(o+0.5)*48)<96+r.$1(b)+r.$1(n))return!1}return!0},
 $S:496}
 A.a12.prototype={
 $1(a){var s,r,q,p,o,n
@@ -81125,49 +81125,51 @@ a1.ady()
 a1.Rl(i)
 if((a1.U2+=i)>=0.1){a1.U2=0
 a1.oY()}},
-OW(a,b){var s,r,q,p,o,n,m,l,k=this,j=k.Z
-if(b){j===$&&A.a()
-j=j.p3.a[0]
+OW(a,b){var s,r,q,p,o,n,m,l,k,j,i=this,h=i.Z
+if(b){h===$&&A.a()
+h=h.p3.a[0]
 s=new A.R(new Float32Array(2))
-s.bk(j*a,0)}else{j===$&&A.a()
-j=j.p3.a[1]
+s.bk(h*a,0)}else{h===$&&A.a()
+h=h.p3.a[1]
 s=new A.R(new Float32Array(2))
-s.bk(0,j*a)}j=k.Z
-j===$&&A.a()
-j=j.ax.e
-j.cj(j.M(0,s))
-j.K()
-r=k.fp()
-q=k.E0(r)
-k.Z.p4=!1
-for(j=q.length,p=s.a,o=0;o<q.length;q.length===j||(0,A.y)(q),++o){n=q[o]
-if(!r.bY(n))continue
-if(b){m=p[0]
-if(m>0){m=k.Z
-l=m.ax.e
-l.eq(n.a-m.ay.a[0]*0.5)
-l.K()}else if(m<0){m=k.Z
-l=m.ax.e
-l.eq(n.c+m.ay.a[0]*0.5)
-l.K()}m=k.Z.p3.a
-m.$flags&2&&A.Z(m)
-m[0]=0}else{m=p[1]
-if(m>0){m=k.Z.ax.e
-m.eI(n.b)
-m.K()
-m=k.Z
-l=m.p3.a
+s.bk(0,h*a)}h=i.Z
+h===$&&A.a()
+h=h.ax.e
+h.cj(h.M(0,s))
+h.K()
+r=i.fp()
+q=i.E0(r)
+i.Z.p4=!1
+for(h=q.length,p=s.a,o=r.d-4,n=0;n<q.length;q.length===h||(0,A.y)(q),++n){m=q[n]
+if(!r.bY(m))continue
+if(b){l=i.Z
+if(l.p3.a[1]>=0){k=m.b
+j=k>=o&&k<=l.ax.e.a[1]+4}else j=!1
+if(j)continue
+k=p[0]
+if(k>0){k=l.ax.e
+k.eq(m.a-l.ay.a[0]*0.5)
+k.K()}else if(k<0){k=l.ax.e
+k.eq(m.c+l.ay.a[0]*0.5)
+k.K()}l=i.Z.p3.a
 l.$flags&2&&A.Z(l)
-l[1]=0
-m.p4=!0}else if(m<0){m=k.Z
-l=m.ax.e
-m=m.x2?40:68
-l.eI(n.d+m)
+l[0]=0}else{l=p[1]
+if(l>0){l=i.Z.ax.e
+l.eI(m.b)
 l.K()
-l=k.Z.p3.a
-l.$flags&2&&A.Z(l)
-l[1]=0
-k.a4x(n)}}}},
+l=i.Z
+k=l.p3.a
+k.$flags&2&&A.Z(k)
+k[1]=0
+l.p4=!0}else if(l<0){l=i.Z
+k=l.ax.e
+l=l.x2?40:68
+k.eI(m.d+l)
+k.K()
+k=i.Z.p3.a
+k.$flags&2&&A.Z(k)
+k[1]=0
+i.a4x(m)}}}},
 a4x(a){var s,r,q,p,o,n,m,l=a.cf(6)
 for(s=this.ey,r=s.length,q=0;q<r;++q){p=s[q]
 if(p.p1)continue
