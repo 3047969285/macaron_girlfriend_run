@@ -23396,9 +23396,9 @@ if(o&&n)continue
 e=o?q:m
 a2.$1(e)
 a4[d][e]=p}},
-aEe(a,b,c){var s,r,q,p,o,n,m,l,k,j,i=B.b.gP(a),h=a.length-3,g=B.d.bl(i.length-8,5),f=A.a0T(b,c),e=B.d.a6(b*3+c,5)
+aEe(a,b,c){var s,r,q,p,o,n,m,l,k,j,i=B.b.gP(a),h=a.length-3,g=B.d.bl(i.length-8,5),f=A.a0T(b,c),e=B.d.a6(b*3+c,5),d=c===10?1:B.d.a6(b+c*2,4)+1
 for(i=g*2,s=f>=5,r=h-3,q=h-4,p=h-2,o=f>=4,n=h-5,m=0;m<5;++m){l=4+m*g+B.d.bl(i,3)
-switch(B.d.a6(e+m,5)){case 0:A.dy(a,l,h,"S")
+switch(B.d.a6(e+m*d,5)){case 0:A.dy(a,l,h,"S")
 k=l+4
 A.fw(a,k,2)
 j=l+6
