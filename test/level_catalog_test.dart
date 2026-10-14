@@ -515,6 +515,7 @@ void main() {
     var levelsWithGun = 0;
     var levelsWithVehicle = 0;
     final swooperWorlds = <int>{};
+    final pickupOrders = <String>{};
     final worldModes = List.generate(
       GameConstants.worldCount,
       (_) => <String>{},
@@ -532,6 +533,24 @@ void main() {
           containsAll({'S', 'N', 'W', 'V'}),
           reason: 'world $w level $l must include all four core gameplay modes',
         );
+        if (l < GameConstants.levelsPerWorld - 1) {
+          final pickupPositions = <String, int>{};
+          for (final pickup in const ['N', 'W', 'V']) {
+            final columns = [
+              for (var x = 0; x < level.width; x++)
+                if (level.rows.any((row) => row[x] == pickup)) x,
+            ];
+            expect(
+              columns,
+              hasLength(1),
+              reason: 'world $w level $l must place one $pickup scenario',
+            );
+            pickupPositions[pickup] = columns.single;
+          }
+          final orderedPickups = pickupPositions.entries.toList()
+            ..sort((left, right) => left.value.compareTo(right.value));
+          pickupOrders.add(orderedPickups.map((entry) => entry.key).join());
+        }
         worldModes[w].addAll(modes);
         trapperCount += map.split('T').length - 1;
         gardenEventCount += map.contains('N') ? 1 : 0;
@@ -551,6 +570,11 @@ void main() {
     expect(levelsWithDuckTunnel, GameConstants.totalLevels);
     expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
+    expect(
+      pickupOrders,
+      hasLength(6),
+      reason: 'non-boss levels must use every plant/gun/vehicle sequence',
+    );
     expect(
       swooperWorlds,
       containsAll(List.generate(GameConstants.worldCount, (world) => world)),

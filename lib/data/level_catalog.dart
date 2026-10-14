@@ -263,11 +263,15 @@ class LevelCatalog {
     final sectionWidth = (width - 8) ~/ 5;
     final difficulty = _difficulty(world, level);
     final rotation = (world * 3 + level) % 5;
+    final sequenceStride =
+        level == GameConstants.levelsPerWorld - 1
+        ? 1
+        : (world + level * 2) % 4 + 1;
 
     for (var section = 0; section < 5; section++) {
       final start = 4 + section * sectionWidth;
       final x = start + sectionWidth * 2 ~/ 3;
-      switch ((rotation + section) % 5) {
+      switch ((rotation + section * sequenceStride) % 5) {
         case 0:
           // 弹跳节奏：春垫、短坑与弧形糖轨；地面仍留有直通过法。
           _put(grid, x, ground, 'S');
