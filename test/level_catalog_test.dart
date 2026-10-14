@@ -34,7 +34,7 @@ class _RoutePilot {
     }
     final tunnelTiles = [
       for (var x = 0; x < game.level.width; x++)
-        if (game.level.tileAt(x, ground - 1) == 'D') x,
+        if (game.level.tileAt(x, ground - 2) == 'D') x,
     ];
     tunnelStart = tunnelTiles.isEmpty
         ? double.infinity
@@ -191,10 +191,14 @@ void _runWithLiveControls(
     ..pauseEngine()
     ..onGameResize(Vector2(960, 540));
 
+  final gaps = _RoutePilot(game).gaps;
+  var gapIndex = 0;
+  var jumpIssued = false;
+  var jumpHoldFrames = 0;
   final ground = game.level.height - 3;
   final tunnel = [
     for (var x = 0; x < game.level.width; x++)
-      if (game.level.tileAt(x, ground - 1) == 'D') x,
+      if (game.level.tileAt(x, ground - 2) == 'D') x,
   ];
   final tunnelStart = tunnel.isEmpty
       ? double.infinity
@@ -216,22 +220,87 @@ void _runWithLiveControls(
     frame++
   ) {
     final x = game.player.position.x;
+    while (gapIndex < gaps.length) {
+      final (start, length) = gaps[gapIndex];
+      final landingX =
+          (start + length) * GameConstants.tileSize +
+          GirlfriendPlayer.standWidth * 0.325;
+      if (x < landingX) {
+        break;
+      }
+      gapIndex++;
+      jumpIssued = false;
+    }
+    final gap = gapIndex < gaps.length ? gaps[gapIndex] : null;
+    final gapDistance = gap == null
+        ? double.infinity
+        : gap.$1 * GameConstants.tileSize - x;
+    final nextEnemy = game.enemies
+        .where(
+          (enemy) => !enemy.dead && enemy.position.x + enemy.size.x / 2 > x,
+        )
+        .fold<SoftEnemy?>(
+          null,
+          (nearest, enemy) =>
+              nearest == null || enemy.position.x < nearest.position.x
+              ? enemy
+              : nearest,
+        );
+    final enemyDistance = nextEnemy == null
+        ? double.infinity
+        : nextEnemy.position.x - x;
+    final duckForWalker =
+        nextEnemy?.kind == EnemyKind.walker &&
+        enemyDistance >= -(nextEnemy!.size.x / 2) &&
+        enemyDistance <= 160;
+    final duckForShot = game.world.children.whereType<EnemyCandyShot>().any((
+      shot,
+    ) {
+      final shotOffset = shot.position.x - x;
+      return !shot.spent &&
+          shotOffset * shot.direction < 0 &&
+          shotOffset.abs() <= 160;
+    });
     final ducking =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
-        x <= tunnelEnd + GirlfriendPlayer.standWidth;
+            x <= tunnelEnd + GirlfriendPlayer.standWidth ||
+        duckForWalker ||
+        duckForShot;
     final beforeTunnel =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
         x < tunnelStart - 48;
     final waitToLand = beforeTunnel && !game.player.onGround;
     final finalApproach = x >= game.goal!.position.x - 440;
+    final jumpForGap = gapDistance >= 0 && gapDistance <= 80;
+    final jumpForEnemy =
+        nextEnemy != null &&
+        nextEnemy.kind != EnemyKind.walker &&
+        enemyDistance >= GirlfriendPlayer.standWidth &&
+        enemyDistance <= 160;
+    if (game.player.onGround) {
+      jumpIssued = false;
+    }
+    final jumpNow =
+        game.player.onGround &&
+        !ducking &&
+        !waitToLand &&
+        !finalApproach &&
+        !jumpIssued &&
+        (jumpForGap || jumpForEnemy);
+    if (jumpNow) {
+      jumpIssued = true;
+      jumpHoldFrames = 9;
+    }
     game
       ..rightPressed = !waitToLand
       ..leftPressed = false
       ..runPressed = true
-      ..setDuckPressed(ducking)
-      ..setJumpHeld(false);
-    if (!ducking && !finalApproach) {
+      ..setDuckPressed(ducking);
+    if (jumpHoldFrames > 0) {
       game.setJumpHeld(true);
+      jumpHoldFrames--;
+    } else {
+      game.setJumpHeld(false);
     }
     if (game.skillCooldownRatio == 0) {
       game.activateSkill();
@@ -242,6 +311,8 @@ void _runWithLiveControls(
         'vy=${game.player.velocity.y.round()} '
         'lives=${game.lives} time=${game.timeLeft.toStringAsFixed(1)} '
         'invincible=${game.player.isInvincible} '
+        'ground=${game.player.onGround} right=${game.rightPressed} '
+        'duck=$ducking wait=$waitToLand tunnel=$tunnelStart..$tunnelEnd '
         'enemies=[${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 500).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}/${enemy.position.y.round()}').join(',')}] '
         'shots=[${game.world.children.whereType<EnemyCandyShot>().where((shot) => !shot.spent).map((shot) => '${shot.position.x.round()}/${shot.position.y.round()}').join(',')}] '
         'traps=[${game.world.children.whereType<StickyCandyPatch>().where((trap) => trap.armed).map((trap) => trap.position.x.round()).join(',')}]';
@@ -350,7 +421,6 @@ void main() {
     var levelsWithGun = 0;
     var levelsWithVehicle = 0;
     final swooperWorlds = <int>{};
-    final pickupPatterns = <String>{};
     final worldModes = List.generate(
       GameConstants.worldCount,
       (_) => <String>{},
@@ -364,9 +434,9 @@ void main() {
         }
         final modes = {'S', 'N', 'W', 'V'}.where(map.contains).toSet();
         expect(
-          modes.length,
-          greaterThanOrEqualTo(3),
-          reason: 'world $w level $l must offer three gameplay modes',
+          modes,
+          containsAll({'S', 'N', 'W', 'V'}),
+          reason: 'world $w level $l must include all four core gameplay modes',
         );
         worldModes[w].addAll(modes);
         trapperCount += map.split('T').length - 1;
@@ -374,8 +444,7 @@ void main() {
         levelsWithDuckTunnel += map.contains('D') ? 1 : 0;
         levelsWithGun += map.contains('W') ? 1 : 0;
         levelsWithVehicle += map.contains('V') ? 1 : 0;
-        pickupPatterns.add(['S', 'N', 'W', 'V'].where(map.contains).join());
-        expect(level.width, greaterThanOrEqualTo(130));
+        expect(level.width, greaterThanOrEqualTo(140));
         expect(level.rows.any((r) => r.contains('P')), isTrue);
         expect(level.rows.any((r) => r.contains('F')), isTrue);
         expect(level.rows.any((r) => r.contains('K')), isTrue);
@@ -388,7 +457,6 @@ void main() {
     expect(levelsWithDuckTunnel, GameConstants.totalLevels);
     expect(levelsWithGun, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
     expect(levelsWithVehicle, greaterThan(GameConstants.totalLevels * 2 ~/ 3));
-    expect(pickupPatterns.length, greaterThanOrEqualTo(4));
     expect(
       swooperWorlds,
       containsAll(List.generate(GameConstants.worldCount, (world) => world)),
@@ -402,7 +470,7 @@ void main() {
             'world $world must include bounce, plant, gun, and vehicle play',
       );
     }
-    expect(LevelCatalog.load(8, 10).width, 454);
+    expect(LevelCatalog.load(8, 10).width, 464);
   });
 
   test('every level is unique and has a traversable ground route', () {
@@ -473,7 +541,7 @@ void main() {
         }
         final tunnelTiles = [
           for (var x = 2; x <= level.width - 3; x++)
-            if (level.tileAt(x, ground - 1) == 'D') x,
+            if (level.tileAt(x, ground - 2) == 'D') x,
         ];
         expect(tunnelTiles.length, inInclusiveRange(4, 6), reason: reason);
         expect(
@@ -517,6 +585,11 @@ void main() {
         }
         for (final x in tunnelTiles) {
           expect(level.tileAt(x, ground + 1), '#', reason: reason);
+          expect(
+            level.tileAt(x, ground - 1),
+            ' ',
+            reason: '$reason leaves crouch clearance below the roof',
+          );
           expect(
             'PFAEGRBTWV'.contains(level.tileAt(x, ground)),
             isFalse,
@@ -903,7 +976,15 @@ void main() {
         expect(
           boss.hp,
           lessThan(initialBossHp),
-          reason: 'world $worldIndex boss takes damage under live controls',
+          reason:
+              'world $worldIndex boss takes damage under live controls; '
+              'lives=${game.lives} weapon=${game.gunTimer} '
+              'player=${game.player.position} facing=${game.player.facingRight} '
+              'ground=${game.player.onGround} dead=${game.player.dead}; '
+              'boss=${boss.position} pattern=${boss.attackPattern} '
+              'telegraph=${boss.isTelegraphing} receive=${boss.canReceiveProjectile} '
+              'rush=${boss.isRushing} slam=${boss.isSlamming} '
+              'time=${game.timeLeft} shots=${game.world.children.whereType<PlayerCandyShot>().length}',
         );
         if (worldIndex == 0) {
           expect(boss.dead, isFalse);
@@ -948,7 +1029,13 @@ void main() {
             reason:
                 'live jumps and ranged input clear world $worldIndex; '
                 'hp=${boss.hp}, lives=${game.lives}, '
-                'weaponRemaining=${game.gunTimer}',
+                'weaponRemaining=${game.gunTimer}, '
+                'player=${game.player.position} facing=${game.player.facingRight} '
+                'ground=${game.player.onGround} dead=${game.player.dead}, '
+                'boss=${boss.position} pattern=${boss.attackPattern} '
+                'telegraph=${boss.isTelegraphing} receive=${boss.canReceiveProjectile} '
+                'rush=${boss.isRushing} slam=${boss.isSlamming}, '
+                'time=${game.timeLeft}, shots=${game.world.children.whereType<PlayerCandyShot>().length}',
           );
         }
 
@@ -1565,6 +1652,54 @@ void main() {
       ),
     );
     expect(walker.dead, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('duck tunnel leaves enough room for the live player hitbox', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 9,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    game.pauseEngine();
+
+    final ground = game.level.height - 3;
+    final tunnelTiles = [
+      for (var x = 0; x < game.level.width; x++)
+        if (game.level.tileAt(x, ground - 2) == 'D') x,
+    ];
+    expect(tunnelTiles, isNotEmpty);
+    final tunnelStart = tunnelTiles.first * GameConstants.tileSize;
+    final tunnelEnd = (tunnelTiles.last + 1) * GameConstants.tileSize;
+    game.player
+      ..position.setValues(
+        tunnelStart - GameConstants.tileSize * 1.25,
+        (ground + 1) * GameConstants.tileSize,
+      )
+      ..onGround = true
+      ..velocity.setZero();
+    game
+      ..rightPressed = true
+      ..runPressed = true
+      ..setDuckPressed(true);
+
+    for (var frame = 0; frame < 180; frame++) {
+      game.update(1 / 30);
+    }
+
+    expect(game.player.position.x, greaterThan(tunnelEnd));
+    expect(game.player.dead, isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

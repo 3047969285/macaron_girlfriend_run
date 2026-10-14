@@ -27,7 +27,7 @@ class LevelCatalog {
   }
 
   static List<String> _buildRows(int world, int level) {
-    final width = 130 + world * 18 + level * 18;
+    final width = 140 + world * 18 + level * 18;
     final height = 14;
     final grid = List.generate(height, (_) => List.filled(width, ' '));
 
@@ -97,20 +97,13 @@ class LevelCatalog {
     }
 
     _repairGuaranteedGroundRoute(grid);
-    final bossTile = grid[grid.length - 3].indexOf('B');
-    if (bossTile >= 0) {
-      _placeGroundPickup(
-        grid,
-        bossTile - 11,
-        grid.length - 3,
-        'W',
-        maxOffset: 3,
-        groundOnly: true,
-      );
-    }
     _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
     _repairEnemyPatrolRoutes(grid);
+    final bossTile = grid[grid.length - 3].indexOf('B');
+    if (bossTile >= 0) {
+      _placeBossGun(grid, bossTile);
+    }
 
     return grid.map((r) => r.join()).toList();
   }
@@ -125,6 +118,7 @@ class LevelCatalog {
       if (x < 10 ||
           x >= width - 4 ||
           bossTile >= 0 && (x - bossTile).abs() <= 6 ||
+          bossTile >= 0 && x >= bossTile - 16 && x <= bossTile - 7 ||
           (grid[ground + 1][x] != '#' && grid[ground + 2][x] != '#')) {
         return false;
       }
@@ -207,7 +201,7 @@ class LevelCatalog {
       final bufferStart = x - 6 < 0 ? 0 : x - 6;
       final bufferEnd = x + 6 >= width ? width - 1 : x + 6;
       for (var patrolX = bufferStart; patrolX <= bufferEnd; patrolX++) {
-        if (grid[ground - 1][patrolX] == 'D') {
+        if (grid[ground - 2][patrolX] == 'D') {
           return false;
         }
       }
@@ -255,7 +249,7 @@ class LevelCatalog {
     }
   }
 
-  /// 四段轮换组合不同玩法，保持长关节奏变化且不强迫玩家走危险路线。
+  /// 五段轮换覆盖五种玩法，保持长关节奏变化且不强迫玩家走危险路线。
   static void _addSceneChallenges(
     List<List<String>> grid,
     int world,
@@ -263,11 +257,11 @@ class LevelCatalog {
   ) {
     final width = grid.first.length;
     final ground = grid.length - 3;
-    final sectionWidth = (width - 8) ~/ 4;
+    final sectionWidth = (width - 8) ~/ 5;
     final difficulty = _difficulty(world, level);
     final rotation = (world * 3 + level) % 5;
 
-    for (var section = 0; section < 4; section++) {
+    for (var section = 0; section < 5; section++) {
       final start = 4 + section * sectionWidth;
       final x = start + sectionWidth * 2 ~/ 3;
       switch ((rotation + section) % 5) {
@@ -343,14 +337,35 @@ class LevelCatalog {
             bossTile >= 0 &&
             candidate - 3 <= bossTile + 4 &&
             candidate + length + 2 >= bossTile - 3;
-        if (runwayOverlapsBossPatrol) {
+        final runwayOverlapsBossGunApproach =
+            bossTile >= 0 &&
+            candidate - 3 <= bossTile - 8 &&
+            candidate + length + 2 >= bossTile - 14;
+        if (runwayOverlapsBossPatrol || runwayOverlapsBossGunApproach) {
+          continue;
+        }
+        final springBufferStart = candidate - 8 < 0 ? 0 : candidate - 8;
+        var springOverlapsTunnelApproach = false;
+        for (
+          var springX = springBufferStart;
+          springX < candidate + length + 4;
+          springX++
+        ) {
+          if (grid[ground][springX] == 'S') {
+            springOverlapsTunnelApproach = true;
+            break;
+          }
+        }
+        if (springOverlapsTunnelApproach) {
           continue;
         }
         var clear = true;
         final movingEnemies = <(int, String)>[];
         for (var x = candidate; x < candidate + length; x++) {
           final tile = grid[ground][x];
-          if (grid[ground - 1][x] != ' ' || 'PFBVSW?'.contains(tile)) {
+          if (grid[ground - 1][x] != ' ' ||
+              ![' ', '=', 'C'].contains(grid[ground - 2][x]) ||
+              'PFBVSW?'.contains(tile)) {
             clear = false;
             break;
           }
@@ -410,7 +425,11 @@ class LevelCatalog {
       grid[ground][destination] = kind;
     }
     for (var i = 0; i < length; i++) {
-      grid[ground - 1][start + i] = 'D';
+      if (grid[ground - 2][start + i] == 'C' &&
+          grid[ground][start + i] == ' ') {
+        grid[ground][start + i] = 'C';
+      }
+      grid[ground - 2][start + i] = 'D';
       if (i.isOdd && grid[ground][start + i] == ' ') {
         grid[ground][start + i] = 'C';
       }
@@ -656,6 +675,34 @@ class LevelCatalog {
           continue;
         }
         grid[pickupY][x] = pickup;
+        return;
+      }
+    }
+  }
+
+  static void _placeBossGun(List<List<String>> grid, int bossTile) {
+    final ground = grid.length - 3;
+    const distances = [11, 10, 12, 9, 13, 8, 14];
+    for (final allowCoin in [false, true]) {
+      for (final distance in distances) {
+        final x = bossTile - distance;
+        if (x < 10 || x >= grid.first.length - 8) {
+          continue;
+        }
+        final tile = grid[ground][x];
+        if (tile != ' ' && !(allowCoin && tile == 'C') ||
+            grid[ground - 1][x] != ' ' ||
+            [
+              x - 2,
+              x - 1,
+              x + 1,
+              x + 2,
+            ].any((near) => 'AEGRBT'.contains(grid[ground][near]))) {
+          continue;
+        }
+        grid[ground][x] = 'W';
+        grid[ground + 1][x] = '#';
+        grid[ground + 2][x] = '#';
         return;
       }
     }
@@ -991,7 +1038,8 @@ class LevelCatalog {
   static void _bossSpice(List<List<String>> g, int world) {
     final mid = g.first.length ~/ 2;
     final ground = g.length - 3;
-    _platform(g, mid - 4, ground - 5, 8);
+    _platform(g, mid - 4, ground - 5, 3);
+    _platform(g, mid + 1, ground - 5, 3);
     _platform(g, mid - 8, ground - 3, 3);
     _platform(g, mid + 5, ground - 3, 3);
     for (var i = 0; i < 8; i++) {
