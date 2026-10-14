@@ -966,6 +966,13 @@ class MacaronGame extends FlameGame {
         continue;
       }
       if (horizontal) {
+        final isGroundContact =
+            player.velocity.y >= 0 &&
+            solid.top >= hitbox.bottom - 4 &&
+            solid.top <= player.position.y + 4;
+        if (isGroundContact) {
+          continue;
+        }
         if (delta.x > 0) {
           player.position.x = solid.left - player.size.x * 0.5;
         } else if (delta.x < 0) {

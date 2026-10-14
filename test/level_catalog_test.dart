@@ -220,6 +220,17 @@ void _runWithLiveControls(
     frame++
   ) {
     final x = game.player.position.x;
+    while (gapIndex > 0) {
+      final (start, length) = gaps[gapIndex - 1];
+      final landingX =
+          (start + length) * GameConstants.tileSize +
+          GirlfriendPlayer.standWidth * 0.325;
+      if (x >= landingX) {
+        break;
+      }
+      gapIndex--;
+      jumpIssued = false;
+    }
     while (gapIndex < gaps.length) {
       final (start, length) = gaps[gapIndex];
       final landingX =
@@ -235,9 +246,50 @@ void _runWithLiveControls(
     final gapDistance = gap == null
         ? double.infinity
         : gap.$1 * GameConstants.tileSize - x;
+    final gapStartX = gap == null
+        ? double.infinity
+        : gap.$1 * GameConstants.tileSize;
+    final playerTopTile =
+        ((game.player.position.y - game.player.hitHeight) /
+                GameConstants.tileSize)
+            .floor()
+            .clamp(0, game.level.height - 1);
+    final playerBottomTile =
+        ((game.player.position.y - 1) / GameConstants.tileSize).floor().clamp(
+          0,
+          game.level.height - 1,
+        );
+    final firstFrontTile =
+        ((x + GirlfriendPlayer.standWidth / 2) / GameConstants.tileSize)
+            .floor();
+    int? firstObstacleTile;
+    for (
+      var tileX = firstFrontTile;
+      tileX <= firstFrontTile + 8 && firstObstacleTile == null;
+      tileX++
+    ) {
+      for (var tileY = playerTopTile; tileY <= playerBottomTile; tileY++) {
+        if (tileX >= 0 &&
+            tileX < game.level.width &&
+            '#=?'.contains(game.level.tileAt(tileX, tileY))) {
+          firstObstacleTile = tileX;
+          break;
+        }
+      }
+    }
+    final obstacleDistance = firstObstacleTile == null
+        ? double.infinity
+        : (firstObstacleTile - firstFrontTile) * GameConstants.tileSize;
+    final obstacleAhead =
+        game.player.onGround && obstacleDistance <= GameConstants.tileSize * 4;
+    final obstacleSoon =
+        game.player.onGround && obstacleDistance <= GameConstants.tileSize * 8;
     final nextEnemy = game.enemies
         .where(
-          (enemy) => !enemy.dead && enemy.position.x + enemy.size.x / 2 > x,
+          (enemy) =>
+              !enemy.dead &&
+              enemy.position.x + enemy.size.x / 2 >
+                  x - GirlfriendPlayer.standWidth / 2,
         )
         .fold<SoftEnemy?>(
           null,
@@ -249,34 +301,53 @@ void _runWithLiveControls(
     final enemyDistance = nextEnemy == null
         ? double.infinity
         : nextEnemy.position.x - x;
+    final enemyNearGap = game.enemies.any(
+      (enemy) => !enemy.dead && (enemy.position.x - gapStartX).abs() <= 240,
+    );
+    final gapJumpWindow = enemyNearGap ? 280.0 : 160.0;
     final duckForWalker =
         nextEnemy?.kind == EnemyKind.walker &&
-        enemyDistance >= -(nextEnemy!.size.x / 2) &&
-        enemyDistance <= 160;
+        enemyDistance >=
+            -(nextEnemy!.size.x / 2 + GirlfriendPlayer.standWidth / 2) &&
+        enemyDistance <= 220;
     final duckForShot = game.world.children.whereType<EnemyCandyShot>().any((
       shot,
     ) {
       final shotOffset = shot.position.x - x;
       return !shot.spent &&
           shotOffset * shot.direction < 0 &&
-          shotOffset.abs() <= 160;
+          shotOffset.abs() <= 280;
     });
+    final gapApproach = gapDistance >= 0 && gapDistance <= gapJumpWindow;
     final ducking =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
             x <= tunnelEnd + GirlfriendPlayer.standWidth ||
-        duckForWalker ||
-        duckForShot;
+        !gapApproach && !obstacleAhead && (duckForWalker || duckForShot);
     final beforeTunnel =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
         x < tunnelStart - 48;
-    final waitToLand = beforeTunnel && !game.player.onGround;
+    final springCarriesToGap = game.springs.any(
+      (spring) =>
+          spring.position.x <= gapStartX &&
+          gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
+    );
+    final waitAtGap =
+        !game.player.onGround &&
+        gapDistance >= 0 &&
+        gapDistance <= gapJumpWindow &&
+        !springCarriesToGap &&
+        !jumpIssued;
+    final waitToLand =
+        beforeTunnel && !game.player.onGround && !jumpIssued || waitAtGap;
     final finalApproach = x >= game.goal!.position.x - 440;
-    final jumpForGap = gapDistance >= 0 && gapDistance <= 80;
+    final jumpForGap = gapDistance >= 0 && gapDistance <= gapJumpWindow;
     final jumpForEnemy =
         nextEnemy != null &&
         nextEnemy.kind != EnemyKind.walker &&
         enemyDistance >= GirlfriendPlayer.standWidth &&
-        enemyDistance <= 160;
+        enemyDistance <= 240 &&
+        !obstacleSoon;
+    final jumpForObstacle = obstacleAhead;
     if (game.player.onGround) {
       jumpIssued = false;
     }
@@ -286,7 +357,9 @@ void _runWithLiveControls(
         !waitToLand &&
         !finalApproach &&
         !jumpIssued &&
-        (jumpForGap || jumpForEnemy);
+        jumpHoldFrames == 0 &&
+        !game.jumpHeld &&
+        (jumpForGap || jumpForEnemy || jumpForObstacle);
     if (jumpNow) {
       jumpIssued = true;
       jumpHoldFrames = 9;
@@ -302,20 +375,41 @@ void _runWithLiveControls(
     } else {
       game.setJumpHeld(false);
     }
-    if (game.skillCooldownRatio == 0) {
+    final approachingShotDistance = game.world.children
+        .whereType<EnemyCandyShot>()
+        .where((shot) {
+          final shotOffset = shot.position.x - x;
+          return !shot.spent &&
+              shotOffset * shot.direction < 0 &&
+              shotOffset.abs() <= 280;
+        })
+        .map((shot) => (shot.position.x - x).abs())
+        .fold<double>(
+          double.infinity,
+          (nearest, distance) => math.min(nearest, distance),
+        );
+    final skillThreat = switch (game.activeSkill) {
+      HeroSkill.dash =>
+        enemyDistance >= -60 && enemyDistance <= 130 ||
+            approachingShotDistance <= 120,
+      HeroSkill.shield =>
+        enemyDistance >= -70 && enemyDistance <= 190 ||
+            approachingShotDistance <= 190,
+      HeroSkill.petalVolley =>
+        enemyDistance >= -60 && enemyDistance <= 320 ||
+            approachingShotDistance <= 280,
+    };
+    if (game.skillCooldownRatio == 0 && skillThreat) {
       game.activateSkill();
     }
     final before =
-        'x=${game.player.position.x.round()} '
-        'y=${game.player.position.y.round()} '
+        'x=${game.player.position.x.round()} y=${game.player.position.y.round()} '
         'vy=${game.player.velocity.y.round()} '
-        'lives=${game.lives} time=${game.timeLeft.toStringAsFixed(1)} '
-        'invincible=${game.player.isInvincible} '
-        'ground=${game.player.onGround} right=${game.rightPressed} '
-        'duck=$ducking wait=$waitToLand tunnel=$tunnelStart..$tunnelEnd '
-        'enemies=[${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 500).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}/${enemy.position.y.round()}').join(',')}] '
-        'shots=[${game.world.children.whereType<EnemyCandyShot>().where((shot) => !shot.spent).map((shot) => '${shot.position.x.round()}/${shot.position.y.round()}').join(',')}] '
-        'traps=[${game.world.children.whereType<StickyCandyPatch>().where((trap) => trap.armed).map((trap) => trap.position.x.round()).join(',')}]';
+        'lives=${game.lives} inv=${game.player.isInvincible} '
+        'ground=${game.player.onGround} duck=$ducking wait=$waitToLand '
+        'gap=$gap distance=${gapDistance.isFinite ? gapDistance.round() : -1} '
+        'nearby=${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 220).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')} '
+        'shots=${game.world.children.whereType<EnemyCandyShot>().where((shot) => !shot.spent && (shot.position.x - game.player.position.x).abs() < 280).map((shot) => '${shot.position.x.round()}/${shot.position.y.round()}/d${shot.direction}').join(',')}';
     final wasDead = game.player.dead;
     game.setShootPressed(true);
     game.update(1 / 30);
@@ -1376,6 +1470,14 @@ void main() {
               final left = a.position.x < b.position.x ? a : b;
               final right = identical(left, a) ? b : a;
               expect(
+                right.position.x - left.position.x,
+                greaterThanOrEqualTo(
+                  GameConstants.tileSize * 2 + (left.size.x + right.size.x) / 2,
+                ),
+                reason:
+                    'w$world l$level ${left.kind}/${right.kind} needs enemy reaction spacing',
+              );
+              expect(
                 left.position.x + left.size.x / 2,
                 lessThanOrEqualTo(right.position.x - right.size.x / 2 + 0.001),
                 reason:
@@ -1517,6 +1619,7 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       }
     },
+    timeout: const Timeout(Duration(minutes: 10)),
   );
 
   testWidgets('dash hits enemies and defeats armored enemies on repeat hits', (

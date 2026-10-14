@@ -155,7 +155,10 @@ class LevelCatalog {
         if (otherX == x || !'AEGRT'.contains(other)) {
           continue;
         }
-        final requiredGap = enemyHalfWidth(enemy) + enemyHalfWidth(other);
+        final requiredGap =
+            GameConstants.tileSize * 2 +
+            enemyHalfWidth(enemy) +
+            enemyHalfWidth(other);
         final otherCenter = (otherX + 0.5) * GameConstants.tileSize;
         if ((center - otherCenter).abs() < requiredGap) {
           return false;
