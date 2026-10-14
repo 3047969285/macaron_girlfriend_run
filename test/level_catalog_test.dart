@@ -533,6 +533,20 @@ void main() {
           containsAll({'S', 'N', 'W', 'V'}),
           reason: 'world $w level $l must include all four core gameplay modes',
         );
+        if (level.difficulty >= 4 && l < GameConstants.levelsPerWorld - 1) {
+          final enemyKinds = {
+            'A',
+            'E',
+            'G',
+            'R',
+            'T',
+          }.where((kind) => map.contains(kind)).toSet();
+          expect(
+            enemyKinds.length,
+            greaterThanOrEqualTo(3),
+            reason: 'world $w level $l should mix readable enemy skills',
+          );
+        }
         if (l < GameConstants.levelsPerWorld - 1) {
           final pickupPositions = <String, int>{};
           for (final pickup in const ['N', 'W', 'V']) {

@@ -271,6 +271,15 @@ class LevelCatalog {
     for (var section = 0; section < 5; section++) {
       final start = 4 + section * sectionWidth;
       final x = start + sectionWidth * 2 ~/ 3;
+      void placeEnemy(int targetX) => _placeSceneEnemy(
+        grid,
+        targetX,
+        ground,
+        difficulty,
+        world,
+        level,
+        section,
+      );
       switch ((rotation + section * sequenceStride) % 5) {
         case 0:
           // 弹跳节奏：春垫、短坑与弧形糖轨；地面仍留有直通过法。
@@ -285,35 +294,35 @@ class LevelCatalog {
         case 1:
           // 花园守线：拾取种子后，植物伙伴会短暂自动瞄准附近敌人。
           _placeGroundPickup(grid, x, ground, 'N');
-          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          placeEnemy(x + 5);
           _coin(grid, x + 2, ground - 2);
           _coin(grid, x + 3, ground - 2);
           break;
         case 2:
           // 横向枪战：先给发射器，再布置有间距的敌人，留下跳跃/冲刺选择。
           _placeGroundPickup(grid, x, ground, 'W');
-          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          placeEnemy(x + 5);
           if (difficulty >= 4) {
-            _placeSceneEnemy(grid, x + 9, ground, difficulty, world, level);
+            placeEnemy(x + 9);
           }
           break;
         case 3:
           // 载具冲刺：车在障碍前出现，冲撞收益明显；不把车放在坑边。
           _placeGroundPickup(grid, x, ground, 'V');
-          _placeSceneEnemy(grid, x + 5, ground, difficulty, world, level);
+          placeEnemy(x + 5);
           if (difficulty >= 5) {
-            _placeSceneEnemy(grid, x + 9, ground, difficulty, world, level);
+            placeEnemy(x + 9);
           }
           _coin(grid, x + 6, ground - 2);
           _coin(grid, x + 7, ground - 2);
           break;
         case 4:
           // 技能对抗：预警型怪物搭配高台糖轨，冲刺与跳跃都能应对。
-          _placeSceneEnemy(grid, x, ground, difficulty, world, level);
+          placeEnemy(x);
           _platform(grid, x + 4, ground - 3, 3);
           _coin(grid, x + 4, ground - 4);
           if (difficulty >= 5) {
-            _placeSceneEnemy(grid, x + 7, ground, difficulty, world, level);
+            placeEnemy(x + 7);
           }
           break;
       }
@@ -487,9 +496,10 @@ class LevelCatalog {
     int difficulty,
     int world,
     int level,
+    int sceneIndex,
   ) {
     final width = grid.first.length;
-    final sceneType = (world + level) % 5;
+    final sceneType = (world + level + sceneIndex * 2) % 5;
     final kind = difficulty < 3
         ? 'E'
         : difficulty < 4
