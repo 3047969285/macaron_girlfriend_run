@@ -142,6 +142,10 @@ class TerrainRenderer extends PositionComponent {
     }
     if (!isSurface) return;
 
+    if (_drawThemedSurface(canvas, r)) {
+      return;
+    }
+
     final grass = Paint()..color = palette.ground;
     canvas.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 8), grass);
     final softEdge = Paint()
@@ -207,7 +211,141 @@ class TerrainRenderer extends PositionComponent {
     }
   }
 
+  void _drawMeadowTurf(Canvas canvas, Rect r) {
+    canvas.drawRect(
+      Rect.fromLTWH(r.left, r.top, r.width, 10),
+      Paint()..color = const Color(0xFFB6F0C8),
+    );
+    final blade = Paint()
+      ..color = const Color(0xFF3E9A62)
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    final tileX = (r.left / r.width).round();
+    for (var i = 0; i < 4; i++) {
+      final x = r.left + 6 + (i * 11 + _sceneValue(sceneSeed, tileX, i) % 8);
+      final h = 7.0 + _sceneValue(sceneSeed, tileX, i + 3) % 6;
+      canvas.drawLine(Offset(x, r.top + 8), Offset(x - 2, r.top + 8 - h), blade);
+      if (i == 1 && _sceneValue(sceneSeed, tileX, 9) % 3 == 0) {
+        canvas.drawCircle(
+          Offset(x, r.top - 2),
+          3.2,
+          Paint()..color = const Color(0xFFFF8FB5),
+        );
+        canvas.drawCircle(
+          Offset(x, r.top - 2),
+          1.3,
+          Paint()..color = const Color(0xFFFFF1B8),
+        );
+      }
+    }
+  }
+
+  /// 九个世界各有自己的地表。名字对不上时退回下面的通用草皮。
+  bool _drawThemedSurface(Canvas canvas, Rect r) {
+    switch (palette.name) {
+      case '奶油草地':
+        _drawMeadowTurf(canvas, r);
+      case '草莓甜点':
+        _drawCap(canvas, r, const Color(0xFFFFF4F8), const Color(0xFFE23D5C));
+      case '薄荷汽水':
+        _drawCap(canvas, r, const Color(0xFFF4FFFC), Colors.white);
+        _drawFoam(canvas, r);
+      case '香芋星空':
+        _drawCap(canvas, r, const Color(0xFF6E5A96), const Color(0xFFFFF6C8));
+      case '柠檬沙滩':
+        _drawCap(canvas, r, const Color(0xFFFFF3C4), const Color(0xFFE6C35C));
+      case '玫瑰城堡':
+        _drawCap(canvas, r, const Color(0xFFFFD0E0), const Color(0xFFFF8FB5));
+      case '蓝莓峡谷':
+        _drawCap(canvas, r, const Color(0xFF5A7BC4), const Color(0xFFD6E4FF));
+      case '焦糖矿山':
+        _drawCap(canvas, r, const Color(0xFFC48A52), const Color(0xFFFFE6A7));
+        canvas.drawRect(
+          Rect.fromLTWH(r.left, r.top + 6, r.width, 3),
+          Paint()..color = palette.groundDark.withValues(alpha: 0.55),
+        );
+      case '蜜月彩虹':
+        _drawRainbowCap(canvas, r);
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  void _drawCap(Canvas canvas, Rect r, Color cap, Color speck) {
+    canvas.drawRect(
+      Rect.fromLTWH(r.left, r.top, r.width, 10),
+      Paint()..color = cap,
+    );
+    final tileX = (r.left / r.width).round();
+    final paint = Paint()..color = speck;
+    for (var i = 0; i < 3; i++) {
+      final x = r.left + 8 + _sceneValue(sceneSeed, tileX, i + 2) % 32;
+      canvas.drawCircle(Offset(x.toDouble(), r.top + 5), 1.7, paint);
+    }
+  }
+
+  void _drawFoam(Canvas canvas, Rect r) {
+    final foam = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    final tileX = (r.left / r.width).round();
+    for (var i = 0; i < 2; i++) {
+      final x = r.left + 10 + _sceneValue(sceneSeed, tileX, i + 5) % 28;
+      canvas.drawCircle(Offset(x.toDouble(), r.top - 2), 3.2, foam);
+    }
+  }
+
+  void _drawRainbowCap(Canvas canvas, Rect r) {
+    const bands = <Color>[
+      MacaronColors.rose,
+      MacaronColors.lemon,
+      MacaronColors.mint,
+      MacaronColors.sky,
+    ];
+    for (var i = 0; i < bands.length; i++) {
+      canvas.drawRect(
+        Rect.fromLTWH(r.left, r.top + i * 2.5, r.width, 2.5),
+        Paint()..color = bands[i],
+      );
+    }
+  }
+
   void _drawScenery(Canvas canvas) {
+    switch (palette.name) {
+      case '奶油草地':
+        _drawMeadowSet(canvas);
+      case '草莓甜点':
+        _alongGround(canvas, 176, _drawStrawberry);
+      case '薄荷汽水':
+        _alongGround(canvas, 188, _drawSodaCup);
+      case '香芋星空':
+        _alongGround(canvas, 210, _drawTaroLantern);
+      case '柠檬沙滩':
+        _alongGround(canvas, 200, _drawBeachUmbrella);
+      case '玫瑰城堡':
+        _alongGround(canvas, 280, _drawCastleBeat);
+      case '蓝莓峡谷':
+        _alongGround(canvas, 168, _drawBlueberryCluster);
+      case '焦糖矿山':
+        _alongGround(canvas, 196, _drawCaramelCrystal);
+      case '蜜月彩虹':
+        _alongGround(canvas, 260, _drawRainbowArch);
+      default:
+        _drawSharedScenery(canvas);
+    }
+  }
+
+  void _alongGround(
+    Canvas canvas,
+    double spacing,
+    void Function(Canvas canvas, double x) draw,
+  ) {
+    for (var x = 90.0; x < mapWidth - 40; x += spacing) {
+      final jitter = (_sceneValue(sceneSeed, x.round(), 4) % 21) - 10.0;
+      draw(canvas, x + jitter);
+    }
+  }
+
+  void _drawSharedScenery(Canvas canvas) {
     final sectionWidth = mapWidth / 4;
     final bush = Paint()..color = palette.groundDark;
     final pipeColor = Color.lerp(palette.ground, palette.accent, 0.45)!;
@@ -239,6 +377,26 @@ class TerrainRenderer extends PositionComponent {
           _drawRibbonGate(canvas, center);
           break;
       }
+    }
+  }
+
+  void _drawMeadowSet(Canvas canvas) {
+    final hill = Paint()..color = const Color(0xFFD8F8E4);
+    for (var i = 0; i < 6; i++) {
+      final x = mapWidth * (i + 0.5) / 6;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(x, groundY - 18),
+          width: 220,
+          height: 70,
+        ),
+        hill,
+      );
+    }
+    final spacing = 168.0;
+    for (var x = 80.0; x < mapWidth - 40; x += spacing) {
+      final jitter = (_sceneValue(sceneSeed, x.round(), 4) % 21) - 10;
+      _drawFlowerGarden(canvas, x + jitter);
     }
   }
 
@@ -432,6 +590,160 @@ class TerrainRenderer extends PositionComponent {
       Paint()..color = Colors.white.withValues(alpha: 0.35),
     );
   }
+
+  void _drawStrawberry(Canvas canvas, double x) {
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, groundY - 22), width: 28, height: 34),
+      Paint()..color = const Color(0xFFE23D5C),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(x, groundY - 42)
+        ..lineTo(x - 12, groundY - 30)
+        ..lineTo(x + 12, groundY - 30)
+        ..close(),
+      Paint()..color = const Color(0xFF3E9A62),
+    );
+    final seed = Paint()..color = const Color(0xFFFFE6A7);
+    for (var i = 0; i < 5; i++) {
+      canvas.drawCircle(
+        Offset(x - 6 + (i % 3) * 6, groundY - 28 + (i ~/ 3) * 8),
+        1.4,
+        seed,
+      );
+    }
+  }
+
+  void _drawSodaCup(Canvas canvas, double x) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x - 16, groundY - 52, 32, 52),
+        const Radius.circular(8),
+      ),
+      Paint()..color = palette.ground.withValues(alpha: 0.95),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, groundY - 52), width: 36, height: 12),
+      Paint()..color = Colors.white.withValues(alpha: 0.75),
+    );
+    canvas.drawLine(
+      Offset(x + 6, groundY - 48),
+      Offset(x + 14, groundY - 78),
+      Paint()
+        ..color = palette.accent
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+    final bubble = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawCircle(Offset(x - 4, groundY - 36), 3, bubble);
+    canvas.drawCircle(Offset(x + 5, groundY - 24), 2.2, bubble);
+  }
+
+  void _drawTaroLantern(Canvas canvas, double x) {
+    canvas.drawLine(
+      Offset(x, groundY - 4),
+      Offset(x, groundY - 70),
+      Paint()
+        ..color = palette.groundDark
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, groundY - 86), width: 22, height: 28),
+      Paint()..color = const Color(0xFFFFF1B8),
+    );
+    final star = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    final sx = x + 40;
+    final sy = groundY - 124;
+    canvas.drawLine(Offset(sx - 6, sy), Offset(sx + 6, sy), star);
+    canvas.drawLine(Offset(sx, sy - 6), Offset(sx, sy + 6), star);
+  }
+
+  void _drawBeachUmbrella(Canvas canvas, double x) {
+    canvas.drawLine(
+      Offset(x, groundY),
+      Offset(x, groundY - 64),
+      Paint()
+        ..color = palette.groundDark
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(x - 36, groundY - 52)
+        ..quadraticBezierTo(x, groundY - 90, x + 36, groundY - 52)
+        ..close(),
+      Paint()..color = palette.accent,
+    );
+  }
+
+  void _drawCastleBeat(Canvas canvas, double x) {
+    _drawRibbonGate(canvas, x);
+    _drawFlowerGarden(canvas, x + 96);
+  }
+
+  void _drawBlueberryCluster(Canvas canvas, double x) {
+    final berry = Paint()..color = const Color(0xFF3D4E9A);
+    final shine = Paint()..color = Colors.white.withValues(alpha: 0.45);
+    for (final o in [
+      Offset(x - 10, groundY - 12),
+      Offset(x + 8, groundY - 14),
+      Offset(x, groundY - 26),
+    ]) {
+      canvas.drawCircle(o, 10, berry);
+      canvas.drawCircle(o + const Offset(-3, -3), 2, shine);
+    }
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, groundY - 38), width: 14, height: 6),
+      Paint()..color = const Color(0xFF6FCB9A),
+    );
+  }
+
+  void _drawCaramelCrystal(Canvas canvas, double x) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(x, groundY - 58)
+        ..lineTo(x + 14, groundY - 18)
+        ..lineTo(x, groundY - 8)
+        ..lineTo(x - 14, groundY - 18)
+        ..close(),
+      Paint()..color = const Color(0xFFFFE6A7),
+    );
+    canvas.drawLine(
+      Offset(x - 4, groundY - 42),
+      Offset(x + 2, groundY - 22),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.75)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  void _drawRainbowArch(Canvas canvas, double x) {
+    const colors = <Color>[
+      MacaronColors.rose,
+      MacaronColors.lemon,
+      MacaronColors.mint,
+      MacaronColors.sky,
+      MacaronColors.lilac,
+    ];
+    for (var i = 0; i < colors.length; i++) {
+      final inset = i * 7.0;
+      canvas.drawPath(
+        Path()
+          ..moveTo(x - 70 + inset, groundY)
+          ..quadraticBezierTo(x, groundY - 96 + inset, x + 70 - inset, groundY),
+        Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
 }
 
 /// 远景云与山（缓存 Picture）
@@ -520,7 +832,10 @@ class WorldBackdrop extends PositionComponent {
   }
 
   void _drawClouds(Canvas canvas) {
-    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    final cloud = Paint()
+      ..color = palette.name == '香芋星空'
+          ? const Color(0xFFD4C4F5).withValues(alpha: 0.55)
+          : Colors.white.withValues(alpha: 0.85);
     var x = -120.0 + _sceneValue(sceneSeed, 0, 9) % 240;
     for (var index = 0; x < mapWidth + 200; index++) {
       final y = 48.0 + _sceneValue(sceneSeed, index, 10) % 74;

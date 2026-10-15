@@ -80,7 +80,7 @@ class _RoutePilot {
     final springCarriesToGap = game.springs.any(
       (spring) =>
           spring.position.x <= gapStartX &&
-          gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
+          gapStartX - spring.position.x <= 5 * GameConstants.tileSize,
     );
     final waitToLand =
         !game.player.onGround &&
@@ -306,7 +306,8 @@ void _runWithLiveControls(
     );
     final gapJumpWindow = enemyNearGap ? 280.0 : 160.0;
     final duckForWalker =
-        nextEnemy?.kind == EnemyKind.walker &&
+        (nextEnemy?.kind == EnemyKind.walker ||
+            nextEnemy?.kind == EnemyKind.swooper) &&
         enemyDistance >=
             -(nextEnemy!.size.x / 2 + GirlfriendPlayer.standWidth / 2) &&
         enemyDistance <= 220;
@@ -315,8 +316,10 @@ void _runWithLiveControls(
     ) {
       final shotOffset = shot.position.x - x;
       return !shot.spent &&
-          shotOffset * shot.direction < 0 &&
-          shotOffset.abs() <= 280;
+          shotOffset.abs() <= 110 &&
+          shot.position.y >=
+              game.player.position.y - GirlfriendPlayer.standHeight - 12 &&
+          shot.position.y <= game.player.position.y + 8;
     });
     final gapApproach = gapDistance >= 0 && gapDistance <= gapJumpWindow;
     final ducking =
@@ -329,7 +332,7 @@ void _runWithLiveControls(
     final springCarriesToGap = game.springs.any(
       (spring) =>
           spring.position.x <= gapStartX &&
-          gapStartX - spring.position.x <= 3 * GameConstants.tileSize,
+          gapStartX - spring.position.x <= 5 * GameConstants.tileSize,
     );
     final waitAtGap =
         !game.player.onGround &&
@@ -344,6 +347,7 @@ void _runWithLiveControls(
     final jumpForEnemy =
         nextEnemy != null &&
         nextEnemy.kind != EnemyKind.walker &&
+        nextEnemy.kind != EnemyKind.swooper &&
         enemyDistance >= GirlfriendPlayer.standWidth &&
         enemyDistance <= 240 &&
         !obstacleSoon;
@@ -388,25 +392,29 @@ void _runWithLiveControls(
           double.infinity,
           (nearest, distance) => math.min(nearest, distance),
         );
-    final skillThreat = switch (game.activeSkill) {
-      HeroSkill.dash =>
-        enemyDistance >= -60 && enemyDistance <= 130 ||
-            approachingShotDistance <= 120,
-      HeroSkill.shield =>
-        enemyDistance >= -70 && enemyDistance <= 190 ||
-            approachingShotDistance <= 190,
-      HeroSkill.petalVolley =>
-        enemyDistance >= -60 && enemyDistance <= 320 ||
-            approachingShotDistance <= 280,
-    };
-    if (game.skillCooldownRatio == 0 && skillThreat) {
-      game.activateSkill();
+    final gapBlocksDash = gapDistance >= -48 && gapDistance <= 240;
+    if (approachingShotDistance <= 105 &&
+        game.cooldownRatioOf(HeroSkill.shield) == 0) {
+      game.activateSkill(HeroSkill.shield);
+    } else if (game.player.onGround &&
+        !gapBlocksDash &&
+        enemyDistance >= -60 &&
+        enemyDistance <= 130 &&
+        game.cooldownRatioOf(HeroSkill.dash) == 0) {
+      game.activateSkill(HeroSkill.dash);
+    } else if (enemyDistance >= -60 &&
+        enemyDistance <= 320 &&
+        game.cooldownRatioOf(HeroSkill.petalVolley) == 0) {
+      game.activateSkill(HeroSkill.petalVolley);
     }
     final before =
         'x=${game.player.position.x.round()} y=${game.player.position.y.round()} '
         'vy=${game.player.velocity.y.round()} '
         'lives=${game.lives} inv=${game.player.isInvincible} '
         'ground=${game.player.onGround} duck=$ducking wait=$waitToLand '
+        'jump=$jumpNow issued=$jumpIssued hold=$jumpHoldFrames '
+        'spring=$springCarriesToGap vehicle=${game.vehicleTimer.toStringAsFixed(1)} '
+        'cp=${game.spawnPoint.x.round()} '
         'gap=$gap distance=${gapDistance.isFinite ? gapDistance.round() : -1} '
         'nearby=${game.enemies.where((enemy) => !enemy.dead && (enemy.position.x - game.player.position.x).abs() < 220).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')} '
         'shots=${game.world.children.whereType<EnemyCandyShot>().where((shot) => !shot.spent && (shot.position.x - game.player.position.x).abs() < 280).map((shot) => '${shot.position.x.round()}/${shot.position.y.round()}/d${shot.direction}').join(',')}';
@@ -654,7 +662,7 @@ void main() {
         );
 
         final ground = level.height - 3;
-        final firstEnemy = level.rows[ground].indexOf(RegExp('[AEGRT]'));
+        final firstEnemy = level.rows[ground].indexOf(RegExp('[AEGRTLYJ]'));
         expect(
           firstEnemy < 0 || firstEnemy >= 10,
           isTrue,
@@ -746,7 +754,7 @@ void main() {
         expect(level.tileAt(level.width - 3, ground + 2), '#', reason: reason);
 
         for (var x = 2; x < level.width - 2; x++) {
-          if (!'AEGRT'.contains(level.tileAt(x, ground))) {
+          if (!'AEGRTLYJ'.contains(level.tileAt(x, ground))) {
             continue;
           }
           expect(
@@ -1080,7 +1088,7 @@ void main() {
           if (game.player.onGround) {
             game.setJumpHeld(false);
             if (dx.abs() <= 145) {
-              game.activateSkill();
+              game.activateSkill(HeroSkill.shield);
               game.setJumpHeld(true);
               jumpFrames = 1;
               game
@@ -1347,6 +1355,16 @@ void main() {
             enemy.update(0.05);
           }
           expect(enemy.position.y, lessThan(120));
+        case EnemyKind.shell || EnemyKind.roller:
+          final beforeCharge = enemy.position.x;
+          enemy.update(0.05);
+          expect(enemy.position.x, greaterThan(beforeCharge));
+        case EnemyKind.popper:
+          expect(enemy.position.y, lessThan(100));
+          for (var frame = 0; frame < 30; frame++) {
+            enemy.update(0.05);
+          }
+          expect(enemy.position.y, closeTo(120, 0.5));
       }
     }
   });
@@ -1360,6 +1378,21 @@ void main() {
         ),
         isTrue,
       );
+    }
+  });
+
+  test('every world fields a shell, a roller, and a popper', () {
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      final marks = {'L': 0, 'Y': 0, 'J': 0};
+      for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+        final map = LevelCatalog.load(world, level).rows.join();
+        for (final mark in marks.keys.toList()) {
+          marks[mark] = marks[mark]! + (map.split(mark).length - 1);
+        }
+      }
+      expect(marks['L'], greaterThan(0), reason: 'world $world shell');
+      expect(marks['Y'], greaterThan(0), reason: 'world $world roller');
+      expect(marks['J'], greaterThan(0), reason: 'world $world popper');
     }
   });
 
@@ -1447,7 +1480,10 @@ void main() {
               markerCount('G') +
               markerCount('R') +
               markerCount('T') +
-              markerCount('A');
+              markerCount('A') +
+              markerCount('L') +
+              markerCount('Y') +
+              markerCount('J');
           final expectedTerrain = map
               .split('')
               .where((tile) => '#=D?'.contains(tile))
@@ -1490,6 +1526,27 @@ void main() {
               inInclusiveRange(patrolLeft, patrolRight),
               reason: 'w$world l$level ${enemy.kind} remains inside patrol',
             );
+            for (var gapX = 2; gapX < game.level.width - 2; gapX++) {
+              final isGap =
+                  game.level.tileAt(gapX, ground + 1) == ' ' &&
+                  game.level.tileAt(gapX, ground + 2) == ' ';
+              if (isGap) {
+                expect(
+                  (centerTile - gapX).abs(),
+                  greaterThan(4),
+                  reason:
+                      'w$world l$level ${enemy.kind} needs space from forced-jump gap $gapX',
+                );
+              }
+            }
+            // 巡逻不得压到终点跑道（终点在 width-3，巡逻最右需留两格缓冲），
+            // 否则玩家冲线时会被迫硬吃一次伤害。
+            expect(
+              patrolRight,
+              lessThanOrEqualTo(game.level.width - 5),
+              reason:
+                  'w$world l$level ${enemy.kind} patrol must clear the goal runway',
+            );
           }
           for (var first = 0; first < game.enemies.length; first++) {
             for (
@@ -1507,6 +1564,16 @@ void main() {
               }
               final left = a.position.x < b.position.x ? a : b;
               final right = identical(left, a) ? b : a;
+              expect(
+                right.leftBound - left.rightBound,
+                greaterThanOrEqualTo(
+                  (left.size.x + right.size.x) / 2 +
+                      GameConstants.tileSize -
+                      0.001,
+                ),
+                reason:
+                    'w$world l$level ${left.kind}/${right.kind} patrols need a reaction gap',
+              );
               expect(
                 right.position.x - left.position.x,
                 greaterThanOrEqualTo(
@@ -1631,6 +1698,10 @@ void main() {
         (0, 0),
         (0, 2), // Regression for landing on an enemy during fast movement.
         (1, 6),
+        ...List.generate(
+          GameConstants.worldCount,
+          (world) => (world, GameConstants.levelsPerWorld - 2),
+        ),
         ...archetypeLevels.values,
       };
       for (final (world, level) in scenarios) {
@@ -1789,7 +1860,7 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[AEGRT]')).length - 1,
+        enemyCount: game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
       ),
     );
     expect(walker.dead, isFalse);
@@ -2025,7 +2096,7 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[AEGRT]')).length - 1,
+        enemyCount: game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
       ),
     );
     expect(game.player.position.x, greaterThanOrEqualTo(landingTarget));

@@ -5,14 +5,27 @@ import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 /// 可切换角色形态（联机预留男友，一期默认女友）
 enum PlayerRole { girlfriend, boyfriend }
 
-/// 关卡轮换的玩家主动技能
-enum HeroSkill { dash, shield, petalVolley }
+/// 玩家可同时使用的主动技能。电脑键位见 [keyLabel]。
+enum HeroSkill { dash, shield, petalVolley, pound, airHop, grapple }
 
 extension HeroSkillPresentation on HeroSkill {
   String get shortLabel => switch (this) {
     HeroSkill.dash => '闪冲',
     HeroSkill.shield => '糖盾',
     HeroSkill.petalVolley => '花弹',
+    HeroSkill.pound => '下砸',
+    HeroSkill.airHop => '二段',
+    HeroSkill.grapple => '糖线',
+  };
+
+  /// 电脑主键盘。J/K 不再占用跳跃和奔跑。
+  String get keyLabel => switch (this) {
+    HeroSkill.dash => 'J',
+    HeroSkill.shield => 'K',
+    HeroSkill.petalVolley => 'Q',
+    HeroSkill.pound => '1',
+    HeroSkill.airHop => '2',
+    HeroSkill.grapple => '3',
   };
 }
 
@@ -136,6 +149,20 @@ class GameConstants {
   static double playerSkillCooldownFor(int difficulty) =>
       4.6 + 2.0 * _difficultyProgress(difficulty);
 
+  /// 六招各自冷却，避免按下一个就把整套技能锁死。
+  static double skillCooldownFor(HeroSkill skill, int difficulty) {
+    final base = playerSkillCooldownFor(difficulty);
+    final scale = switch (skill) {
+      HeroSkill.dash => 1.0,
+      HeroSkill.shield => 1.2,
+      HeroSkill.petalVolley => 0.85,
+      HeroSkill.pound => 0.7,
+      HeroSkill.airHop => 0.45,
+      HeroSkill.grapple => 1.05,
+    };
+    return base * scale;
+  }
+
   static HeroSkill heroSkillForLevel(int worldIndex, int levelIndex) =>
       HeroSkill.values[(worldIndex + levelIndex) % HeroSkill.values.length];
 
@@ -169,6 +196,9 @@ class GameConstants {
       EnemyKind.bruiser => 6.2,
       EnemyKind.trapper => 6.6,
       EnemyKind.swooper => 6.0,
+      EnemyKind.shell => 6.4,
+      EnemyKind.roller => 5.6,
+      EnemyKind.popper => 6.1,
     };
     final end = switch (kind) {
       EnemyKind.walker => 4.0,
@@ -176,6 +206,9 @@ class GameConstants {
       EnemyKind.bruiser => 4.8,
       EnemyKind.trapper => 5.2,
       EnemyKind.swooper => 4.6,
+      EnemyKind.shell => 5.0,
+      EnemyKind.roller => 4.4,
+      EnemyKind.popper => 4.7,
     };
     return start + (end - start) * progress;
   }
@@ -188,6 +221,9 @@ class GameConstants {
       EnemyKind.bruiser => 0.78,
       EnemyKind.trapper => 0.9,
       EnemyKind.swooper => 0.86,
+      EnemyKind.shell => 0.8,
+      EnemyKind.roller => 0.7,
+      EnemyKind.popper => 0.74,
     };
     final end = switch (kind) {
       EnemyKind.walker => 0.72,
@@ -195,6 +231,9 @@ class GameConstants {
       EnemyKind.bruiser => 0.64,
       EnemyKind.trapper => 0.76,
       EnemyKind.swooper => 0.72,
+      EnemyKind.shell => 0.66,
+      EnemyKind.roller => 0.58,
+      EnemyKind.popper => 0.62,
     };
     return start + (end - start) * progress;
   }
@@ -207,6 +246,9 @@ class GameConstants {
       EnemyKind.bruiser => 270.0,
       EnemyKind.trapper => 245.0,
       EnemyKind.swooper => 270.0,
+      EnemyKind.shell => 220.0,
+      EnemyKind.roller => 260.0,
+      EnemyKind.popper => 240.0,
     };
     final end = switch (kind) {
       EnemyKind.walker => 350.0,
@@ -214,6 +256,9 @@ class GameConstants {
       EnemyKind.bruiser => 330.0,
       EnemyKind.trapper => 305.0,
       EnemyKind.swooper => 330.0,
+      EnemyKind.shell => 280.0,
+      EnemyKind.roller => 320.0,
+      EnemyKind.popper => 300.0,
     };
     return start + (end - start) * progress;
   }

@@ -126,15 +126,24 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     if (_showTutorial || _busy || game.userPaused) {
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyE) {
-      if (down) {
-        game.activateSkill();
-      }
-      return KeyEventResult.handled;
-    }
     if (key == LogicalKeyboardKey.keyF) {
       game.setShootPressed(down);
       return KeyEventResult.handled;
+    }
+    if (down) {
+      final skill = switch (key) {
+        LogicalKeyboardKey.keyJ => HeroSkill.dash,
+        LogicalKeyboardKey.keyK => HeroSkill.shield,
+        LogicalKeyboardKey.keyQ => HeroSkill.petalVolley,
+        LogicalKeyboardKey.digit1 || LogicalKeyboardKey.numpad1 => HeroSkill.pound,
+        LogicalKeyboardKey.digit2 || LogicalKeyboardKey.numpad2 => HeroSkill.airHop,
+        LogicalKeyboardKey.digit3 || LogicalKeyboardKey.numpad3 => HeroSkill.grapple,
+        _ => null,
+      };
+      if (skill != null) {
+        game.activateSkill(skill);
+        return KeyEventResult.handled;
+      }
     }
     final pressed = down;
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
@@ -147,8 +156,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight ||
-        key == LogicalKeyboardKey.keyK) {
+        key == LogicalKeyboardKey.shiftRight) {
       game.runPressed = pressed;
       return KeyEventResult.handled;
     }
@@ -158,7 +166,6 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     }
     if (key == LogicalKeyboardKey.space ||
         key == LogicalKeyboardKey.arrowUp ||
-        key == LogicalKeyboardKey.keyJ ||
         key == LogicalKeyboardKey.keyW) {
       game.setJumpHeld(pressed);
       return KeyEventResult.handled;
@@ -596,6 +603,13 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                           ),
                         ],
                       ),
+                      if (game.levelReady) ...[
+                        const SizedBox(height: 6),
+                        _SkillStrip(
+                          game: game,
+                          onCast: game.activateSkill,
+                        ),
+                      ],
                       if (game.comboCount > 1) ...[
                         const SizedBox(height: 6),
                         Align(
@@ -697,6 +711,71 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     fontSize: 13,
     color: MacaronColors.cocoa,
   );
+}
+
+class _SkillStrip extends StatelessWidget {
+  const _SkillStrip({required this.game, required this.onCast});
+
+  final MacaronGame game;
+  final void Function(HeroSkill skill) onCast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      alignment: WrapAlignment.end,
+      children: [
+        for (final skill in HeroSkill.values)
+          _SkillCastChip(
+            keyLabel: skill.keyLabel,
+            name: skill.shortLabel,
+            cooldown: game.cooldownRatioOf(skill),
+            onTap: () => onCast(skill),
+          ),
+      ],
+    );
+  }
+}
+
+class _SkillCastChip extends StatelessWidget {
+  const _SkillCastChip({
+    required this.keyLabel,
+    required this.name,
+    required this.cooldown,
+    required this.onTap,
+  });
+
+  final String keyLabel;
+  final String name;
+  final double cooldown;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = cooldown <= 0;
+    return Material(
+      color: ready
+          ? Colors.white.withValues(alpha: 0.88)
+          : Colors.white.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: ready ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            ready ? '$keyLabel $name' : '$keyLabel ${(cooldown * 100).round()}%',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: ready ? MacaronColors.cocoa : MacaronColors.cocoa.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HudChip extends StatelessWidget {
@@ -833,7 +912,7 @@ class _PauseOverlay extends StatelessWidget {
               Text(
                 fromLifecycle
                     ? '回来点「继续」就能接着跑～限时已帮你停住'
-                    : '键盘：方向/WASD 移动 · 空格跳 · Shift 跑 · Esc 暂停',
+                    : '键盘：方向/WASD 移动 · 空格/W 跳 · Shift 跑 · J闪冲 K糖盾 Q花弹 · 1下砸 2二段 3糖线\n蓝台可从下穿过 · 黄台会塌 · 紫台会带着走',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
@@ -913,8 +992,9 @@ class _TutorialOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('• A/D 或←→移动，Shift/K跑，S/↓蹲'),
-              const Text('• 空格跳：短按低、长按高；手机右侧有动作键'),
+              const Text('• A/D 或←→移动，Shift 跑，S/↓蹲'),
+              const Text('• 空格或 W 跳：短按低、长按高'),
+              const Text('• J 闪冲，K 糖盾，Q 花弹，1 下砸，2 二段跳，3 糖线'),
               const Text(
                 '• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲',
               ),

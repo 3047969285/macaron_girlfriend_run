@@ -11,6 +11,7 @@ import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/effects/fx_layer.dart';
 import 'package:macaron_girlfriend_run/game/effects/parallax_layer.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart';
+import 'package:macaron_girlfriend_run/game/enemy_patrol.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/game/render/terrain_renderer.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
@@ -75,6 +76,7 @@ class MacaronGame extends FlameGame {
   final List<LifeHeart> hearts = [];
   final List<SpringPad> springs = [];
   final List<CheckpointPad> checkpoints = [];
+  final List<StagePlatform> stagePlatforms = [];
   GoalFlag? goal;
   MacaronBoss? boss;
   late FxLayer fx;
@@ -106,14 +108,21 @@ class MacaronGame extends FlameGame {
   double _gunCooldown = 0;
   double _plantShotCooldown = 0;
   double _skillDashTimer = 0;
-  double _skillCooldownTimer = 0;
+  final Map<HeroSkill, double> _skillCooldowns = {
+    for (final skill in HeroSkill.values) skill: 0,
+  };
   double _stickySlowTimer = 0;
   double _comboTimer = 0;
+  bool _pounding = false;
+  bool _airHopUsed = false;
   int _skillDirection = 1;
   double _hudAcc = 0;
   double _shakeTimer = 0;
   double _shakeMag = 0;
   double _springLock = 0;
+
+  /// 弹簧把人弹起来之后，这一跳不能被“松开跳跃键”的短跳截断。
+  bool _springBoost = false;
   double _trailAcc = 0;
   double _lookAhead = 0;
   bool _deathFromTimeout = false;
@@ -125,13 +134,20 @@ class MacaronGame extends FlameGame {
   double get plantBuddyTimer => _peaBuddyTimer;
   HeroSkill get activeSkill =>
       GameConstants.heroSkillForLevel(worldIndex, levelIndex);
-  String get skillButtonLabel => activeSkill.shortLabel;
-  double get skillCooldownRatio =>
-      (_skillCooldownTimer /
-              GameConstants.playerSkillCooldownFor(
-                levelReady ? level.difficulty : 1,
-              ))
-          .clamp(0.0, 1.0);
+  String get skillButtonLabel => HeroSkill.dash.shortLabel;
+
+  double cooldownRatioOf(HeroSkill skill) {
+    final maxCd = GameConstants.skillCooldownFor(
+      skill,
+      levelReady ? level.difficulty : 1,
+    );
+    if (maxCd <= 0) {
+      return 0;
+    }
+    return ((_skillCooldowns[skill] ?? 0) / maxCd).clamp(0.0, 1.0);
+  }
+
+  double get skillCooldownRatio => cooldownRatioOf(HeroSkill.dash);
 
   double mathMax(double a, double b) => a > b ? a : b;
 
@@ -145,7 +161,7 @@ class MacaronGame extends FlameGame {
     lives = GameConstants.startingLivesFor(
       level.difficulty,
       mapWidth: level.width,
-      enemyCount: level.rows.join().split(RegExp('[AEGRT]')).length - 1,
+      enemyCount: level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
     );
     _buildLevel();
     timeLeft = GameConstants.timeLimitFor(
@@ -190,6 +206,7 @@ class MacaronGame extends FlameGame {
     hearts.clear();
     springs.clear();
     checkpoints.clear();
+    stagePlatforms.clear();
     goal = null;
     boss = null;
     gunTimer = 0;
@@ -214,11 +231,7 @@ class MacaronGame extends FlameGame {
     );
     world.add(parallax!);
     world.add(
-      WorldBackdrop(
-        palette: palette,
-        mapWidth: mapWidth,
-        sceneSeed: sceneSeed,
-      ),
+      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed),
     );
     world.add(AmbientSparkles(mapWidth: mapWidth, tint: palette.accent));
     fx = FxLayer();
@@ -283,6 +296,15 @@ class MacaronGame extends FlameGame {
           case 'A':
             _addEnemy(px, py, tile, EnemyKind.swooper);
             break;
+          case 'L':
+            _addEnemy(px, py, tile, EnemyKind.shell);
+            break;
+          case 'Y':
+            _addEnemy(px, py, tile, EnemyKind.roller);
+            break;
+          case 'J':
+            _addEnemy(px, py, tile, EnemyKind.popper);
+            break;
           case 'B':
             boss = MacaronBoss(
               position: Vector2(px + tile / 2, py + tile),
@@ -339,6 +361,7 @@ class MacaronGame extends FlameGame {
         }
       }
     }
+    _collectStagePlatforms(tile);
 
     totalCoins = coins.length;
     _cachedSolids = terrain.map((e) => e.rect).toList(growable: false);
@@ -363,6 +386,7 @@ class MacaronGame extends FlameGame {
       ...hearts,
       ...springs,
       ...checkpoints,
+      ...stagePlatforms,
       if (boss != null) boss!,
       if (goal != null) goal!,
     ]) {
@@ -381,45 +405,18 @@ class MacaronGame extends FlameGame {
     if (enemies.length >= GameConstants.maxActiveEnemies) {
       return;
     }
-    final enemyTile = (px / tile).round();
-    var patrolLeft = enemyTile;
-    var patrolRight = enemyTile;
-    bool hasSafePatrolTile(int x) {
-      if (x < 2 || x >= level.width - 2) {
-        return false;
-      }
-      if (level.tileAt(x, level.height - 2) != '#' &&
-          level.tileAt(x, level.height - 1) != '#') {
-        return false;
-      }
-      if ('#=?D'.contains(level.tileAt(x, level.height - 4))) {
-        return false;
-      }
-      for (var checkpointX = x - 1; checkpointX <= x + 1; checkpointX++) {
-        if (level.tileAt(checkpointX, level.height - 3) == 'K') {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    for (var offset = 1; offset <= 2; offset++) {
-      if (!hasSafePatrolTile(enemyTile - offset)) {
-        break;
-      }
-      patrolLeft = enemyTile - offset;
-    }
-    for (var offset = 1; offset <= 2; offset++) {
-      if (!hasSafePatrolTile(enemyTile + offset)) {
-        break;
-      }
-      patrolRight = enemyTile + offset;
-    }
+    // 巡逻边界统一由 EnemyPatrol 计算（纯逻辑，可单测），
+    // 其中包含相邻敌人之间的反应间距收紧。
+    final (patrolLeftX, patrolRightX) = EnemyPatrol.boundsFor(
+      level: level,
+      spawnX: px,
+      kind: kind,
+    );
     enemies.add(
       SoftEnemy(
         position: Vector2(px + tile / 2, py + tile),
-        leftBound: (patrolLeft + 0.5) * tile,
-        rightBound: (patrolRight + 0.5) * tile,
+        leftBound: patrolLeftX,
+        rightBound: patrolRightX,
         difficulty: level.difficulty,
         speed:
             GameConstants.enemySpeedFor(level.difficulty) *
@@ -614,23 +611,41 @@ class MacaronGame extends FlameGame {
     world.add(shot);
   }
 
-  void activateSkill() {
-    if (!levelReady ||
-        userPaused ||
-        _finished ||
-        player.dead ||
-        _skillCooldownTimer > 0) {
+  void activateSkill([HeroSkill skill = HeroSkill.dash]) {
+    if (!levelReady || userPaused || _finished || player.dead) {
       return;
     }
-    final skill = activeSkill;
+    if ((_skillCooldowns[skill] ?? 0) > 0) {
+      return;
+    }
     if (skill == HeroSkill.petalVolley &&
         _playerShots.where((shot) => !shot.spent).length >=
             GameConstants.maxPlayerShots) {
       return;
     }
-    _skillCooldownTimer = GameConstants.playerSkillCooldownFor(
+    if (skill == HeroSkill.airHop && !player.onGround && _airHopUsed) {
+      return;
+    }
+    final started = _castSkill(skill);
+    if (!started) {
+      return;
+    }
+    _skillCooldowns[skill] = GameConstants.skillCooldownFor(
+      skill,
       level.difficulty,
     );
+    fx.heroCallout(switch (skill) {
+      HeroSkill.dash => '闪开，现在！',
+      HeroSkill.shield => '糖盾，护住！',
+      HeroSkill.petalVolley => '花瓣齐发！',
+      HeroSkill.pound => '砸下去！',
+      HeroSkill.airHop => '再跳一下！',
+      HeroSkill.grapple => '糖线，过去！',
+    }, player.position + Vector2(0, -player.hitHeight * 0.55));
+    _notifyHud();
+  }
+
+  bool _castSkill(HeroSkill skill) {
     switch (skill) {
       case HeroSkill.dash:
         _skillDirection = leftPressed != rightPressed
@@ -644,7 +659,7 @@ class MacaronGame extends FlameGame {
           player.position + Vector2(0, -player.hitHeight * 0.52),
           facingRight: player.facingRight,
         );
-        break;
+        return true;
       case HeroSkill.shield:
         player.invincibleTimer = math.max(
           player.invincibleTimer,
@@ -652,18 +667,125 @@ class MacaronGame extends FlameGame {
         );
         AudioService.instance.powerUp();
         fx.powerUp(player.position.clone());
-        break;
+        return true;
       case HeroSkill.petalVolley:
         _firePetalVolley();
         AudioService.instance.shoot();
-        break;
+        return true;
+      case HeroSkill.pound:
+        _pounding = true;
+        player.pounding = true;
+        if (player.onGround) {
+          _landPound();
+        } else {
+          player.velocity.y = 1680;
+        }
+        AudioService.instance.stomp();
+        return true;
+      case HeroSkill.airHop:
+        final grounded = player.onGround || player.coyoteTimer > 0;
+        final hop = player.poweredUp
+            ? GameConstants.playerPoweredJumpVelocityFor(level.difficulty)
+            : GameConstants.playerJumpVelocityFor(level.difficulty);
+        player.velocity.y = grounded ? hop * 1.08 : hop * 0.86;
+        player.onGround = false;
+        player.coyoteTimer = 0;
+        if (!grounded) {
+          _airHopUsed = true;
+        }
+        player.applyDuck(false);
+        AudioService.instance.jump();
+        fx.jumpDust(player.position.clone(), tint: MacaronColors.lemon);
+        return true;
+      case HeroSkill.grapple:
+        final ledge = _findGrappleLedge();
+        if (ledge != null) {
+          player.position = Vector2(ledge.center.dx, ledge.top);
+          player.velocity.setZero();
+          player.onGround = true;
+          player.coyoteTimer = GameConstants.coyoteTime;
+          _airHopUsed = false;
+          _pounding = false;
+          player.pounding = false;
+        } else {
+          final facing = player.facingRight ? 1.0 : -1.0;
+          player.velocity
+            ..x = facing * 280
+            ..y = GameConstants.playerJumpVelocityFor(level.difficulty) * 0.72;
+          player.onGround = false;
+        }
+        AudioService.instance.skillDash();
+        fx.skillDash(
+          player.position + Vector2(0, -player.hitHeight * 0.4),
+          facingRight: player.facingRight,
+        );
+        return true;
     }
-    fx.heroCallout(switch (skill) {
-      HeroSkill.dash => '闪开，现在！',
-      HeroSkill.shield => '糖盾，护住！',
-      HeroSkill.petalVolley => '花瓣齐发！',
-    }, player.position + Vector2(0, -player.hitHeight * 0.55));
-    _notifyHud();
+  }
+
+  Rect? _findGrappleLedge() {
+    final facing = player.facingRight ? 1.0 : -1.0;
+    Rect? best;
+    var bestScore = double.infinity;
+    for (final tile in terrain) {
+      final rect = tile.rect;
+      final dx = (rect.center.dx - player.position.x) * facing;
+      final dy = player.position.y - rect.top;
+      if (dx < 20 || dx > 210 || dy < 28 || dy > 190) {
+        continue;
+      }
+      final score = dx + dy * 0.35;
+      if (score < bestScore) {
+        bestScore = score;
+        best = rect;
+      }
+    }
+    return best;
+  }
+
+  void _landPound() {
+    if (!_pounding && !player.pounding) {
+      return;
+    }
+    _pounding = false;
+    player.pounding = false;
+    player.velocity.y = GameConstants.playerJumpVelocityFor(level.difficulty) *
+        0.42;
+    var hit = false;
+    for (final enemy in List<SoftEnemy>.from(enemies)) {
+      if (enemy.dead) {
+        continue;
+      }
+      if ((enemy.position.x - player.position.x).abs() > 84) {
+        continue;
+      }
+      if ((enemy.position.y - player.position.y).abs() > 72) {
+        continue;
+      }
+      hit = true;
+      final killed = enemy.takeStomp();
+      AudioService.instance.stomp();
+      if (killed) {
+        fx.stompKill(enemy.position.clone());
+        enemy.removeFromParent();
+        enemies.remove(enemy);
+        _registerEnemyDefeat(enemy);
+      } else {
+        score += 50;
+        fx.enemyCandyPop(enemy.position.clone());
+      }
+    }
+    final currentBoss = boss;
+    if (currentBoss != null &&
+        !currentBoss.dead &&
+        (currentBoss.position.x - player.position.x).abs() < 96) {
+      currentBoss.stompHit();
+      hit = true;
+    }
+    if (hit) {
+      player.invincibleTimer = math.max(player.invincibleTimer, 0.28);
+      _triggerShake(2);
+    }
   }
 
   void _firePetalVolley() {
@@ -822,13 +944,16 @@ class MacaronGame extends FlameGame {
       0.0,
       GameConstants.playerDashDurationFor(level.difficulty),
     );
-    _skillCooldownTimer = (_skillCooldownTimer - clampedDt).clamp(
-      0.0,
-      GameConstants.playerSkillCooldownFor(level.difficulty),
-    );
+    for (final skill in HeroSkill.values) {
+      _skillCooldowns[skill] = ((_skillCooldowns[skill] ?? 0) - clampedDt)
+          .clamp(0.0, 30.0);
+    }
     _stickySlowTimer = (_stickySlowTimer - clampedDt).clamp(0.0, 2.0);
     player.skillDashing = _skillDashTimer > 0;
 
+    for (final platform in stagePlatforms) {
+      platform.step(clampedDt);
+    }
     final previousPlayerBottom = _playerHitbox().bottom;
     _simulatePlayer(clampedDt);
     if (shootPressed) {
@@ -905,6 +1030,7 @@ class MacaronGame extends FlameGame {
 
     if (player.onGround) {
       player.coyoteTimer = GameConstants.coyoteTime;
+      _airHopUsed = false;
     } else {
       player.coyoteTimer -= dt;
     }
@@ -931,10 +1057,14 @@ class MacaronGame extends FlameGame {
     }
 
     player.velocity.y += GameConstants.gravity * dt;
-    // 松开跳跃：截断上升，短跳更可控
+    // 松开跳跃只截断玩家自己起跳的上升段。弹簧是场地给的完整弹射，
+    // 不按住跳跃键也要飞完，否则会在垫上反复短跳，水平速度也被清掉。
     final jumpCut = GameConstants.playerJumpCutVelocityFor(level.difficulty);
-    if (!jumpHeld && player.velocity.y < jumpCut) {
+    if (!_springBoost && !jumpHeld && player.velocity.y < jumpCut) {
       player.velocity.y = jumpCut;
+    }
+    if (player.velocity.y >= 0) {
+      _springBoost = false;
     }
     if (player.velocity.y > 1400) {
       player.velocity.y = 1400;
@@ -942,7 +1072,9 @@ class MacaronGame extends FlameGame {
 
     final wasRising = player.velocity.y < 0;
     _moveAxis(dt, horizontal: true);
+    final feetBefore = player.position.y;
     _moveAxis(dt, horizontal: false);
+    _landOnStagePlatforms(feetBefore, dt);
     if (wasRising || player.velocity.y <= 0) {
       _tryHeadBumpBlocks();
     }
@@ -984,12 +1116,80 @@ class MacaronGame extends FlameGame {
           player.position.y = solid.top;
           player.velocity.y = 0;
           player.onGround = true;
+          if (_pounding) {
+            _landPound();
+          }
         } else if (delta.y < 0) {
           player.position.y = solid.bottom + player.hitHeight;
           player.velocity.y = 0;
           _bumpBlocksAbove(solid);
         }
       }
+    }
+  }
+
+  void _collectStagePlatforms(double tile) {
+    for (var y = 0; y < level.height; y++) {
+      var x = 0;
+      while (x < level.width) {
+        final marker = level.tileAt(x, y);
+        if (marker != 'U' && marker != 'X' && marker != 'O') {
+          x++;
+          continue;
+        }
+        final start = x;
+        while (x < level.width && level.tileAt(x, y) == marker) {
+          x++;
+        }
+        final kind = switch (marker) {
+          'X' => StagePlatformKind.crumble,
+          'O' => StagePlatformKind.mover,
+          _ => StagePlatformKind.oneWay,
+        };
+        stagePlatforms.add(
+          StagePlatform(
+            position: Vector2(start * tile, y * tile),
+            tiles: x - start,
+            kind: kind,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 单向、碎裂、移动台都只接从上方落下的脚。上升和侧面穿过，不改水平速度。
+  void _landOnStagePlatforms(double feetBefore, double dt) {
+    if (player.velocity.y < 0) {
+      return;
+    }
+    final box = _playerHitbox();
+    StagePlatform? landed;
+    for (final platform in stagePlatforms) {
+      if (!platform.solid) {
+        continue;
+      }
+      final top = platform.rect.top;
+      final crossedDown = feetBefore <= top + 8 && player.position.y >= top;
+      final overlapsX = box.right > platform.rect.left && box.left < platform.rect.right;
+      if (!crossedDown || !overlapsX) {
+        continue;
+      }
+      if (landed == null || top < landed.rect.top) {
+        landed = platform;
+      }
+    }
+    if (landed == null) {
+      return;
+    }
+    player.position.y = landed.rect.top;
+    player.velocity.y = 0;
+    player.onGround = true;
+    if (landed.carriedDx != 0) {
+      player.position.x += landed.carriedDx;
+    }
+    landed.noteLanding(dt);
+    if (_pounding) {
+      _landPound();
     }
   }
 
@@ -1284,6 +1484,7 @@ class MacaronGame extends FlameGame {
         s.bounce();
         player.velocity.y =
             GameConstants.playerPoweredJumpVelocityFor(level.difficulty) * 1.05;
+        _springBoost = true;
         player.onGround = false;
         player.jumpBufferTimer = 0;
         _springLock = 0.22;
@@ -1334,6 +1535,8 @@ class MacaronGame extends FlameGame {
             b.position.y - b.size.y * 0.35) {
       final becameEnraged = b.stompHit();
       player.velocity.y = GameConstants.jumpVelocity * 0.6;
+      // 与下砸相同：刚踩中的弹起还叠在身体上，给一小段无敌离开碰撞。
+      player.invincibleTimer = math.max(player.invincibleTimer, 0.28);
       _registerBossDamage(b, becameEnraged: becameEnraged);
     } else if (b.isSlamming || !player.isInvincible) {
       _hurtOrKill();
@@ -1600,6 +1803,10 @@ class MacaronGame extends FlameGame {
     AudioService.instance.hurt();
     _skillDashTimer = 0;
     player.skillDashing = false;
+    _pounding = false;
+    player.pounding = false;
+    _airHopUsed = false;
+    _springBoost = false;
     player.kill();
   }
 

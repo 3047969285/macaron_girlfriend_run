@@ -251,12 +251,14 @@ class SoftEnemy extends PositionComponent {
     this.onLayTrap,
     EnemyKind kind = EnemyKind.walker,
   }) : kind = kind,
-       hitPoints = kind == EnemyKind.bruiser ? 2 : 1,
+       hitPoints = kind == EnemyKind.bruiser || kind == EnemyKind.shell
+           ? 2
+           : 1,
        _baseY = position.y,
        _hopVy = kind == EnemyKind.hopper ? -320.0 : 0.0,
        super(
          position: position,
-         size: kind == EnemyKind.bruiser ? Vector2(52, 44) : Vector2(42, 36),
+         size: _bodySize(kind),
          anchor: Anchor.bottomCenter,
          priority: 40,
        ) {
@@ -271,6 +273,13 @@ class SoftEnemy extends PositionComponent {
   final int difficulty;
   final double speed;
   final EnemyKind kind;
+
+  static Vector2 _bodySize(EnemyKind kind) => switch (kind) {
+    EnemyKind.bruiser => Vector2(52, 44),
+    EnemyKind.shell => Vector2(48, 40),
+    EnemyKind.roller => Vector2(46, 46),
+    _ => Vector2(42, 36),
+  };
   final double _baseY;
   final void Function(Vector2 at, EnemyKind kind)? onSkillCue;
   final void Function(Vector2 at, double direction)? onShoot;
@@ -371,6 +380,27 @@ class SoftEnemy extends PositionComponent {
             difficulty,
             kind,
           );
+        case EnemyKind.shell:
+          _chargeDir = dir;
+          _chargeTimer = 0.42;
+          _skillCooldown = GameConstants.enemySkillCooldownFor(
+            difficulty,
+            kind,
+          );
+        case EnemyKind.roller:
+          _chargeDir = dir;
+          _chargeTimer = 0.55;
+          _skillCooldown = GameConstants.enemySkillCooldownFor(
+            difficulty,
+            kind,
+          );
+        case EnemyKind.popper:
+          position.y = _baseY - 36;
+          _hopVy = 40;
+          _skillCooldown = GameConstants.enemySkillCooldownFor(
+            difficulty,
+            kind,
+          );
       }
       if (kind != EnemyKind.hopper) {
         return;
@@ -445,6 +475,15 @@ class SoftEnemy extends PositionComponent {
         EnemyKind.swooper =>
           distance >= 90 &&
               distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
+        EnemyKind.shell =>
+          distance >= 70 &&
+              distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
+        EnemyKind.roller =>
+          distance >= 80 &&
+              distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
+        EnemyKind.popper =>
+          distance >= 80 &&
+              distance <= GameConstants.enemySkillRangeFor(difficulty, kind),
       };
       if (canUseSkill) {
         dir = dx >= 0 ? 1 : -1;
@@ -460,7 +499,13 @@ class SoftEnemy extends PositionComponent {
     }
     final move =
         speed *
-        (kind == EnemyKind.bruiser ? 0.72 : 1.0) *
+        (kind == EnemyKind.bruiser
+            ? 0.72
+            : kind == EnemyKind.roller
+            ? 1.28
+            : kind == EnemyKind.shell
+            ? 0.84
+            : 1.0) *
         (_pouncing
             ? GameConstants.enemyPounceSpeedMultiplierFor(difficulty)
             : 1.0);
@@ -471,6 +516,14 @@ class SoftEnemy extends PositionComponent {
     } else if (position.x > rightBound) {
       position.x = rightBound;
       dir = -1;
+    }
+    if (kind == EnemyKind.popper && (_hopVy != 0 || position.y < _baseY)) {
+      _hopVy += 1800 * dt;
+      position.y += _hopVy * dt;
+      if (position.y >= _baseY) {
+        position.y = _baseY;
+        _hopVy = 0;
+      }
     }
     if (kind == EnemyKind.hopper) {
       _hopVy += 1800 * dt;
@@ -494,6 +547,12 @@ class SoftEnemy extends PositionComponent {
         return const Color(0xFF72CDB1);
       case EnemyKind.swooper:
         return const Color(0xFF82B7EC);
+      case EnemyKind.shell:
+        return const Color(0xFFFFB4C8);
+      case EnemyKind.roller:
+        return const Color(0xFFFFE082);
+      case EnemyKind.popper:
+        return const Color(0xFFFF8AD4);
       case EnemyKind.walker:
         return const Color(0xFFFF8A80);
     }
@@ -511,81 +570,7 @@ class SoftEnemy extends PositionComponent {
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale(dir * squash, 1 / squash);
-    if (kind == EnemyKind.swooper) {
-      final wingPaint = Paint()
-        ..color = const Color(0xFFB8D8FF).withValues(alpha: 0.9);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(-size.x * 0.34, -size.y * 0.5),
-          width: 16,
-          height: 9,
-        ),
-        wingPaint,
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(size.x * 0.34, -size.y * 0.5),
-          width: 16,
-          height: 9,
-        ),
-        wingPaint,
-      );
-    }
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(0, -size.y * 0.45),
-        width: size.x,
-        height: size.y * 0.9,
-      ),
-      Paint()..color = _bodyColor,
-    );
-    canvas.drawCircle(
-      Offset(-8, -size.y * 0.55),
-      5,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(8, -size.y * 0.55),
-      5,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(-8, -size.y * 0.55),
-      2.5,
-      Paint()..color = MacaronColors.cocoa,
-    );
-    canvas.drawCircle(
-      Offset(8, -size.y * 0.55),
-      2.5,
-      Paint()..color = MacaronColors.cocoa,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(-10, -4), width: 12, height: 8),
-      Paint()..color = const Color(0xFFE57373),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(10, -4), width: 12, height: 8),
-      Paint()..color = const Color(0xFFE57373),
-    );
-    if (kind == EnemyKind.bruiser) {
-      for (var i = 0; i < hitPoints; i++) {
-        canvas.drawCircle(
-          Offset(-6 + i * 12.0, -size.y * 0.82),
-          4,
-          Paint()..color = MacaronColors.lemon,
-        );
-      }
-    }
-    if (kind == EnemyKind.trapper) {
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(0, -size.y * 0.86),
-          width: 15,
-          height: 8,
-        ),
-        Paint()..color = const Color(0xFFB8F0D8),
-      );
-    }
+    _drawSilhouette(canvas);
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 15);
       final badge = RRect.fromRectAndRadius(
@@ -668,9 +653,292 @@ class SoftEnemy extends PositionComponent {
             center + const Offset(0, 1),
             cuePaint,
           );
+        case EnemyKind.shell:
+          canvas.drawCircle(center, 6, Paint()..color = _bodyColor);
+          canvas.drawCircle(
+            center,
+            3,
+            Paint()
+              ..color = MacaronColors.cream
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.4,
+          );
+        case EnemyKind.roller:
+          canvas.drawCircle(
+            center,
+            6,
+            Paint()
+              ..color = _bodyColor
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2,
+          );
+          canvas.drawLine(
+            center + const Offset(-5, 0),
+            center + const Offset(5, 0),
+            cuePaint,
+          );
+          canvas.drawLine(
+            center + const Offset(0, -5),
+            center + const Offset(0, 5),
+            cuePaint,
+          );
+        case EnemyKind.popper:
+          canvas.drawCircle(center + const Offset(0, 2), 5, cuePaint);
+          canvas.drawLine(
+            center + const Offset(0, -8),
+            center + const Offset(0, -2),
+            cuePaint,
+          );
       }
     }
     canvas.restore();
+  }
+
+  void _drawFace(Canvas canvas, Offset center, double eye) {
+    for (final side in [-1.0, 1.0]) {
+      canvas.drawCircle(
+        center + Offset(side * eye, 0),
+        eye * 0.85,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        center + Offset(side * eye, 0),
+        eye * 0.38,
+        Paint()..color = MacaronColors.cocoa,
+      );
+    }
+  }
+
+  void _drawSilhouette(Canvas canvas) {
+    final body = Paint()..color = _bodyColor;
+    final cream = Paint()..color = MacaronColors.cream;
+    switch (kind) {
+      case EnemyKind.walker:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset(0, -size.y * 0.42),
+              width: size.x * 0.92,
+              height: size.y * 0.62,
+            ),
+            const Radius.circular(10),
+          ),
+          body,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset(0, -size.y * 0.42),
+              width: size.x * 0.72,
+              height: 7,
+            ),
+            const Radius.circular(4),
+          ),
+          cream,
+        );
+        for (final side in [-1.0, 1.0]) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                center: Offset(side * 8, -6),
+                width: 8,
+                height: 10,
+              ),
+              const Radius.circular(3),
+            ),
+            Paint()..color = const Color(0xFF8D6E63),
+          );
+        }
+        _drawFace(canvas, Offset(0, -size.y * 0.58), 4.2);
+      case EnemyKind.hopper:
+        final spring = 4 + math.sin(_wobble) * 3;
+        for (final side in [-1.0, 1.0]) {
+          final leg = Path()
+            ..moveTo(side * 6, -size.y * 0.28)
+            ..lineTo(side * 10, -14 - spring)
+            ..lineTo(side * 4, -8);
+          canvas.drawPath(
+            leg,
+            Paint()
+              ..color = const Color(0xFFE65100)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..strokeCap = StrokeCap.round,
+          );
+        }
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.62),
+            width: size.x * 0.72,
+            height: size.y * 0.7,
+          ),
+          body,
+        );
+        canvas.drawCircle(Offset(-10, -size.y * 0.92), 5, body);
+        canvas.drawCircle(Offset(10, -size.y * 0.92), 5, body);
+        _drawFace(canvas, Offset(0, -size.y * 0.66), 3.4);
+      case EnemyKind.bruiser:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset(0, -size.y * 0.38),
+              width: size.x,
+              height: size.y * 0.72,
+            ),
+            const Radius.circular(8),
+          ),
+          body,
+        );
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.34),
+            width: size.x * 0.86,
+            height: 6,
+          ),
+          cream,
+        );
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.52),
+            width: size.x * 0.7,
+            height: 5,
+          ),
+          Paint()..color = const Color(0xFFFFF59D),
+        );
+        for (var i = 0; i < hitPoints; i++) {
+          canvas.drawCircle(
+            Offset(-8 + i * 16.0, -size.y * 0.86),
+            4.5,
+            Paint()..color = MacaronColors.lemon,
+          );
+        }
+        _drawFace(canvas, Offset(0, -size.y * 0.58), 4.6);
+      case EnemyKind.trapper:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTRB(-size.x * 0.38, -size.y * 0.55, size.x * 0.38, -4),
+            const Radius.circular(4),
+          ),
+          Paint()..color = const Color(0xFF4E8F86),
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.62),
+            width: size.x * 0.7,
+            height: size.y * 0.36,
+          ),
+          body,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -8),
+            width: size.x * 0.55,
+            height: 8,
+          ),
+          Paint()..color = const Color(0xFFB8F0D8),
+        );
+        _drawFace(canvas, Offset(0, -size.y * 0.66), 3.2);
+      case EnemyKind.swooper:
+        final flap = math.sin(_wobble) * 8;
+        final wing = Paint()..color = const Color(0xFFD6E8FF);
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(-size.x * 0.42, -size.y * 0.55 + flap),
+            width: 22,
+            height: 10,
+          ),
+          wing,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(size.x * 0.42, -size.y * 0.55 - flap),
+            width: 22,
+            height: 10,
+          ),
+          wing,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.48),
+            width: size.x * 0.62,
+            height: size.y * 0.48,
+          ),
+          body,
+        );
+        final beak = Path()
+          ..moveTo(size.x * 0.18, -size.y * 0.5)
+          ..lineTo(size.x * 0.48, -size.y * 0.42)
+          ..lineTo(size.x * 0.16, -size.y * 0.34)
+          ..close();
+        canvas.drawPath(beak, Paint()..color = MacaronColors.lemon);
+        _drawFace(canvas, Offset(-2, -size.y * 0.56), 3.2);
+      case EnemyKind.shell:
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.34),
+            width: size.x * 0.96,
+            height: size.y * 0.42,
+          ),
+          Paint()..color = const Color(0xFFFF8FB5),
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.5),
+            width: size.x * 0.7,
+            height: 8,
+          ),
+          cream,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.66),
+            width: size.x * 0.78,
+            height: size.y * 0.36,
+          ),
+          body,
+        );
+        for (var i = 0; i < hitPoints; i++) {
+          canvas.drawCircle(
+            Offset(-6 + i * 12.0, -size.y * 0.9),
+            3.5,
+            Paint()..color = Colors.white,
+          );
+        }
+        _drawFace(canvas, Offset(0, -size.y * 0.7), 3.6);
+      case EnemyKind.roller:
+        canvas.save();
+        canvas.translate(0, -size.y * 0.48);
+        canvas.rotate(_wobble * 0.8);
+        canvas.drawCircle(Offset.zero, size.x * 0.42, body);
+        canvas.drawCircle(
+          Offset.zero,
+          size.x * 0.28,
+          Paint()
+            ..color = MacaronColors.cream
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4,
+        );
+        for (var i = 0; i < 4; i++) {
+          canvas.drawLine(
+            Offset.zero,
+            Offset.fromDirection(i * math.pi / 2, size.x * 0.4),
+            Paint()
+              ..color = Colors.white.withValues(alpha: 0.85)
+              ..strokeWidth = 2,
+          );
+        }
+        canvas.restore();
+        _drawFace(canvas, Offset(0, -size.y * 0.48), 3.2);
+      case EnemyKind.popper:
+        final puff = position.y < _baseY ? 1.12 : 1.0;
+        canvas.drawCircle(Offset(0, -size.y * 0.5), size.x * 0.38 * puff, body);
+        canvas.drawCircle(
+          Offset(0, -size.y * 0.62),
+          size.x * 0.16,
+          cream,
+        );
+        _drawFace(canvas, Offset(0, -size.y * 0.5), 3.4);
+    }
   }
 }
 
@@ -1595,5 +1863,121 @@ class GoalFlag extends PositionComponent {
       12,
       Paint()..color = MacaronColors.lemon,
     );
+  }
+}
+
+/// 关卡里额外的可踩台。只接脚底，从下面跳可以穿过去。
+enum StagePlatformKind { oneWay, crumble, mover }
+
+class StagePlatform extends PositionComponent {
+  StagePlatform({
+    required Vector2 position,
+    required this.tiles,
+    required this.kind,
+  }) : origin = position.clone(),
+       super(
+         position: position,
+         size: Vector2(tiles * GameConstants.tileSize, 16),
+         anchor: Anchor.topLeft,
+         priority: 8,
+       );
+
+  final int tiles;
+  final StagePlatformKind kind;
+  final Vector2 origin;
+
+  double _phase = 0;
+  double _stand = 0;
+  double _respawn = 0;
+  bool _touched = false;
+  bool solid = true;
+
+  /// 这一帧台面自己挪了多少。站在上面的人要加上同一段位移。
+  double carriedDx = 0;
+
+  Rect get rect => Rect.fromLTWH(position.x, position.y, size.x, size.y);
+
+  double get crumbleRatio => (_stand / 0.45).clamp(0.0, 1.0);
+
+  void step(double dt) {
+    carriedDx = 0;
+    if (kind == StagePlatformKind.crumble && solid && !_touched) {
+      _stand = math.max(0, _stand - dt);
+    }
+    _touched = false;
+    if (kind == StagePlatformKind.mover && solid) {
+      final before = position.x;
+      _phase += dt;
+      position.x = origin.x + math.sin(_phase * 1.3) * GameConstants.tileSize * 2;
+      carriedDx = position.x - before;
+    } else if (kind == StagePlatformKind.crumble && !solid) {
+      position.y += 220 * dt;
+      _respawn -= dt;
+      if (_respawn <= 0) {
+        solid = true;
+        position.setFrom(origin);
+        _stand = 0;
+      }
+    }
+  }
+
+  void noteLanding(double dt) {
+    if (kind != StagePlatformKind.crumble || !solid) {
+      return;
+    }
+    _touched = true;
+    _stand += dt;
+    if (_stand >= 0.45) {
+      solid = false;
+      _respawn = 2.4;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final body = switch (kind) {
+      StagePlatformKind.oneWay => MacaronColors.sky,
+      StagePlatformKind.crumble => MacaronColors.lemon,
+      StagePlatformKind.mover => MacaronColors.lilac,
+    };
+    final slab = Rect.fromLTWH(0, 0, size.x, size.y);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(slab.shift(const Offset(0, 3)), const Radius.circular(6)),
+      Paint()..color = Colors.black.withValues(alpha: 0.16),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(slab, const Radius.circular(6)),
+      Paint()..color = body.withValues(alpha: solid ? 0.95 : 0.45),
+    );
+    if (kind == StagePlatformKind.oneWay) {
+      final dash = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      for (var x = 8.0; x < size.x - 4; x += 14) {
+        canvas.drawLine(Offset(x, 4), Offset(x + 7, 4), dash);
+      }
+    } else if (kind == StagePlatformKind.crumble) {
+      final crack = Paint()
+        ..color = MacaronColors.cocoa.withValues(alpha: 0.55 + crumbleRatio * 0.4)
+        ..strokeWidth = 1.4;
+      final sag = crumbleRatio * 4;
+      canvas.drawLine(Offset(size.x * 0.3, 3), Offset(size.x * 0.55, 12 + sag), crack);
+      canvas.drawLine(Offset(size.x * 0.55, 12 + sag), Offset(size.x * 0.8, 2), crack);
+    } else {
+      final dir = math.cos(_phase * 1.3) >= 0 ? 1.0 : -1.0;
+      final arrow = Path()
+        ..moveTo(size.x / 2 - dir * 8, 3)
+        ..lineTo(size.x / 2 + dir * 8, 8)
+        ..lineTo(size.x / 2 - dir * 8, 13);
+      canvas.drawPath(
+        arrow,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
   }
 }

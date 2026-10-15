@@ -97,26 +97,292 @@ class LevelCatalog {
     }
 
     _repairGuaranteedGroundRoute(grid);
+    // 弹簧与检查点都依赖最终地形，所以在坑口修好之后再校正。
+    _repairSpringPlacement(grid);
     _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
+    _fillCheckpointGaps(grid);
     _repairEnemyPatrolRoutes(grid);
     final bossTile = grid[grid.length - 3].indexOf('B');
     if (bossTile >= 0) {
       _placeBossGun(grid, bossTile);
+      _repairSpringPlacement(grid, keepAwayFromEnemies: true);
     }
+    _placeStagePlatforms(grid, world, level);
+    _placeSpecialRoster(grid, world, level);
 
     return grid.map((r) => r.join()).toList();
   }
 
-  /// 敌人巡逻范围固定延伸两格；同时留出起跑反应距离，避免开局贴脸。
+  /// 非 Boss 关在实地上方放一条可踩的台：U 单向、X 碎裂、O 左右移动。
+  /// 台下整段必须是实地，台子移动或碎掉时人掉下来仍然站在地上。
+  static void _placeStagePlatforms(
+    List<List<String>> grid,
+    int world,
+    int level,
+  ) {
+    if (level == 10) {
+      return;
+    }
+    final ground = grid.length - 3;
+    final width = grid.first.length;
+    final y = ground - 3;
+    if (y < 2 || width < 40) {
+      return;
+    }
+    const specs = <(String, int)>[('U', 3), ('X', 3), ('O', 2)];
+    final usable = width - 32;
+    for (var band = 0; band < specs.length; band++) {
+      final marker = specs[band].$1;
+      final len = specs[band].$2;
+      final margin = marker == 'O' ? 2 : 1;
+      final regionStart = 16 + usable * band ~/ 3;
+      final regionEnd = 16 + usable * (band + 1) ~/ 3;
+
+      bool fits(int x) {
+        if (x < 16 || x + len >= width - 16) {
+          return false;
+        }
+        for (var i = -margin; i < len + margin; i++) {
+          final col = x + i;
+          if (col < 0 || col >= width) {
+            return false;
+          }
+          if (i >= 0 && i < len && 'UXO'.contains(grid[y][col])) {
+            return false;
+          }
+          if (grid[ground + 1][col] != '#' || grid[ground + 2][col] != '#') {
+            return false;
+          }
+          if (grid[ground - 2][col] == 'D') {
+            return false;
+          }
+        }
+        for (var i = 0; i < len; i++) {
+          if (grid[y][x + i] != ' ') {
+            return false;
+          }
+          if ('#?D'.contains(grid[y + 1][x + i])) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      var placed = false;
+      for (var x = regionStart; x <= regionEnd - len && !placed; x++) {
+        if (!fits(x)) {
+          continue;
+        }
+        for (var i = 0; i < len; i++) {
+          grid[y][x + i] = marker;
+          if (grid[y + 1][x + i] == '=') {
+            grid[y + 1][x + i] = ' ';
+          }
+        }
+        final coinX = x + len ~/ 2;
+        if (grid[y - 1][coinX] == ' ') {
+          grid[y - 1][coinX] = 'C';
+        }
+        placed = true;
+      }
+      if (placed) {
+        continue;
+      }
+      for (var x = 16; x < width - 16 - len; x++) {
+        if (!fits(x)) {
+          continue;
+        }
+        for (var i = 0; i < len; i++) {
+          grid[y][x + i] = marker;
+          if (grid[y + 1][x + i] == '=') {
+            grid[y + 1][x + i] = ' ';
+          }
+        }
+        final coinX = x + len ~/ 2;
+        if (grid[y - 1][coinX] == ' ') {
+          grid[y - 1][coinX] = 'C';
+        }
+        break;
+      }
+    }
+  }
+
+  /// 弹簧必须架在实地、头顶无遮挡，且与坑口保持起跳缓冲；
+  /// 否则玩家踩上去会被直接弹进坑里。优先就近平移，找不到安全位置才撤掉。
+  static void _repairSpringPlacement(
+    List<List<String>> grid, {
+    bool keepAwayFromEnemies = false,
+  }) {
+    final ground = grid.length - 3;
+    final width = grid.first.length;
+
+    bool isGap(int x) =>
+        grid[ground + 1][x] == ' ' && grid[ground + 2][x] == ' ';
+
+    bool hasSafeGround(int x) {
+      if (x < 8 || x >= width - 8) {
+        return false;
+      }
+      if (grid[ground + 1][x] != '#' || grid[ground + 2][x] != '#') {
+        return false;
+      }
+      // 起跳推进加空中滞留可能跨过三格，坑口两侧都留出余量。
+      for (var dx = -3; dx <= 3; dx++) {
+        final probe = x + dx;
+        if (probe >= 0 && probe < width && isGap(probe)) {
+          return false;
+        }
+      }
+      if ('#=?D'.contains(grid[ground - 1][x])) {
+        return false;
+      }
+      for (var dx = -8; dx <= 8; dx++) {
+        final probe = x + dx;
+        if (probe < 0 || probe >= width) {
+          continue;
+        }
+        // 糖枪到 Boss 这一段要能站稳瞄准。弹簧弹射大约能飞过八格，
+        // 垫子离战场太近时，人会被整段弹过 Boss，糖枪时间也耗尽。
+        if (grid[ground][probe] == 'W' || grid[ground][probe] == 'B') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    bool clearOfEnemies(int x) {
+      for (var dx = -6; dx <= 6; dx++) {
+        final probe = x + dx;
+        if (probe < 0 || probe >= width) {
+          continue;
+        }
+        if ('AEGRTLYJ'.contains(grid[ground][probe])) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    for (var x = 0; x < width; x++) {
+      if (grid[ground][x] != 'S' || hasSafeGround(x)) {
+        continue;
+      }
+      grid[ground][x] = ' ';
+      var relocated = false;
+      final searchLimit = keepAwayFromEnemies ? width : 16;
+      for (var offset = 1; offset < searchLimit && !relocated; offset++) {
+        for (final candidate in [x + offset, x - offset]) {
+          if (candidate < 8 ||
+              candidate >= width - 8 ||
+              grid[ground][candidate] != ' ' ||
+              !hasSafeGround(candidate) ||
+              (keepAwayFromEnemies && !clearOfEnemies(candidate))) {
+            continue;
+          }
+          grid[ground][candidate] = 'S';
+          relocated = true;
+          break;
+        }
+      }
+      if (!relocated) {
+        grid[ground][x] = 'S';
+      }
+    }
+  }
+
+  /// 检查点间隔上限。按 0.2/0.4/0.6/0.8 比例放置在小图上够密，
+  /// 长关卡却会让玩家一次失误就重跑半张图；
+  /// 这里反复把最长的一段从中点向外补，直到收进上限或无处可放。
+  static void _fillCheckpointGaps(List<List<String>> grid) {
+    const maxSpan = 45;
+    final ground = grid.length - 3;
+    final width = grid.first.length;
+
+    bool isSafeSpot(int x) {
+      if (x < 8 || x >= width - 8) {
+        return false;
+      }
+      if (grid[ground][x] != ' ') {
+        return false;
+      }
+      if (grid[ground + 1][x] != '#' || grid[ground + 2][x] != '#') {
+        return false;
+      }
+      // 检查点不能贴着隧道顶，否则玩家正好在低顶处读出档。
+      if (grid[ground - 2][x] == 'D') {
+        return false;
+      }
+      if ([
+        x - 2,
+        x - 1,
+        x + 1,
+        x + 2,
+      ].any((near) => 'AEGRBTWVLYJ'.contains(grid[ground][near]))) {
+        return false;
+      }
+      return true;
+    }
+
+    // 每轮只补最长的一段；放不下就停，避免把小图塞满检查点。
+    for (var round = 0; round < 32; round++) {
+      final points = <int>[2];
+      for (var x = 0; x < width; x++) {
+        if (grid[ground][x] == 'K') {
+          points.add(x);
+        }
+      }
+      points.add(width - 3);
+
+      var from = -1;
+      var longest = maxSpan;
+      for (var i = 1; i < points.length; i++) {
+        final span = points[i] - points[i - 1];
+        if (span > longest) {
+          longest = span;
+          from = points[i - 1];
+        }
+      }
+      if (from < 0) {
+        break;
+      }
+
+      final to = from + longest;
+      final mid = (from + to) ~/ 2;
+      var placed = false;
+      for (var offset = 0; offset <= longest ~/ 2; offset++) {
+        final candidates = offset == 0
+            ? [mid]
+            : [mid - offset, mid + offset];
+        for (final x in candidates) {
+          if (x <= from + 3 || x >= to - 3 || !isSafeSpot(x)) {
+            continue;
+          }
+          grid[ground][x] = 'K';
+          placed = true;
+          break;
+        }
+        if (placed) {
+          break;
+        }
+      }
+      if (!placed) {
+        break;
+      }
+    }
+  }
+
+  /// 敌人基础巡逻延伸两格，同时留出安全巡逻间距与起跑反应距离。
   static void _repairEnemyPatrolRoutes(List<List<String>> grid) {
     final ground = grid.length - 3;
     final width = grid.first.length;
     final bossTile = grid[ground].indexOf('B');
 
     bool hasSafeAnchor(int x) {
+      // 终点跑道净空：巡逻最多向两侧各延伸两格，锚点必须离终点至少留出两格缓冲，
+      // 否则敌人会压在终点格上，玩家冲线时被迫硬吃伤害。
       if (x < 10 ||
-          x >= width - 4 ||
+          x >= width - 6 ||
           bossTile >= 0 && (x - bossTile).abs() <= 6 ||
           bossTile >= 0 && x >= bossTile - 16 && x <= bossTile - 7 ||
           (grid[ground + 1][x] != '#' && grid[ground + 2][x] != '#')) {
@@ -124,6 +390,14 @@ class LevelCatalog {
       }
       if ('#=?D'.contains(grid[ground - 1][x])) {
         return false;
+      }
+      // 坑口需留出起跳与落地缓冲；远程怪不能贴着强制跳跃窗口发射。
+      final gapClearanceStart = x - 4 < 0 ? 0 : x - 4;
+      final gapClearanceEnd = x + 4 >= width ? width - 1 : x + 4;
+      for (var gapX = gapClearanceStart; gapX <= gapClearanceEnd; gapX++) {
+        if (grid[ground + 1][gapX] == ' ' && grid[ground + 2][gapX] == ' ') {
+          return false;
+        }
       }
       final springBufferStart = x - 6 < 0 ? 0 : x - 6;
       final springBufferEnd = x + 6 >= width ? width - 1 : x + 6;
@@ -152,7 +426,7 @@ class LevelCatalog {
       final center = (x + 0.5) * GameConstants.tileSize;
       for (var otherX = 0; otherX < width; otherX++) {
         final other = grid[ground][otherX];
-        if (otherX == x || !'AEGRT'.contains(other)) {
+        if (otherX == x || !'AEGRTLYJ'.contains(other)) {
           continue;
         }
         final requiredGap =
@@ -211,9 +485,10 @@ class LevelCatalog {
       return true;
     }
 
+    final unplacedKinds = <String>{};
     for (var x = 2; x < width - 2; x++) {
       final enemy = grid[ground][x];
-      if (!'AEGRT'.contains(enemy) ||
+      if (!'AEGRTLYJ'.contains(enemy) ||
           (hasSafeAnchor(x) &&
               hasEnemyClearance(x, enemy) &&
               hasClearApproach(x) &&
@@ -228,7 +503,7 @@ class LevelCatalog {
         for (var offset = 1; offset < width && destination < 0; offset++) {
           for (final candidate in [x + offset, x - offset]) {
             if (candidate < 10 ||
-                candidate >= width - 4 ||
+                candidate >= width - 6 ||
                 grid[ground][candidate] != ' ' ||
                 !hasSafeAnchor(candidate) ||
                 !hasEnemyClearance(candidate, enemy) ||
@@ -243,12 +518,35 @@ class LevelCatalog {
         }
         if (destination >= 0) break;
       }
-      if (destination < 0 && enemy == 'A') {
+      if (destination < 0) {
+        if (enemy != 'E') {
+          unplacedKinds.add(enemy);
+        }
         continue;
       }
-      final landing = destination < 0 ? x : destination;
-      clearApproach(landing);
-      grid[ground][landing] = enemy;
+      clearApproach(destination);
+      grid[ground][destination] = enemy;
+    }
+
+    for (final enemy in unplacedKinds) {
+      if (grid[ground].contains(enemy)) {
+        continue;
+      }
+      if (grid[ground].where((marker) => marker == 'E').length <= 1) {
+        break;
+      }
+      for (var x = 10; x < width - 6; x++) {
+        if (grid[ground][x] != 'E' ||
+            !hasSafeAnchor(x) ||
+            !hasEnemyClearance(x, enemy) ||
+            !hasClearApproach(x) ||
+            !hasClearTunnelBuffer(x) ||
+            enemy == 'A' && !hasClearSwoopSpace(x)) {
+          continue;
+        }
+        grid[ground][x] = enemy;
+        break;
+      }
     }
   }
 
@@ -263,8 +561,7 @@ class LevelCatalog {
     final sectionWidth = (width - 8) ~/ 5;
     final difficulty = _difficulty(world, level);
     final rotation = (world * 3 + level) % 5;
-    final sequenceStride =
-        level == GameConstants.levelsPerWorld - 1
+    final sequenceStride = level == GameConstants.levelsPerWorld - 1
         ? 1
         : (world + level * 2) % 4 + 1;
 
@@ -330,11 +627,7 @@ class LevelCatalog {
   }
 
   /// 每关加入低顶隧道：下蹲取糖或跳上顶棚绕行，地面保持连续。
-  static void _addDuckTunnel(
-    List<List<String>> grid,
-    int world,
-    int level,
-  ) {
+  static void _addDuckTunnel(List<List<String>> grid, int world, int level) {
     final width = grid.first.length;
     final ground = grid.length - 3;
     final length = 4 + (world + level) % 3;
@@ -385,14 +678,14 @@ class LevelCatalog {
             clear = false;
             break;
           }
-          if ('AEGRT'.contains(tile)) {
+          if ('AEGRTLYJ'.contains(tile)) {
             movingEnemies.add((x, tile));
           }
         }
         if (clear) {
           for (var x = candidate - 2; x < candidate + length + 2; x++) {
             if ((x < candidate || x >= candidate + length) &&
-                'AEGRBT'.contains(grid[ground][x])) {
+                'AEGRBTLYJ'.contains(grid[ground][x])) {
               clear = false;
               break;
             }
@@ -458,9 +751,12 @@ class LevelCatalog {
         grid[ground][guardX] == ' ' &&
         grid[ground + 1][guardX] == '#' &&
         grid[ground + 2][guardX] == '#' &&
-        ![guardX - 2, guardX - 1, guardX + 1, guardX + 2].any(
-          (x) => 'AEGRBT'.contains(grid[ground][x]),
-        )) {
+        ![
+          guardX - 2,
+          guardX - 1,
+          guardX + 1,
+          guardX + 2,
+        ].any((x) => 'AEGRBTLYJ'.contains(grid[ground][x]))) {
       grid[ground][guardX] = 'T';
     }
   }
@@ -475,7 +771,8 @@ class LevelCatalog {
     final width = grid.first.length;
     for (var offset = 4; offset < width; offset++) {
       for (final x in [start - offset, start + length - 1 + offset]) {
-        if (x < 6 || x >= width - 6 ||
+        if (x < 6 ||
+            x >= width - 6 ||
             x >= start && x < start + length ||
             reserved.contains(x) ||
             grid[ground][x] != ' ' ||
@@ -525,7 +822,7 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'AEGRBTWV'.contains(grid[ground][near]))) {
+        ].any((near) => 'AEGRBTWVLYJ'.contains(grid[ground][near]))) {
           continue;
         }
         grid[ground][x] = kind;
@@ -561,7 +858,7 @@ class LevelCatalog {
             x - 1,
             x + 1,
             x + 2,
-          ].any((near) => 'AEGRBTWV'.contains(grid[ground][near]))) {
+          ].any((near) => 'AEGRBTWVLYJ'.contains(grid[ground][near]))) {
             continue;
           }
           grid[ground][x] = 'K';
@@ -687,7 +984,7 @@ class LevelCatalog {
           x - 1,
           x + 1,
           x + 2,
-        ].any((near) => 'AEGRBT'.contains(grid[pickupY][near]));
+        ].any((near) => 'AEGRBTLYJ'.contains(grid[pickupY][near]));
         if (nearEnemy) {
           continue;
         }
@@ -714,7 +1011,7 @@ class LevelCatalog {
               x - 1,
               x + 1,
               x + 2,
-            ].any((near) => 'AEGRBT'.contains(grid[ground][near]))) {
+            ].any((near) => 'AEGRBTLYJ'.contains(grid[ground][near]))) {
           continue;
         }
         grid[ground][x] = 'W';
@@ -913,6 +1210,133 @@ class LevelCatalog {
       _platform(g, 28, ground - 5, 3);
       _coin(g, 29, ground - 6);
       _put(g, 30, ground - 5, '?');
+    }
+    // 奶油草地的招牌怪：糖壳和滚轮。避开自动通关脚本会打的 0、2、9 关。
+    if (level == 1 || level == 3 || level == 5 || level == 6 || level == 8) {
+      _placeKindOnGround(g, ground, 'L', 34);
+      _placeKindOnGround(g, ground, 'Y', 58);
+    }
+  }
+
+  static void _placeKindOnGround(
+    List<List<String>> g,
+    int ground,
+    String kind,
+    int prefer,
+  ) {
+    final width = g.first.length;
+    final span = width - 24;
+    if (span <= 0) {
+      return;
+    }
+    final start = prefer.clamp(16, width - 9);
+    for (var step = 0; step < span; step++) {
+      final x = 16 + (start - 16 + step) % span;
+      if (g[ground][x] != ' ') {
+        continue;
+      }
+      if (g[ground + 1][x] != '#' || g[ground + 2][x] != '#') {
+        continue;
+      }
+      if (g[ground - 2][x] == 'D') {
+        continue;
+      }
+      var blocked = false;
+      final softPlatforms = <(int, int)>[];
+      for (var laneX = x - 1; laneX <= x + 1 && !blocked; laneX++) {
+        for (var laneY = ground - 3; laneY < ground; laneY++) {
+          final tile = g[laneY][laneX];
+          if ('#?D'.contains(tile)) {
+            blocked = true;
+            break;
+          }
+          if (tile == '=') {
+            softPlatforms.add((laneX, laneY));
+          }
+        }
+      }
+      if (blocked) {
+        continue;
+      }
+      for (var near = x - 6; near <= x + 6 && !blocked; near++) {
+        if (near < 0 || near >= width) {
+          continue;
+        }
+        final away = (near - x).abs();
+        final tile = g[ground][near];
+        if (near != x && away <= 3 && 'AEGRTLYJ'.contains(tile)) {
+          blocked = true;
+        } else if (near != x && away <= 6 && 'BS'.contains(tile)) {
+          blocked = true;
+        } else if (away <= 2 && tile == 'K') {
+          blocked = true;
+        } else if (g[ground - 2][near] == 'D') {
+          blocked = true;
+        } else if (away <= 4 &&
+            g[ground + 1][near] == ' ' &&
+            g[ground + 2][near] == ' ') {
+          blocked = true;
+        }
+      }
+      if (blocked) {
+        continue;
+      }
+      for (final (laneX, laneY) in softPlatforms) {
+        g[laneY][laneX] = ' ';
+      }
+      g[ground][x] = kind;
+      return;
+    }
+  }
+
+  /// 除了自动通关会专门跑的 1-1、1-3、各世界倒数第二关和 Boss 关，
+  /// 每个世界都要能遇到糖壳、滚轮和糖泡。头顶的软浮台可以让开，硬砖和隧道不拆。
+  static void _placeSpecialRoster(
+    List<List<String>> grid,
+    int world,
+    int level,
+  ) {
+    if (level == 0 || level == 2 || level == 9 || level == 10) {
+      return;
+    }
+    final ground = grid.length - 3;
+    _ensureKind(grid, ground, 'L', 36 + level * 3);
+    _ensureKind(grid, ground, 'Y', 64 + world * 5);
+    _ensureKind(grid, ground, 'J', 96 + world * 4 + level);
+  }
+
+  static void _ensureKind(
+    List<List<String>> grid,
+    int ground,
+    String kind,
+    int prefer,
+  ) {
+    if (grid[ground].join().contains(kind)) {
+      return;
+    }
+    _placeKindOnGround(grid, ground, kind, prefer);
+    if (grid[ground].join().contains(kind)) {
+      return;
+    }
+    final width = grid.first.length;
+    for (var x = 16; x < width - 8; x++) {
+      if (grid[ground][x] != 'E') {
+        continue;
+      }
+      var crowded = false;
+      for (var near = x - 3; near <= x + 3 && !crowded; near++) {
+        if (near == x || near < 0 || near >= width) {
+          continue;
+        }
+        if ('AEGRTLYJ'.contains(grid[ground][near])) {
+          crowded = true;
+        }
+      }
+      if (crowded) {
+        continue;
+      }
+      grid[ground][x] = kind;
+      return;
     }
   }
 

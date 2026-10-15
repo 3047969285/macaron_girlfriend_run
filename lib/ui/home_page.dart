@@ -498,7 +498,9 @@ class HowToPlayPage extends StatelessWidget {
           emoji: '🕹️',
           title: '操作',
           body:
-              '触控：← → 移动 · 蹲 · 跑 · 跳。\n键盘：方向键/WASD · 空格跳 · Shift 跑 · Esc 暂停。',
+              '触控：← → 移动 · 蹲 · 跑 · 跳，上方六枚技能随时可按。\n'
+              '键盘：方向键/WASD · 空格或 W 跳 · Shift 跑 · Esc 暂停。\n'
+              '技能：J 闪冲 · K 糖盾 · Q 花弹 · 1 下砸 · 2 二段跳 · 3 糖线。',
         ),
         SizedBox(height: 10),
         _TipCard(
@@ -507,14 +509,16 @@ class HowToPlayPage extends StatelessWidget {
           body:
               '蓝色小旗：摸到后本局复活点前移。\n'
               '看头顶预警：粉怪射糖可蹲躲、橙怪扑击、红胖冲撞、薄荷怪设陷阱、蓝飞怪俯冲。\n'
-              '红胖要踩两次；Boss 半血狂暴并跳砸。',
+              '红胖和糖壳要踩两次；滚轮平时就快，糖泡会整只弹起再落下。Boss 半血狂暴并跳砸。',
         ),
         SizedBox(height: 10),
         _TipCard(
           emoji: '❓',
           title: '机关与商店',
           body:
-              '顶「?」砖：糖 / 超级跳 / 积分糖特效。\n关卡糖果进钱包，首页「糖果商店」可换外观。',
+              '顶「?」砖：糖 / 超级跳 / 积分糖特效。\n'
+              '天空三色台：蓝虚线从下面跳得穿、黄台站久会塌、紫台会带着人左右走。\n'
+              '关卡糖果进钱包，首页「糖果商店」可换外观。',
         ),
         SizedBox(height: 10),
         _TipCard(
@@ -967,6 +971,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
+                    '关卡主曲是九段原创循环。下面三首仍在包里，合成失败时兜底。\n'
                     '许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),

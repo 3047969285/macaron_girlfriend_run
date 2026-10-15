@@ -125,10 +125,10 @@ class AudioService {
     await applyVolumes();
     final asset = _bgmAssets[worldIndex % _bgmAssets.length];
     try {
-      await _bgm.play(AssetSource(asset));
-    } catch (_) {
-      // 资源加载异常时仍保留本地合成曲，不能让 BGM 故障影响关卡启动。
+      // 关卡主曲是按世界写的多轨循环。三首授权曲只在合成失败时兜底。
       await _bgm.play(BytesSource(_bgmBytes(worldIndex)));
+    } catch (_) {
+      await _bgm.play(AssetSource(asset));
     }
     _bgmWorld = worldIndex;
     _bgmPlaying = true;
