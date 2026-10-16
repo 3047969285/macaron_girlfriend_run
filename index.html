@@ -85,8 +85,11 @@
         hint.textContent = '加载较慢，请检查网络后重试';
         boot.classList.add('slow');
       }, 8000);
+      var bootstrap = document.createElement('script');
+      bootstrap.src = 'flutter_bootstrap.js?load=' + Date.now();
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
     })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
