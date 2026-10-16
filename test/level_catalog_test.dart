@@ -449,6 +449,30 @@ void _runWithLiveControls(
 }
 
 void main() {
+  test('enemy density follows each world ceiling without spikes', () {
+    for (var world = 0; world < GameConstants.worldCount; world++) {
+      for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
+        final data = LevelCatalog.load(world, level);
+        final width = data.rows.first.length;
+        final enemies = data.rows
+            .map(
+              (row) =>
+                  row.split('').where((t) => 'AEGRTLYJ'.contains(t)).length,
+            )
+            .fold<int>(0, (sum, count) => sum + count);
+        final ceiling =
+            LevelCatalog.densityCeilingPer100[world] +
+            level * LevelCatalog.densityRampPerLevel;
+        final per100 = enemies * 100 / width;
+        expect(
+          per100,
+          lessThanOrEqualTo(ceiling + 0.05),
+          reason: 'w$world l$level enemy density exceeds its world ceiling',
+        );
+      }
+    }
+  });
+
   test('every level has a stable unique scenery seed', () {
     final seeds = <int>{};
     for (var world = 0; world < GameConstants.worldCount; world++) {

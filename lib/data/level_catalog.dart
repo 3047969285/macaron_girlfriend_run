@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 
@@ -111,8 +113,79 @@ class LevelCatalog {
       _repairSpringPlacement(grid, keepAwayFromEnemies: true);
     }
     _placeStagePlatforms(grid, world, level);
+    // 最后限流：只删普通巡逻怪，不改动前面各层已经定型的平台与路线。
+    _capWalkerDensity(grid, world, level);
 
     return grid.map((r) => r.join()).toList();
+  }
+
+  /// 每个世界的敌人密度上限（每 100 列），后段关卡按 [densityRampPerLevel] 小幅递增。
+  /// 世界函数里固定列距的巡逻怪会让 W3、W5、W8 的密度突然翻倍，这里统一收口。
+  static const densityCeilingPer100 = [
+    6.0,
+    6.8,
+    8.0,
+    7.5,
+    9.5,
+    9.0,
+    7.5,
+    10.0,
+    7.0,
+  ];
+  static const densityRampPerLevel = 0.1;
+  static const minWalkersKept = 2;
+
+  /// 超出密度上限时只裁剪普通巡逻怪 E：优先去掉最挤在一起的那些，
+  /// 特殊种类与所有地形、奖励、检查点保持不变，因此不会削弱关卡的机制组合。
+  static void _capWalkerDensity(List<List<String>> grid, int world, int level) {
+    final width = grid.first.length;
+    final ground = grid.length - 3;
+    final rowChars = grid[ground];
+    final ceiling = densityCeilingPer100[world] + level * densityRampPerLevel;
+    final budget = (ceiling * width / 100).floor();
+
+    const specialKinds = 'GRTALYJ';
+    var specials = 0;
+    final walkers = <int>[];
+    for (var x = 0; x < width; x++) {
+      final tile = rowChars[x];
+      if (tile == 'E') {
+        walkers.add(x);
+      } else if (specialKinds.contains(tile)) {
+        specials++;
+      }
+    }
+    if (walkers.length <= minWalkersKept) {
+      return;
+    }
+    final keep = math.max(minWalkersKept, budget - specials);
+    var excess = walkers.length - keep;
+    if (excess <= 0) {
+      return;
+    }
+
+    int crowding(int x) {
+      var nearest = 99;
+      for (var other = 0; other < width; other++) {
+        if (other == x || !'AEGRTLYJ'.contains(rowChars[other])) {
+          continue;
+        }
+        nearest = math.min(nearest, (other - x).abs());
+      }
+      return nearest;
+    }
+
+    final ranked = [for (final x in walkers) (x, crowding(x))]
+      ..sort(
+        (a, b) => a.$2 != b.$2 ? a.$2.compareTo(b.$2) : a.$1.compareTo(b.$1),
+      );
+    for (final (x, _) in ranked) {
+      if (excess == 0) {
+        break;
+      }
+      rowChars[x] = ' ';
+      excess--;
+    }
   }
 
   /// 非 Boss 关加入可踩台：U 单向、X 碎裂、O 左右移动；每三关加入 I 垂直移动。

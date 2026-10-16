@@ -783,6 +783,20 @@ class SoftEnemy extends PositionComponent {
           );
         }
         _drawFace(canvas, Offset(0, -size.y * 0.58), 4.2);
+        // 顶上一颗樱桃，让行走怪读作纸杯蛋糕而不是一辆小车。
+        canvas.drawLine(
+          Offset(0, -size.y * 0.42 - 9),
+          Offset(2, -size.y * 0.42 - 15),
+          Paint()
+            ..color = const Color(0xFF8D6E63)
+            ..strokeWidth = 1.5
+            ..strokeCap = StrokeCap.round,
+        );
+        canvas.drawCircle(
+          Offset(0, -size.y * 0.42 - 11),
+          4,
+          Paint()..color = const Color(0xFFE53950),
+        );
       case EnemyKind.hopper:
         final spring = 4 + math.sin(_wobble) * 3;
         for (final side in [-1.0, 1.0]) {
@@ -943,30 +957,54 @@ class SoftEnemy extends PositionComponent {
         canvas.translate(0, -size.y * 0.48);
         canvas.rotate(_wobble * 0.8);
         canvas.drawCircle(Offset.zero, size.x * 0.42, body);
-        canvas.drawCircle(
-          Offset.zero,
-          size.x * 0.28,
-          Paint()
-            ..color = MacaronColors.cream
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 4,
+        // 奶油螺旋随身体一起转动，滚动感比靶心式辐条更清楚。
+        final swirl = Paint()
+          ..color = MacaronColors.cream
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round;
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset.zero, radius: size.x * 0.3),
+          0,
+          math.pi * 1.6,
+          false,
+          swirl,
         );
-        for (var i = 0; i < 4; i++) {
-          canvas.drawLine(
-            Offset.zero,
-            Offset.fromDirection(i * math.pi / 2, size.x * 0.4),
-            Paint()
-              ..color = Colors.white.withValues(alpha: 0.85)
-              ..strokeWidth = 2,
-          );
-        }
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset.zero, radius: size.x * 0.14),
+          math.pi,
+          math.pi * 1.3,
+          false,
+          swirl,
+        );
         canvas.restore();
         _drawFace(canvas, Offset(0, -size.y * 0.48), 3.2);
       case EnemyKind.popper:
+        // 糖泡：半透明外圈加左上高光，读作气泡而不是骷髅头。
         final puff = position.y < _baseY ? 1.12 : 1.0;
-        canvas.drawCircle(Offset(0, -size.y * 0.5), size.x * 0.38 * puff, body);
-        canvas.drawCircle(Offset(0, -size.y * 0.62), size.x * 0.16, cream);
-        _drawFace(canvas, Offset(0, -size.y * 0.5), 3.4);
+        final bubbleCenter = Offset(0, -size.y * 0.5);
+        final radius = size.x * 0.38 * puff;
+        canvas.drawCircle(bubbleCenter, radius, body);
+        canvas.drawCircle(
+          bubbleCenter,
+          radius,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.4)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5,
+        );
+        canvas.drawArc(
+          Rect.fromCircle(center: bubbleCenter, radius: radius * 0.68),
+          math.pi * 1.1,
+          math.pi * 0.42,
+          false,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.85)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5
+            ..strokeCap = StrokeCap.round,
+        );
+        _drawFace(canvas, bubbleCenter, 3.4);
     }
   }
 }
