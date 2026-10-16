@@ -1,8 +1,10 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/game/entities/entities.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -112,6 +114,68 @@ void main() {
     game.activateSkill(HeroSkill.pound);
     expect(game.player.velocity.y, greaterThan(1000));
     expect(game.player.pounding, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a ground pound breaks shell armor a dash only chips', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 0,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    game.pauseEngine();
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+
+    SoftEnemy spawn(EnemyKind kind, double dx) {
+      final at = game.player.position + Vector2(dx, 0);
+      final enemy = SoftEnemy(
+        position: at,
+        leftBound: at.x,
+        rightBound: at.x,
+        difficulty: game.level.difficulty,
+        speed: 0,
+        kind: kind,
+      );
+      game.enemies.add(enemy);
+      game.world.add(enemy);
+      return enemy;
+    }
+
+    final chipped = spawn(EnemyKind.shell, 0);
+    game.player.onGround = true;
+    game.activateSkill(HeroSkill.dash);
+    game.update(1 / 30);
+    expect(chipped.dead, isFalse);
+    expect(chipped.hitPoints, 1);
+
+    chipped.removeFromParent();
+    game.enemies.remove(chipped);
+    final shell = spawn(EnemyKind.shell, 0);
+    final bruiser = spawn(EnemyKind.bruiser, 36);
+    final walker = spawn(EnemyKind.walker, 60);
+    final distant = spawn(EnemyKind.shell, 180);
+    game.player.onGround = true;
+    game.activateSkill(HeroSkill.pound);
+
+    expect(shell.dead, isTrue);
+    expect(bruiser.dead, isTrue);
+    expect(walker.dead, isTrue);
+    expect(game.enemies.contains(shell), isFalse);
+    expect(distant.dead, isFalse);
+    expect(distant.hitPoints, 2);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flame/game.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart';
@@ -143,5 +144,44 @@ void main() {
     expect(game.player.dead, isFalse);
     expect(game.player.isInvincible, isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('only a charged boost crushes shell armor', (tester) async {
+    for (final boost in [false, true]) {
+      final game = await _loadCar(tester);
+      if (boost) {
+        _charge(game);
+        game.setDuckPressed(false);
+      } else {
+        game.setDuckPressed(false);
+      }
+      game.update(1 / 30);
+      expect(game.vehicleBoosting, boost);
+      final shell = SoftEnemy(
+        position: game.player.position.clone(),
+        leftBound: game.player.position.x,
+        rightBound: game.player.position.x,
+        difficulty: game.level.difficulty,
+        speed: 0,
+        kind: EnemyKind.shell,
+      );
+      game.enemies.add(shell);
+      game.world.add(shell);
+
+      game.update(1 / 30);
+
+      expect(game.vehicleTimer, greaterThan(0));
+      expect(game.player.dead, isFalse);
+      if (boost) {
+        expect(shell.dead, isTrue);
+        expect(game.enemies, isEmpty);
+      } else {
+        expect(shell.dead, isFalse);
+        expect(shell.hitPoints, 1);
+        expect(game.player.velocity.x, lessThan(0));
+        expect(game.player.isInvincible, isTrue);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 }

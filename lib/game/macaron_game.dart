@@ -187,6 +187,7 @@ class MacaronGame extends FlameGame {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     if (isLoaded) {
+      clearInput();
       _snapCamera();
     }
   }
@@ -626,7 +627,7 @@ class MacaronGame extends FlameGame {
     }
 
     for (final enemy in enemies) {
-      if (!enemy.dead && !enemy.isGuarding) {
+      if (!enemy.dead && !enemy.isGuarding && !_plantPeaGlances(enemy)) {
         consider(_enemyHitbox(enemy));
       }
     }
@@ -644,7 +645,13 @@ class MacaronGame extends FlameGame {
       return;
     }
     final direction = target! - origin;
-    _spawnPlayerShot(direction, isPea: true, speed: peaSpeed, origin: origin);
+    _spawnPlayerShot(
+      direction,
+      isPea: true,
+      fromPlant: true,
+      speed: peaSpeed,
+      origin: origin,
+    );
     player.plantFired(toRight: direction.x >= 0);
     _plantShotCooldown = GameConstants.plantShotCooldownFor(level.difficulty);
     AudioService.instance.shoot();
@@ -689,9 +696,14 @@ class MacaronGame extends FlameGame {
     return true;
   }
 
+  bool _plantPeaGlances(SoftEnemy enemy) =>
+      (enemy.kind == EnemyKind.bruiser || enemy.kind == EnemyKind.shell) &&
+      enemy.hitPoints <= 1;
+
   void _spawnPlayerShot(
     Vector2 direction, {
     required bool isPea,
+    bool fromPlant = false,
     double speed = 520,
     Vector2? origin,
   }) {
@@ -702,6 +714,7 @@ class MacaronGame extends FlameGame {
               Vector2(player.facingRight ? 22 : -22, -player.hitHeight * 0.58),
       direction: direction,
       isPea: isPea,
+      fromPlant: fromPlant,
       speed: speed,
     );
     _playerShots.add(shot);
@@ -861,7 +874,12 @@ class MacaronGame extends FlameGame {
         continue;
       }
       hit = true;
-      final killed = enemy.takeStomp();
+      var killed = enemy.takeStomp();
+      if (!killed &&
+          (enemy.kind == EnemyKind.bruiser ||
+              enemy.kind == EnemyKind.shell)) {
+        killed = enemy.takeStomp();
+      }
       AudioService.instance.stomp();
       if (killed) {
         fx.stompKill(enemy.position.clone());
@@ -1765,14 +1783,28 @@ class MacaronGame extends FlameGame {
         continue;
       }
       if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
-        while (!enemy.dead) {
+        final crush =
+            vehicleBoosting ||
+            (enemy.kind != EnemyKind.bruiser &&
+                enemy.kind != EnemyKind.shell);
+        if (crush) {
+          while (!enemy.dead) {
+            enemy.takeStomp();
+          }
+          enemy.removeFromParent();
+          enemies.remove(enemy);
+          _registerEnemyDefeat(enemy);
+          AudioService.instance.stomp();
+          fx.stompKill(enemy.position.clone());
+        } else {
           enemy.takeStomp();
+          score += 50;
+          fx.enemyCandyPop(enemy.position.clone());
+          player.velocity.x = player.facingRight ? -220 : 220;
+          player.velocity.y = GameConstants.jumpVelocity * 0.45;
+          player.invincibleTimer = math.max(player.invincibleTimer, 0.28);
+          AudioService.instance.stomp();
         }
-        enemy.removeFromParent();
-        enemies.remove(enemy);
-        _registerEnemyDefeat(enemy);
-        AudioService.instance.stomp();
-        fx.stompKill(enemy.position.clone());
         continue;
       }
       if (player.ducking && enemy.kind == EnemyKind.walker) {
@@ -1819,6 +1851,25 @@ class MacaronGame extends FlameGame {
     }
   }
 
+  /// 糖枪和花弹的判定向上多 10 像素，够到怪扔出的糖豆；打不着贴地糖波。
+  bool _swatEnemyCandy(PlayerCandyShot shot) {
+    final swat = Rect.fromLTRB(
+      shot.hitbox.left,
+      shot.hitbox.top - 10,
+      shot.hitbox.right,
+      shot.hitbox.bottom,
+    );
+    var hit = false;
+    for (final enemyShot in List<EnemyCandyShot>.from(_enemyShots)) {
+      if (enemyShot.spent || !swat.overlaps(enemyShot.hitbox)) {
+        continue;
+      }
+      enemyShot.consume();
+      hit = true;
+    }
+    return hit;
+  }
+
   void _resolvePlayerShots() {
     for (final shot in List<PlayerCandyShot>.from(_playerShots)) {
       if (shot.spent) {
@@ -1830,6 +1881,11 @@ class MacaronGame extends FlameGame {
       ).any((solid) => solid.overlaps(hitbox));
       if (blocked) {
         shot.consume();
+        continue;
+      }
+      if (!shot.fromPlant && _swatEnemyCandy(shot)) {
+        shot.consume();
+        fx.enemyCandyPop(shot.position.clone());
         continue;
       }
       final currentBoss = boss;
@@ -1861,6 +1917,9 @@ class MacaronGame extends FlameGame {
           shot.consume();
           fx.enemyCandyPop(shot.position.clone());
           break;
+        }
+        if (shot.fromPlant && _plantPeaGlances(enemy)) {
+          continue;
         }
         final killed = enemy.takeStomp();
         shot.consume();

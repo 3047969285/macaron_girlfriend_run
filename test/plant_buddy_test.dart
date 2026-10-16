@@ -175,4 +175,128 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
+
+  testWidgets('plant peas leave the last armor layer for the gun', (
+    tester,
+  ) async {
+    final game = await _loadGame(tester);
+    final shell =
+        _enemy(game.player.position + Vector2(100, 0), kind: EnemyKind.shell)
+          ..targetX = game.player.position.x
+          ..targetY = game.player.position.y;
+    for (var frame = 0; frame < 200 && !shell.isGuarding; frame++) {
+      shell.update(0.05);
+    }
+    expect(shell.isGuarding, isTrue);
+    final behind = _enemy(game.player.position + Vector2(220, 0));
+    game.enemies.addAll([shell, behind]);
+    game.world.addAll([shell, behind]);
+    game.player
+      ..cosmeticId = 'pea_buddy'
+      ..invincibleTimer = 30;
+
+    for (var frame = 0; frame < 160 && shell.hitPoints == 2; frame++) {
+      game.update(1 / 30);
+    }
+    expect(shell.hitPoints, 1);
+
+    for (var frame = 0; frame < 120; frame++) {
+      game.update(1 / 30);
+    }
+    expect(shell.hitPoints, 1);
+    expect(shell.dead, isFalse);
+    expect(behind.dead, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a gun removes the armor layer a plant pea leaves', (
+    tester,
+  ) async {
+    final game = await _loadGame(tester);
+    final shell = _enemy(
+      game.player.position + Vector2(90, 0),
+      kind: EnemyKind.shell,
+    );
+    expect(shell.takeStomp(), isFalse);
+    expect(shell.hitPoints, 1);
+    game.enemies.add(shell);
+    game.world.add(shell);
+    game.player
+      ..facingRight = true
+      ..invincibleTimer = 2;
+    game
+      ..gunTimer = 2
+      ..setShootPressed(true);
+    for (var frame = 0; frame < 20 && !shell.dead; frame++) {
+      game.update(1 / 30);
+    }
+    expect(shell.dead, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a gun swats thrown candy and a plant pea lets it pass', (
+    tester,
+  ) async {
+    for (final useGun in [false, true]) {
+      final game = MacaronGame(
+        worldIndex: 0,
+        levelIndex: 0,
+        role: PlayerRole.girlfriend,
+      );
+      await tester.pumpWidget(GameWidget(game: game));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.levelReady, isTrue);
+      game.pauseEngine();
+      final walker = game.enemies.firstWhere(
+        (enemy) => enemy.kind == EnemyKind.walker,
+      );
+      for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+        if (enemy == walker) {
+          continue;
+        }
+        enemy.removeFromParent();
+        game.enemies.remove(enemy);
+      }
+
+      EnemyCandyShot? thrown;
+      for (var frame = 0; frame < 240 && thrown == null; frame++) {
+        game.player
+          ..position.setFrom(walker.position + Vector2(-140, 0))
+          ..velocity.setZero()
+          ..onGround = true
+          ..facingRight = true
+          ..invincibleTimer = 8;
+        walker.simActive = true;
+        game.update(1 / 30);
+        final shots = game.world.children
+            .whereType<EnemyCandyShot>()
+            .where((shot) => !shot.spent);
+        if (shots.isNotEmpty) {
+          thrown = shots.first;
+        }
+      }
+      expect(thrown, isNotNull);
+
+      final muzzle =
+          game.player.position +
+          Vector2(22, -game.player.hitHeight * 0.58);
+      final travel = GameConstants.enemyProjectileSpeedFor(
+        game.level.difficulty,
+      );
+      thrown!.position.setFrom(muzzle + Vector2(travel / 30 + 12, -14));
+      game.player.invincibleTimer = 8;
+      if (useGun) {
+        game
+          ..gunTimer = 2
+          ..setShootPressed(true);
+      } else {
+        game.player.cosmeticId = 'pea_buddy';
+      }
+      game.update(1 / 30);
+
+      expect(thrown.spent, useGun);
+      expect(game.player.dead, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 }

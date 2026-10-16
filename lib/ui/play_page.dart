@@ -9,6 +9,7 @@ import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
+import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
 import 'package:macaron_girlfriend_run/ui/macaron_dialogs.dart';
 
 /// 关卡游玩页
@@ -189,7 +190,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       if (!mounted) {
         return;
       }
-      showAchievementToast(context, a.title, icon: a.icon);
+      showAchievementToast(context, a.title, icon: a.icon, landscape: true);
       await Future<void>.delayed(const Duration(milliseconds: 700));
     }
   }
@@ -229,6 +230,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       }
       await showMacaronDialog<void>(
         context: context,
+        landscape: true,
         title: '💍 蜜月彩虹通关！',
         body:
             '你推开了全部 99 扇甜蜜大门\n'
@@ -252,6 +254,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     if (widget.levelIndex == GameConstants.levelsPerWorld - 1) {
       await showMacaronDialog<void>(
         context: context,
+        landscape: true,
         title: '🌍 世界通关！',
         body:
             '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
@@ -289,6 +292,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
 
     await showMacaronDialog<void>(
       context: context,
+      landscape: true,
       title: '${List.filled(result.stars, '★').join()} 过关',
       body:
           '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
@@ -342,6 +346,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     }
     await showMacaronDialog<void>(
       context: context,
+      landscape: true,
       title: '再试一次嘛',
       body: '本关分数 ${game.score}\n检查点会记住你跑过的旗子哦',
       actions: [
@@ -399,6 +404,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     AudioService.instance.pauseBgm();
     await showMacaronDialog<void>(
       context: context,
+      landscape: true,
       title: '先休息一下？',
       body: '退出后本关进度不会保存\n（检查点只在本局有效）',
       actions: [
@@ -440,7 +446,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => GameViewport(
+    onGeometryChanged: game.clearInput,
+    child: Builder(builder: _buildPlayView),
+  );
+
+  Widget _buildPlayView(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     final levelTitle = LevelNames.of(widget.worldIndex, widget.levelIndex);
     final worldName = WorldCatalog.paletteOf(widget.worldIndex).name;
@@ -499,119 +510,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        children: [
-                          _HudChip(
-                            onTap: (_showTutorial || _busy)
-                                ? null
-                                : _confirmExit,
-                            child: const Icon(
-                              CupertinoIcons.back,
-                              size: 18,
-                              color: MacaronColors.cocoa,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  worldName,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: MacaronColors.cocoa.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  levelTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: MacaronColors.cocoa,
-                                  ),
-                                ),
-                                Text(
-                                  GameConstants.difficultyLabel(
-                                    game.levelReady ? game.level.difficulty : 1,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: MacaronColors.rose.withValues(
-                                      alpha: 0.75,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (game.weaponVisible ||
-                              game.plantBuddyTimer > 0 ||
-                              game.vehicleTimer > 0) ...[
-                            const SizedBox(width: 6),
-                            _HudChip(
-                              child: Text(
-                                [
-                                  if (game.weaponVisible)
-                                    '🔫${game.gunTimer.ceil()}s',
-                                  if (game.plantBuddyTimer > 0)
-                                    '🌱${game.plantBuddyTimer.ceil()}s',
-                                  if (game.vehicleTimer > 0)
-                                    '🚙${game.vehicleTimer.ceil()}s',
-                                  if (game.vehicleBoosting) '加速',
-                                  if (game.vehicleChargeRatio > 0)
-                                    '蓄力${(game.vehicleChargeRatio * 100).round()}%',
-                                ].join(' '),
-                                style: _hudText,
-                              ),
-                            ),
-                          ],
-                          _HudChip(
-                            child: Text('❤️×${game.lives}', style: _hudText),
-                          ),
-                          const SizedBox(width: 6),
-                          _HudChip(
-                            child: Text(
-                              '🍬${game.collected}/${game.totalCoins}',
-                              style: _hudText,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          _HudChip(
-                            child: Text('${game.score}', style: _hudText),
-                          ),
-                          const SizedBox(width: 6),
-                          _HudChip(
-                            child: Text(
-                              '${game.timeLeft.ceil()}s',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: game.timeLeft < 30
-                                    ? MacaronColors.rose
-                                    : MacaronColors.cocoa,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          _HudChip(
-                            onTap: (_showTutorial || _busy)
-                                ? null
-                                : _togglePause,
-                            child: Icon(
-                              game.userPaused
-                                  ? CupertinoIcons.play_fill
-                                  : CupertinoIcons.pause_fill,
-                              size: 16,
-                              color: MacaronColors.cocoa,
-                            ),
-                          ),
-                        ],
+                      _GameHudHeader(
+                        game: game,
+                        worldName: worldName,
+                        levelTitle: levelTitle,
+                        onExit: (_showTutorial || _busy) ? null : _confirmExit,
+                        onPause: (_showTutorial || _busy) ? null : _togglePause,
                       ),
                       if (game.levelReady) ...[
                         const SizedBox(height: 6),
@@ -717,6 +621,138 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     fontWeight: FontWeight.w700,
     fontSize: 13,
     color: MacaronColors.cocoa,
+  );
+}
+
+class _GameHudHeader extends StatelessWidget {
+  const _GameHudHeader({
+    required this.game,
+    required this.worldName,
+    required this.levelTitle,
+    this.onExit,
+    this.onPause,
+  });
+  final MacaronGame game;
+  final String worldName;
+  final String levelTitle;
+  final VoidCallback? onExit;
+  final VoidCallback? onPause;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 760;
+      const style = TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: MacaronColors.cocoa,
+      );
+      final equipment = [
+        if (game.weaponVisible) '🔫${game.gunTimer.ceil()}s',
+        if (game.plantBuddyTimer > 0) '🌱${game.plantBuddyTimer.ceil()}s',
+        if (game.vehicleTimer > 0) '🚙${game.vehicleTimer.ceil()}s',
+        if (game.vehicleBoosting) '加速',
+        if (game.vehicleChargeRatio > 0)
+          '蓄力${(game.vehicleChargeRatio * 100).round()}%',
+      ];
+      final stats = <Widget>[
+        if (equipment.isNotEmpty)
+          _HudChip(child: Text(equipment.join(' '), style: style)),
+        _HudChip(child: Text('❤️×${game.lives}', style: style)),
+        _HudChip(
+          child: Text('🍬${game.collected}/${game.totalCoins}', style: style),
+        ),
+        _HudChip(child: Text('${game.score}', style: style)),
+        _HudChip(
+          child: Text(
+            '${game.timeLeft.ceil()}s',
+            style: style.copyWith(
+              color: game.timeLeft < 30
+                  ? MacaronColors.rose
+                  : MacaronColors.cocoa,
+            ),
+          ),
+        ),
+      ];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _HudChip(
+                onTap: onExit,
+                child: const Icon(
+                  CupertinoIcons.back,
+                  size: 18,
+                  color: MacaronColors.cocoa,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      worldName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: MacaronColors.cocoa.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    Text(
+                      levelTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: MacaronColors.cocoa,
+                      ),
+                    ),
+                    Text(
+                      GameConstants.difficultyLabel(
+                        game.levelReady ? game.level.difficulty : 1,
+                      ),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: MacaronColors.rose.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!compact)
+                ...stats.map(
+                  (stat) => Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: stat,
+                  ),
+                ),
+              _HudChip(
+                onTap: onPause,
+                child: Icon(
+                  game.userPaused
+                      ? CupertinoIcons.play_fill
+                      : CupertinoIcons.pause_fill,
+                  size: 16,
+                  color: MacaronColors.cocoa,
+                ),
+              ),
+            ],
+          ),
+          if (compact) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(spacing: 6, runSpacing: 4, children: stats),
+            ),
+          ],
+        ],
+      );
+    },
   );
 }
 
@@ -901,52 +937,55 @@ class _PauseOverlay extends StatelessWidget {
     return ColoredBox(
       color: Colors.black45,
       child: Center(
-        child: Container(
-          width: 300,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: MacaronColors.cream,
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                fromLifecycle ? '切到后台啦' : '暂停',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: MacaronColors.cocoa,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: MacaronColors.cream,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fromLifecycle ? '切到后台啦' : '暂停',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: MacaronColors.cocoa,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                fromLifecycle
-                    ? '回来点「继续」就能接着跑～限时已帮你停住'
-                    : '键盘：方向/WASD 移动 · 空格/W 跳 · Shift 跑 · J闪冲 K糖盾 Q花弹 · 1下砸 2二段 3糖线\n蓝台可从下穿过 · 黄台会塌 · 紫台会带着走',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: MacaronColors.cocoa.withValues(alpha: 0.55),
+                const SizedBox(height: 8),
+                Text(
+                  fromLifecycle
+                      ? '回来点「继续」就能接着跑～限时已帮你停住'
+                      : '键盘：方向/WASD 移动 · 空格/W 跳 · Shift 跑 · J闪冲 K糖盾 Q花弹 · 1下砸 2二段 3糖线\n蓝台可从下穿过 · 黄台会塌 · 紫台会带着走',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: MacaronColors.cocoa.withValues(alpha: 0.55),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                starTips,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: MacaronColors.rose,
+                const SizedBox(height: 10),
+                Text(
+                  starTips,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: MacaronColors.rose,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _menuBtn('继续', onResume, filled: true),
-              const SizedBox(height: 10),
-              _menuBtn('重试本关', onRetry),
-              const SizedBox(height: 10),
-              _menuBtn('退出选关', onQuit),
-            ],
+                const SizedBox(height: 16),
+                _menuBtn('继续', onResume, filled: true),
+                const SizedBox(height: 10),
+                _menuBtn('重试本关', onRetry),
+                const SizedBox(height: 10),
+                _menuBtn('退出选关', onQuit),
+              ],
+            ),
           ),
         ),
       ),
@@ -982,52 +1021,55 @@ class _TutorialOverlay extends StatelessWidget {
     return ColoredBox(
       color: Colors.black54,
       child: Center(
-        child: Container(
-          width: 340,
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: MacaronColors.cream,
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '怎么玩',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: MacaronColors.cocoa,
+        child: SingleChildScrollView(
+          child: Container(
+            width: 340,
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: MacaronColors.cream,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '怎么玩',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: MacaronColors.cocoa,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              const Text('• A/D 或←→移动，Shift 跑，S/↓蹲'),
-              const Text('• 空格或 W 跳：短按低、长按高'),
-              const Text('• J 闪冲，K 糖盾，Q 花弹，1 下砸，2 二段跳，3 糖线'),
-              const Text('• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲'),
-              const Text('• 连击加分；Boss 半血狂暴跳砸'),
-              const Text('• 问号砖、糖果有奖，蓝旗检查点'),
-              const Text('• 豌豆自动攻击；拾枪F/点射击，小车可挡一次'),
-              const Text('• E/技能键：闪冲 / 糖盾 / 花弹'),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: CupertinoButton(
-                  color: MacaronColors.rose,
-                  borderRadius: BorderRadius.circular(16),
-                  onPressed: onDone,
-                  child: const Text(
-                    '开始冒险',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                const SizedBox(height: 12),
+                const Text('• A/D 或←→移动，Shift 跑，S/↓蹲'),
+                const Text('• 空格或 W 跳：短按低、长按高'),
+                const Text('• J 闪冲，K 糖盾，Q 花弹，1 下砸，2 二段跳，3 糖线'),
+                const Text('• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲'),
+                const Text('• 连击加分；Boss 半血狂暴跳砸'),
+                const Text('• 问号砖、糖果有奖，蓝旗检查点'),
+                const Text('• 豌豆、闪冲和普通踩踏只破一层护甲。枪能补最后一层，1 下砸把糖壳和红胖直接砸碎'),
+                const Text('• 拾枪后 F 能打掉飞来的糖豆。小车可挡一次，蓄力加速才能碾过糖壳和红胖'),
+                const Text('• 主技能随关卡变化，上方可选六技能'),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoButton(
+                    color: MacaronColors.rose,
+                    borderRadius: BorderRadius.circular(16),
+                    onPressed: onDone,
+                    child: const Text(
+                      '开始冒险',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

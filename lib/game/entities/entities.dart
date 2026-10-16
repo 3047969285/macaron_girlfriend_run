@@ -1234,7 +1234,7 @@ class CandyShockwave extends PositionComponent {
   }
 }
 
-/// 跑酷关卡中的限时糖果发射器
+/// 限时糖果发射器。糖弹能补掉护甲最后一层，也能打掉飞来的糖豆。
 class GunPickup extends PositionComponent {
   GunPickup({required Vector2 position})
     : super(
@@ -1352,7 +1352,7 @@ class PeaSeed extends PositionComponent {
   }
 }
 
-/// 跑酷路段里的玩具小车，提供短时加速与一次碰撞保护
+/// 跑酷路段里的玩具小车。普通撞击只破一层护甲，蓄力加速才能碾过糖壳和红胖，并挡一次伤害。
 class VehiclePickup extends PositionComponent {
   VehiclePickup({required Vector2 position})
     : super(
@@ -1407,7 +1407,8 @@ class VehiclePickup extends PositionComponent {
   }
 }
 
-/// 玩家和豌豆伙伴发射的糖豆
+/// 玩家糖枪、花弹和豌豆伙伴发射的糖豆。
+/// 豌豆打不穿护甲最后一层；糖枪和花弹可以，并能打掉飞来的糖豆。
 class PlayerCandyShot extends PositionComponent {
   static const peaSize = 20.0;
   static const hitboxScale = 0.72;
@@ -1416,6 +1417,7 @@ class PlayerCandyShot extends PositionComponent {
     required Vector2 position,
     required Vector2 direction,
     this.isPea = false,
+    this.fromPlant = false,
     this.speed = 520,
   }) : direction = direction.clone()..normalize(),
        super(
@@ -1427,6 +1429,7 @@ class PlayerCandyShot extends PositionComponent {
 
   final Vector2 direction;
   final bool isPea;
+  final bool fromPlant;
   final double speed;
   double _life = 1.4;
   double _wobble = 0;
