@@ -185,6 +185,7 @@ void _runWithLiveControls(
   MacaronGame game, {
   required bool Function() isCleared,
   required bool Function() isGameOver,
+  double? destinationX,
   void Function(String before)? onPlayerDeath,
 }) {
   game
@@ -192,6 +193,7 @@ void _runWithLiveControls(
     ..onGameResize(Vector2(960, 540));
 
   final gaps = _RoutePilot(game).gaps;
+  final targetX = destinationX ?? game.goal!.position.x;
   var gapIndex = 0;
   var jumpIssued = false;
   var jumpHoldFrames = 0;
@@ -301,13 +303,10 @@ void _runWithLiveControls(
     final enemyDistance = nextEnemy == null
         ? double.infinity
         : nextEnemy.position.x - x;
-    final enemyNearGap = game.enemies.any(
-      (enemy) => !enemy.dead && (enemy.position.x - gapStartX).abs() <= 240,
-    );
-    final gapJumpWindow = enemyNearGap ? 280.0 : 160.0;
+    const gapJumpWindow = 160.0;
+    const gapTakeoffDistance = 80.0;
     final duckForWalker =
-        (nextEnemy?.kind == EnemyKind.walker ||
-            nextEnemy?.kind == EnemyKind.swooper) &&
+        nextEnemy?.kind == EnemyKind.walker &&
         enemyDistance >=
             -(nextEnemy!.size.x / 2 + GirlfriendPlayer.standWidth / 2) &&
         enemyDistance <= 220;
@@ -321,11 +320,11 @@ void _runWithLiveControls(
               game.player.position.y - GirlfriendPlayer.standHeight - 12 &&
           shot.position.y <= game.player.position.y + 8;
     });
-    final gapApproach = gapDistance >= 0 && gapDistance <= gapJumpWindow;
+    final gapTakeoff = gapDistance >= 0 && gapDistance <= gapTakeoffDistance;
     final ducking =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
             x <= tunnelEnd + GirlfriendPlayer.standWidth ||
-        !gapApproach && !obstacleAhead && (duckForWalker || duckForShot);
+        !gapTakeoff && !obstacleAhead && (duckForWalker || duckForShot);
     final beforeTunnel =
         x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
         x < tunnelStart - 48;
@@ -342,14 +341,35 @@ void _runWithLiveControls(
         !jumpIssued;
     final waitToLand =
         beforeTunnel && !game.player.onGround && !jumpIssued || waitAtGap;
-    final finalApproach = x >= game.goal!.position.x - 440;
-    final jumpForGap = gapDistance >= 0 && gapDistance <= gapJumpWindow;
+    final jumpForGap = gapTakeoff;
+    final enemyJumpWindow = switch (nextEnemy?.kind) {
+      EnemyKind.shell =>
+        GameConstants.enemySkillRangeFor(
+              game.level.difficulty,
+              EnemyKind.shell,
+            ) +
+            GameConstants.tileSize,
+      EnemyKind.roller =>
+        GameConstants.enemySkillRangeFor(
+              game.level.difficulty,
+              EnemyKind.roller,
+            ) +
+            GameConstants.tileSize * 1.5,
+      EnemyKind.popper =>
+        GameConstants.enemySkillRangeFor(
+              game.level.difficulty,
+              EnemyKind.popper,
+            ) +
+            GameConstants.tileSize,
+      _ => 240.0,
+    };
     final jumpForEnemy =
         nextEnemy != null &&
         nextEnemy.kind != EnemyKind.walker &&
         nextEnemy.kind != EnemyKind.swooper &&
         enemyDistance >= GirlfriendPlayer.standWidth &&
-        enemyDistance <= 240 &&
+        enemyDistance <= enemyJumpWindow &&
+        gapDistance > 440 &&
         !obstacleSoon;
     final jumpForObstacle = obstacleAhead;
     if (game.player.onGround) {
@@ -359,7 +379,6 @@ void _runWithLiveControls(
         game.player.onGround &&
         !ducking &&
         !waitToLand &&
-        !finalApproach &&
         !jumpIssued &&
         jumpHoldFrames == 0 &&
         !game.jumpHeld &&
@@ -369,8 +388,8 @@ void _runWithLiveControls(
       jumpHoldFrames = 9;
     }
     game
-      ..rightPressed = !waitToLand
-      ..leftPressed = false
+      ..rightPressed = !waitToLand && x < targetX
+      ..leftPressed = x > targetX + 20
       ..runPressed = true
       ..setDuckPressed(ducking);
     if (jumpHoldFrames > 0) {
@@ -393,7 +412,9 @@ void _runWithLiveControls(
           (nearest, distance) => math.min(nearest, distance),
         );
     final gapBlocksDash = gapDistance >= -48 && gapDistance <= 240;
-    if (approachingShotDistance <= 105 &&
+    if ((approachingShotDistance <= 105 ||
+            enemyDistance >= -30 && enemyDistance <= 95) &&
+        !game.player.isInvincible &&
         game.cooldownRatioOf(HeroSkill.shield) == 0) {
       game.activateSkill(HeroSkill.shield);
     } else if (game.player.onGround &&
@@ -571,6 +592,22 @@ void main() {
           }
           final orderedPickups = pickupPositions.entries.toList()
             ..sort((left, right) => left.value.compareTo(right.value));
+          final pickupSpan =
+              orderedPickups.last.value - orderedPickups.first.value;
+          expect(
+            pickupSpan,
+            greaterThanOrEqualTo((level.width - 8) ~/ 5 * 2 - 16),
+            reason:
+                'world $w level $l should distribute core modes across the map',
+          );
+          if (level.width >= 400) {
+            expect(
+              pickupSpan,
+              greaterThan(level.width * 0.36),
+              reason:
+                  'world $w level $l should keep long-stage modes spread out',
+            );
+          }
           pickupOrders.add(orderedPickups.map((entry) => entry.key).join());
         }
         worldModes[w].addAll(modes);
@@ -611,6 +648,11 @@ void main() {
       );
     }
     expect(LevelCatalog.load(8, 10).width, 464);
+    expect(
+      LevelCatalog.load(8, 9).rows.join().split('S').length - 1,
+      greaterThanOrEqualTo(5),
+      reason: 'long levels should gain extra authored jump scenes',
+    );
   });
 
   test('every level is unique and has a traversable ground route', () {
@@ -1009,7 +1051,7 @@ void main() {
   });
 
   testWidgets(
-    'every world boss clears with continuous movement and combat input',
+    'all 9 boss stages clear with live enemies, movement, and combat input',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'sound_on': false,
@@ -1034,9 +1076,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(game.levelReady, isTrue, reason: 'world $worldIndex loads');
         game.pauseEngine();
-        for (final enemy in game.enemies) {
-          enemy.dead = true;
-        }
 
         final boss = game.boss!;
         final weapon = game.gunPickups.firstWhere(
@@ -1046,7 +1085,6 @@ void main() {
               boss.position.x - pickup.position.x <=
                   GameConstants.tileSize * 14,
         );
-        final routePilot = _RoutePilot(game);
         const dt = 1 / 30;
         final stagingX =
             boss.leftBound -
@@ -1054,27 +1092,31 @@ void main() {
             boss.size.x * 0.4 -
             28;
 
-        for (var frame = 0; frame < 2400; frame++) {
-          routePilot.step();
-          game.update(dt);
-          if (weapon.collected &&
-              game.player.onGround &&
-              game.player.position.x >= stagingX) {
-            break;
-          }
-        }
+        _runWithLiveControls(
+          game,
+          destinationX: weapon.position.x,
+          isCleared: () => weapon.collected && game.player.onGround,
+          isGameOver: () => game.lives <= 0,
+        );
         expect(
           weapon.collected,
           isTrue,
           reason: 'world $worldIndex player runs into the gun',
         );
         expect(game.weaponVisible, isTrue);
+        _runWithLiveControls(
+          game,
+          destinationX: stagingX,
+          isCleared: () =>
+              game.player.onGround &&
+              (game.player.position.x - stagingX).abs() <= 20,
+          isGameOver: () => game.lives <= 0,
+        );
         expect(
           game.player.position.x,
           greaterThanOrEqualTo(stagingX - 20),
           reason: 'world $worldIndex route reaches the boss arena',
         );
-
         var jumpFrames = 0;
         final initialBossHp = boss.hp;
         for (
@@ -1160,7 +1202,11 @@ void main() {
             isTrue,
             reason:
                 'world 0 gun counters attack warnings from safe ground; '
-                'gun time=$gunTimeAtRetreat, remaining=${game.gunTimer}',
+                'gun time=$gunTimeAtRetreat, remaining=${game.gunTimer}, '
+                'hp=${boss.hp}/${boss.maxHp}, '
+                'player=${game.player.position} dead=${game.player.dead}, '
+                'telegraph=${boss.isTelegraphing} '
+                'receive=${boss.canReceiveProjectile}',
           );
         } else {
           expect(
@@ -1179,14 +1225,22 @@ void main() {
           );
         }
 
-        for (var frame = 0; frame < 2400 && result == null; frame++) {
-          routePilot.step();
-          game.update(dt);
-        }
+        final exitDeaths = <String>[];
+        final livesAfterBoss = game.lives;
+        _runWithLiveControls(
+          game,
+          isCleared: () => result != null,
+          isGameOver: () => game.lives <= 0,
+          onPlayerDeath: exitDeaths.add,
+        );
         expect(
           result?.cleared,
           isTrue,
-          reason: 'world $worldIndex unlocked exit is reachable',
+          reason:
+              'world $worldIndex unlocked exit is reachable; '
+              'lives=$livesAfterBoss -> ${game.lives}, '
+              'position=${game.player.position}, time=${game.timeLeft}; '
+              '${exitDeaths.reversed.take(3).join('; ')}',
         );
         expect(result?.bossCleared, isTrue);
         expect(game.lives, greaterThan(0));
@@ -1312,6 +1366,7 @@ void main() {
       final cues = <EnemyKind>[];
       var shots = 0;
       var traps = 0;
+      var shockwaves = 0;
       final enemy = SoftEnemy(
         position: Vector2(200, 120),
         leftBound: 0,
@@ -1321,6 +1376,7 @@ void main() {
         onSkillCue: (_, skill) => cues.add(skill),
         onShoot: (_, _) => shots++,
         onLayTrap: (_) => traps++,
+        onShockwave: (_) => shockwaves++,
       )..targetX = 320;
       enemy.targetY = 120;
 
@@ -1355,7 +1411,12 @@ void main() {
             enemy.update(0.05);
           }
           expect(enemy.position.y, lessThan(120));
-        case EnemyKind.shell || EnemyKind.roller:
+        case EnemyKind.shell:
+          final beforeGuard = enemy.position.x;
+          enemy.update(0.05);
+          expect(enemy.isGuarding, isTrue);
+          expect(enemy.position.x, beforeGuard);
+        case EnemyKind.roller:
           final beforeCharge = enemy.position.x;
           enemy.update(0.05);
           expect(enemy.position.x, greaterThan(beforeCharge));
@@ -1365,8 +1426,185 @@ void main() {
             enemy.update(0.05);
           }
           expect(enemy.position.y, closeTo(120, 0.5));
+          expect(shockwaves, 1);
       }
     }
+  });
+
+  test('popper shockwave is low, jumpable, and finite', () {
+    const groundY = 240.0;
+    final wave = CandyShockwave(
+      position: Vector2(100, groundY),
+      direction: 1,
+      speed: 240,
+      range: 96,
+      canTravel: (_, _) => true,
+    );
+    Rect playerBoxAt(double feetY) => Rect.fromCenter(
+      center: Offset(100, feetY - GirlfriendPlayer.standHeight / 2),
+      width: GirlfriendPlayer.standWidth * 0.65,
+      height: GirlfriendPlayer.standHeight * 0.9,
+    );
+
+    expect(wave.hitbox.overlaps(playerBoxAt(groundY)), isTrue);
+    expect(wave.hitbox.overlaps(playerBoxAt(groundY - 60)), isFalse);
+    wave.update(0.2);
+    expect(wave.position.x, closeTo(148, 0.01));
+    expect(wave.spent, isFalse);
+    wave.update(0.21);
+    expect(wave.spent, isTrue);
+  });
+
+  test('shockwaves stop at gaps and walls during a coarse update', () {
+    for (final hasWall in [false, true]) {
+      final floors = hasWall
+          ? [const Rect.fromLTWH(-48, 240, 400, 96)]
+          : [
+              const Rect.fromLTWH(-48, 240, 108, 96),
+              const Rect.fromLTWH(108, 240, 240, 96),
+            ];
+      final wall = const Rect.fromLTWH(60, 180, 24, 60);
+      final wave = CandyShockwave(
+        position: Vector2(0, 240),
+        direction: 1,
+        speed: 240,
+        range: 240,
+        canTravel: (body, support) =>
+            floors.any((floor) => floor.contains(support.center)) &&
+            (!hasWall || !wall.overlaps(body)),
+      );
+
+      wave.update(0.75);
+
+      expect(wave.spent, isTrue, reason: hasWall ? 'wall' : 'gap');
+      expect(wave.position.x, lessThanOrEqualTo(60));
+    }
+  });
+
+  testWidgets('live popper waves hit a runner but a jump avoids them', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    for (final jump in [false, true]) {
+      final game = MacaronGame(
+        worldIndex: 0,
+        levelIndex: 0,
+        role: PlayerRole.girlfriend,
+      );
+      await tester.pumpWidget(GameWidget(game: game));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.levelReady, isTrue);
+      game.pauseEngine();
+      final trigger = game.enemies
+          .firstWhere((enemy) => enemy.kind == EnemyKind.popper)
+          .onShockwave!;
+      for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+        enemy.removeFromParent();
+      }
+      game.enemies.clear();
+      final groundY = (game.level.height - 2) * GameConstants.tileSize;
+      game.player
+        ..position.setValues(GameConstants.tileSize * 3, groundY)
+        ..velocity.setZero()
+        ..onGround = true
+        ..invincibleTimer = 0;
+      trigger(game.player.position + Vector2(GameConstants.tileSize * 2, 0));
+      game.update(0);
+      expect(game.world.children.whereType<CandyShockwave>(), hasLength(2));
+      if (jump) {
+        game.setJumpHeld(true);
+      }
+
+      for (var frame = 0; frame < 30 && !game.player.dead; frame++) {
+        game.update(1 / 30);
+      }
+
+      expect(
+        game.player.dead,
+        !jump,
+        reason: jump ? 'jump counter' : 'ground hit',
+      );
+      if (!jump) {
+        game.update(1 / 30);
+        expect(
+          game.world.children.whereType<CandyShockwave>().where(
+            (wave) => !wave.spent,
+          ),
+          isEmpty,
+        );
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('shell blocks ranged hits while curled but can be stomped', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    final game = MacaronGame(
+      worldIndex: 0,
+      levelIndex: 0,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(game.levelReady, isTrue);
+    game.pauseEngine();
+    for (final enemy in List<SoftEnemy>.from(game.enemies)) {
+      enemy.removeFromParent();
+    }
+    game.enemies.clear();
+
+    final playerStart = game.player.position.clone();
+    final shell =
+        SoftEnemy(
+            position: playerStart + Vector2(120, 0),
+            leftBound: playerStart.x + 120,
+            rightBound: playerStart.x + 120,
+            difficulty: game.level.difficulty,
+            kind: EnemyKind.shell,
+          )
+          ..targetX = playerStart.x
+          ..targetY = playerStart.y;
+    for (var frame = 0; frame < 200 && !shell.isGuarding; frame++) {
+      shell.update(0.05);
+    }
+    expect(shell.isGuarding, isTrue);
+
+    game
+      ..enemies.add(shell)
+      ..world.add(shell);
+    game.player
+      ..onGround = true
+      ..velocity.setZero()
+      ..invincibleTimer = 0;
+    game
+      ..gunTimer = 2
+      ..setShootPressed(true);
+    for (var frame = 0; frame < 12; frame++) {
+      game.update(1 / 30);
+    }
+
+    expect(shell.hitPoints, 2);
+    expect(shell.dead, isFalse);
+    expect(game.player.dead, isFalse);
+    game.setShootPressed(false);
+    expect(shell.takeStomp(), isFalse);
+    expect(shell.hitPoints, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   test('signature levels contain handcrafted markers', () {
@@ -1381,7 +1619,7 @@ void main() {
     }
   });
 
-  test('every world fields a shell, a roller, and a popper', () {
+  test('every world fields special enemies in opening and later levels', () {
     for (var world = 0; world < GameConstants.worldCount; world++) {
       final marks = {'L': 0, 'Y': 0, 'J': 0};
       for (var level = 0; level < GameConstants.levelsPerWorld; level++) {
@@ -1393,6 +1631,16 @@ void main() {
       expect(marks['L'], greaterThan(0), reason: 'world $world shell');
       expect(marks['Y'], greaterThan(0), reason: 'world $world roller');
       expect(marks['J'], greaterThan(0), reason: 'world $world popper');
+      for (final level in [0, 2, 9]) {
+        final rows = LevelCatalog.load(world, level).rows.join();
+        for (final marker in marks.keys) {
+          expect(
+            rows,
+            contains(marker),
+            reason: 'world $world level ${level + 1} includes $marker',
+          );
+        }
+      }
     }
   });
 
@@ -1666,7 +1914,7 @@ void main() {
   );
 
   testWidgets(
-    'live traversal clears a starter, threat level, and each enemy archetype',
+    'all 90 normal levels clear with live enemies and combat controls',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'sound_on': false,
@@ -1675,58 +1923,35 @@ void main() {
       });
       await SaveService.instance.init();
 
-      const enemyMarkers = ['E', 'G', 'R', 'T', 'A'];
-      final archetypeLevels = <String, (int, int)>{};
-      for (var world = 0; world < GameConstants.worldCount; world++) {
-        for (var level = 0; level < GameConstants.levelsPerWorld - 1; level++) {
-          final rows = LevelCatalog.load(world, level).rows.join();
-          for (final marker in enemyMarkers) {
-            if (rows.contains(marker)) {
-              archetypeLevels.putIfAbsent(marker, () => (world, level));
-            }
-          }
-          if (archetypeLevels.length == enemyMarkers.length) {
-            break;
-          }
-        }
-        if (archetypeLevels.length == enemyMarkers.length) {
-          break;
-        }
-      }
-      expect(archetypeLevels.keys, containsAll(enemyMarkers));
-      final scenarios = <(int, int)>{
-        (0, 0),
-        (0, 2), // Regression for landing on an enemy during fast movement.
-        (1, 6),
-        ...List.generate(
-          GameConstants.worldCount,
-          (world) => (world, GameConstants.levelsPerWorld - 2),
-        ),
-        ...archetypeLevels.values,
-      };
+      final scenarios = <(int, int)>[
+        for (var world = 0; world < GameConstants.worldCount; world++)
+          for (var level = 0; level < GameConstants.levelsPerWorld - 1; level++)
+            (world, level),
+      ];
+      final failures = <String>[];
       for (final (world, level) in scenarios) {
         final run = await _clearLevelWithLiveControls(
           tester,
           worldIndex: world,
           levelIndex: level,
         );
-        expect(
-          run.result?.cleared,
-          isTrue,
-          reason:
-              'w$world l$level must be completable; '
-              'x=${run.game.player.position.x.round()} '
-              'y=${run.game.player.position.y.round()} '
-              'lives=${run.game.lives} '
-              'time=${run.game.timeLeft.toStringAsFixed(1)} '
-              'gameOver=${run.gameOver} '
-              'deaths=${run.deathTrace.join('; ')} '
-              'enemies=${run.game.enemies.where((enemy) => !enemy.dead).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')}',
-        );
-        expect(run.gameOver, isFalse);
-        expect(run.game.lives, greaterThan(0));
+        if (run.result?.cleared != true ||
+            run.gameOver ||
+            run.game.lives <= 0) {
+          failures.add(
+            'w$world l$level must be completable; '
+            'x=${run.game.player.position.x.round()} '
+            'y=${run.game.player.position.y.round()} '
+            'lives=${run.game.lives} '
+            'time=${run.game.timeLeft.toStringAsFixed(1)} '
+            'gameOver=${run.gameOver} '
+            'deaths=${run.deathTrace.reversed.take(2).toList().reversed.join('; ')} '
+            'enemies=${run.game.enemies.where((enemy) => !enemy.dead).map((enemy) => '${enemy.kind}@${enemy.position.x.round()}').join(',')}',
+          );
+        }
         await tester.pumpWidget(const SizedBox.shrink());
       }
+      expect(failures.length, 0, reason: failures.join('\n'));
     },
     timeout: const Timeout(Duration(minutes: 10)),
   );
@@ -1860,7 +2085,8 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
+        enemyCount:
+            game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
       ),
     );
     expect(walker.dead, isFalse);
@@ -2096,7 +2322,8 @@ void main() {
       GameConstants.startingLivesFor(
         game.level.difficulty,
         mapWidth: game.level.width,
-        enemyCount: game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
+        enemyCount:
+            game.level.rows.join().split(RegExp('[AEGRTLYJ]')).length - 1,
       ),
     );
     expect(game.player.position.x, greaterThanOrEqualTo(landingTarget));

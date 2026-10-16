@@ -23,6 +23,9 @@ class AudioService {
   Future<void>? _initTask;
   bool _bgmPlaying = false;
   int _bgmWorld = -1;
+  bool _bgmBoss = false;
+  Object? _bgmOwner;
+  int _bgmRevision = 0;
   double? _appliedBgmVolume;
   double? _appliedFxVolume;
 
@@ -37,7 +40,7 @@ class AudioService {
   late final Uint8List _wavShoot;
   late final Uint8List _wavVehicle;
   late final Uint8List _wavEnemySkill;
-  final Map<int, Uint8List> _bgmByWorld = {};
+  final Map<(int, bool), Uint8List> _bgmCache = {};
 
   bool get soundOn => SaveService.instance.soundEnabled;
   bool get musicOn => SaveService.instance.musicEnabled;
@@ -104,45 +107,93 @@ class AudioService {
     }
   }
 
-  Uint8List _bgmBytes(int worldIndex) {
-    final w = worldIndex.clamp(0, 8);
-    return _bgmByWorld.putIfAbsent(w, () => SynthWav.bgmLoopForWorld(w));
+  Uint8List _bgmBytes(int worldIndex, {required bool boss}) {
+    final world = worldIndex.clamp(0, 8).toInt();
+    return _bgmCache.putIfAbsent(
+      (world, boss),
+      () => boss
+          ? SynthWav.bossLoopForWorld(world)
+          : SynthWav.bgmLoopForWorld(world),
+    );
   }
 
-  /// 关卡内开始循环授权慢拍 BGM，按世界轮换。
-  Future<void> startBgm({int worldIndex = 0}) async {
+  /// 普通关按世界轮换授权曲，Boss 关播放世界专属短主题。
+  Future<void> startBgm({
+    int worldIndex = 0,
+    bool boss = false,
+    Object? owner,
+  }) async {
+    final revision = ++_bgmRevision;
+    _bgmOwner = owner;
     await init();
-    if (!musicOn) {
-      await stopBgm();
+    if (!_isBgmRequestCurrent(revision, owner)) {
       return;
     }
-    if (_bgmPlaying && _bgmWorld == worldIndex) {
+    if (!musicOn) {
+      await stopBgm(owner: owner);
+      return;
+    }
+    final world = worldIndex.clamp(0, 8).toInt();
+    if (_bgmPlaying && _bgmWorld == world && _bgmBoss == boss) {
       await applyVolumes();
+      if (!_isBgmRequestCurrent(revision, owner)) {
+        return;
+      }
       await resumeBgm();
       return;
     }
     await _bgm.stop();
-    await applyVolumes();
-    final asset = _bgmAssets[worldIndex % _bgmAssets.length];
-    try {
-      // 关卡主曲是按世界写的多轨循环。三首授权曲只在合成失败时兜底。
-      await _bgm.play(BytesSource(_bgmBytes(worldIndex)));
-    } catch (_) {
-      await _bgm.play(AssetSource(asset));
+    if (!_isBgmRequestCurrent(revision, owner)) {
+      return;
     }
-    _bgmWorld = worldIndex;
+    await applyVolumes();
+    if (!_isBgmRequestCurrent(revision, owner)) {
+      return;
+    }
+    final asset = _bgmAssets[(world + (boss ? 1 : 0)) % _bgmAssets.length];
+    try {
+      if (boss) {
+        await _bgm.play(BytesSource(_bgmBytes(world, boss: true)));
+      } else {
+        await _bgm.play(AssetSource(_bgmAssets[world % _bgmAssets.length]));
+      }
+    } catch (_) {
+      if (!_isBgmRequestCurrent(revision, owner)) {
+        return;
+      }
+      if (boss) {
+        await _bgm.play(AssetSource(asset));
+      } else {
+        await _bgm.play(BytesSource(_bgmBytes(world, boss: false)));
+      }
+    }
+    if (!_isBgmRequestCurrent(revision, owner)) {
+      return;
+    }
+    _bgmWorld = world;
+    _bgmBoss = boss;
     _bgmPlaying = true;
   }
 
   /// 停止 BGM
-  Future<void> stopBgm() async {
+  bool _isBgmRequestCurrent(int revision, Object? owner) =>
+      revision == _bgmRevision && identical(_bgmOwner, owner);
+
+  Future<void> stopBgm({Object? owner}) async {
+    if (owner != null && !identical(owner, _bgmOwner)) {
+      return;
+    }
+    _bgmRevision++;
+    _bgmOwner = null;
     if (!_bgmPlaying && _bgmWorld < 0) {
       await _bgm.stop();
+      _bgmBoss = false;
       return;
     }
     await _bgm.stop();
     _bgmPlaying = false;
     _bgmWorld = -1;
+    _bgmBoss = false;
   }
 
   /// 暂停 BGM
@@ -159,7 +210,7 @@ class AudioService {
       return;
     }
     if (!_bgmPlaying && _bgmWorld >= 0) {
-      await startBgm(worldIndex: _bgmWorld);
+      await startBgm(worldIndex: _bgmWorld, boss: _bgmBoss, owner: _bgmOwner);
       return;
     }
     if (!_bgmPlaying) {

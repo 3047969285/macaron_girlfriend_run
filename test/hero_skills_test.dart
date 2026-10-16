@@ -9,12 +9,52 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   test('six skills keep distinct keyboard labels', () {
     expect(HeroSkill.values, hasLength(6));
-    expect(
-      HeroSkill.values.map((skill) => skill.keyLabel).toList(),
-      ['J', 'K', 'Q', '1', '2', '3'],
-    );
+    expect(HeroSkill.values.map((skill) => skill.keyLabel).toList(), [
+      'J',
+      'K',
+      'Q',
+      '1',
+      '2',
+      '3',
+    ]);
     for (final skill in HeroSkill.values) {
       expect(GameConstants.skillCooldownFor(skill, 1), greaterThan(0));
+    }
+  });
+
+  testWidgets('primary touch skill follows each level signature', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+
+    for (
+      var levelIndex = 0;
+      levelIndex < HeroSkill.values.length;
+      levelIndex++
+    ) {
+      final game = MacaronGame(
+        worldIndex: 0,
+        levelIndex: levelIndex,
+        role: PlayerRole.girlfriend,
+      );
+      await tester.pumpWidget(GameWidget(game: game));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.levelReady, isTrue);
+      game.pauseEngine();
+
+      final signatureSkill = HeroSkill.values[levelIndex];
+      expect(game.activeSkill, signatureSkill);
+      expect(game.skillButtonLabel, signatureSkill.shortLabel);
+      expect(game.skillCooldownRatio, 0);
+
+      game.activateSkill();
+      expect(game.cooldownRatioOf(signatureSkill), greaterThan(0));
+      await tester.pumpWidget(const SizedBox.shrink());
     }
   });
 

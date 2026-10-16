@@ -183,6 +183,73 @@ class SynthWav {
   /// 马卡龙风 BGM 循环
   static Uint8List bgmLoop() => bgmLoopForWorld(0);
 
+  static const List<List<int>> _worldMotifs = [
+    [0, 2, 4, 7, 4, 2, 0, -1, 4, 7, 9, 7, 4, 2, 0, -1],
+    [0, 0, 3, 5, 7, 5, 3, 0, 5, 7, 8, 7, 5, 3, 0, -1],
+    [4, 2, 0, 2, 4, 7, 4, 2, 0, -1, 2, 4, 7, 4, 2, 0],
+    [0, 3, 7, 3, 8, 7, 3, 0, 7, 8, 10, 8, 7, 3, 0, -1],
+    [7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 0, -1, 0, 2],
+    [0, 5, 7, 9, 7, 5, 4, 2, 0, 2, 4, 5, 4, 2, 0, -1],
+    [4, 4, 7, 9, 11, 9, 7, 4, 2, 4, 7, 4, 2, 0, -1, 0],
+    [0, 2, 3, 7, 3, 2, 0, -1, 7, 5, 3, 2, 3, 5, 7, 8],
+    [0, 4, 7, 11, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0, -1],
+  ];
+  static const List<List<int>> _worldRootsA = [
+    [60, 67, 69, 65],
+    [65, 60, 62, 67],
+    [69, 65, 60, 67],
+    [57, 60, 65, 62],
+    [62, 69, 67, 60],
+    [60, 65, 67, 69],
+    [64, 69, 62, 67],
+    [55, 60, 65, 58],
+    [60, 69, 65, 67],
+  ];
+  static const List<List<int>> _worldRootsB = [
+    [62, 65, 67, 69],
+    [69, 65, 60, 67],
+    [62, 67, 65, 60],
+    [55, 62, 57, 60],
+    [65, 60, 67, 62],
+    [62, 67, 60, 65],
+    [57, 64, 67, 62],
+    [62, 55, 60, 65],
+    [64, 60, 67, 69],
+  ];
+  static const List<List<int>> _worldScales = [
+    [0, 2, 4, 5, 7, 9, 11],
+    [0, 2, 3, 5, 7, 8, 10],
+    [0, 2, 4, 5, 7, 9, 11],
+    [0, 2, 3, 5, 7, 8, 11],
+    [0, 2, 4, 5, 7, 9, 10],
+    [0, 2, 4, 5, 7, 9, 11],
+    [0, 2, 3, 5, 7, 9, 10],
+    [0, 2, 3, 5, 7, 8, 10],
+    [0, 2, 4, 6, 7, 9, 11],
+  ];
+  static const List<List<int>> _bossMotifs = [
+    [0, -1, 4, 7, 6, -1, 4, 2, 0, -1, 3, 5, 4, -1, 2, -1],
+    [0, 3, -1, 5, 7, -1, 5, 2, 0, 2, -1, 5, 3, -1, 2, -1],
+    [4, -1, 2, 0, 5, -1, 4, 2, 0, -1, 4, 7, 5, -1, 2, -1],
+    [0, -1, 3, 7, 5, -1, 3, 2, 0, 2, -1, 5, 3, -1, 0, -1],
+    [7, -1, 4, 2, 6, -1, 4, 0, 2, -1, 5, 7, 4, -1, 2, -1],
+    [0, 2, -1, 5, 7, -1, 4, 2, 0, -1, 4, 5, 3, -1, 2, -1],
+    [4, -1, 7, 9, 6, -1, 4, 2, 0, 2, -1, 5, 4, -1, 2, -1],
+    [0, -1, 3, 5, 7, -1, 3, 2, 0, -1, 5, 7, 4, -1, 2, -1],
+    [0, -1, 4, 7, 6, -1, 4, 2, 0, 2, -1, 5, 3, -1, 0, -1],
+  ];
+  static const List<List<int>> _bossRoots = [
+    [57, 62, 55, 60],
+    [60, 65, 58, 62],
+    [57, 62, 60, 55],
+    [53, 57, 62, 58],
+    [55, 62, 57, 60],
+    [57, 60, 53, 62],
+    [52, 57, 60, 55],
+    [55, 58, 62, 53],
+    [57, 60, 55, 62],
+  ];
+
   static double _midi(int note) =>
       440 * math.pow(2, (note - 69) / 12).toDouble();
 
@@ -230,112 +297,134 @@ class SynthWav {
     return out;
   }
 
-  /// 每个世界一段 8 小节原创循环：A、应答、对比段、对比段高八度。
+  /// 每个世界 16 小节原创循环，后半更换和弦走向并变奏旋律。
   static Uint8List bgmLoopForWorld(int worldIndex) {
-    const motifs = <List<int>>[
-      [0, 2, 4, 7, 4, 2, 0, -1, 4, 7, 9, 7, 4, 2, 0, -1],
-      [0, 0, 3, 5, 7, 5, 3, 0, 5, 7, 8, 7, 5, 3, 0, -1],
-      [4, 2, 0, 2, 4, 7, 4, 2, 0, -1, 2, 4, 7, 4, 2, 0],
-      [0, 3, 7, 3, 8, 7, 3, 0, 7, 8, 10, 8, 7, 3, 0, -1],
-      [7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 0, -1, 0, 2],
-      [0, 5, 7, 9, 7, 5, 4, 2, 0, 2, 4, 5, 4, 2, 0, -1],
-      [4, 4, 7, 9, 11, 9, 7, 4, 2, 4, 7, 4, 2, 0, -1, 0],
-      [0, 2, 3, 7, 3, 2, 0, -1, 7, 5, 3, 2, 3, 5, 7, 8],
-      [0, 4, 7, 11, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0, -1],
-    ];
-    const roots = <List<int>>[
-      [60, 67, 69, 65],
-      [65, 60, 62, 67],
-      [69, 65, 60, 67],
-      [57, 60, 65, 62],
-      [62, 69, 67, 60],
-      [60, 65, 67, 69],
-      [64, 69, 62, 67],
-      [55, 60, 65, 58],
-      [60, 69, 65, 67],
-    ];
-    const scales = <List<int>>[
-      [0, 2, 4, 5, 7, 9, 11],
-      [0, 2, 3, 5, 7, 8, 10],
-      [0, 2, 4, 5, 7, 9, 11],
-      [0, 2, 3, 5, 7, 8, 11],
-      [0, 2, 4, 5, 7, 9, 10],
-      [0, 2, 4, 5, 7, 9, 11],
-      [0, 2, 3, 5, 7, 9, 10],
-      [0, 2, 3, 5, 7, 8, 10],
-      [0, 2, 4, 6, 7, 9, 11],
-    ];
-    final world = worldIndex.clamp(0, 8);
-    final bpm = 92 + (world % 3) * 6;
+    final world = worldIndex.clamp(0, 8).toInt();
+    return _composeLoop(
+      motif: _worldMotifs[world],
+      rootsA: _worldRootsA[world],
+      rootsB: _worldRootsB[world],
+      scale: _worldScales[world],
+      bars: 16,
+      bpm: 92 + (world % 3) * 6,
+    );
+  }
+
+  /// Boss 专用四小节主题，保留世界音阶但使用另一段旋律与和弦。
+  static Uint8List bossLoopForWorld(int worldIndex) {
+    final world = worldIndex.clamp(0, 8).toInt();
+    return _composeLoop(
+      motif: _bossMotifs[world],
+      rootsA: _bossRoots[world],
+      rootsB: _bossRoots[world],
+      scale: _worldScales[world],
+      bars: 4,
+      bpm: 76 + (world % 3) * 4,
+      boss: true,
+    );
+  }
+
+  static Uint8List _composeLoop({
+    required List<int> motif,
+    required List<int> rootsA,
+    required List<int> rootsB,
+    required List<int> scale,
+    required int bars,
+    required int bpm,
+    bool boss = false,
+  }) {
     final eighth = 60 / bpm / 2;
-    final bars = roots[world];
-    final scale = scales[world];
-    final motif = motifs[world];
-    final steps = motif.length * 4;
-    final total = eighth * steps;
-    final out = List<double>.filled((_sampleRate * total).round(), 0);
-    final kick = _kick(0.16);
+    final steps = bars * 8;
+    final out = Float32List((_sampleRate * eighth * steps).round());
+    final kick = _kick(boss ? 0.2 : 0.16);
     final hat = _hat(0.05);
-    final snare = _hat(0.09);
+    final snare = _hat(boss ? 0.07 : 0.09);
 
     for (var step = 0; step < steps; step++) {
       final at = (_sampleRate * eighth * step).round();
+      final bar = step ~/ 8;
+      final section = (step ~/ motif.length) % 4;
+      final secondHalf = bars > 4 && bar >= bars ~/ 2;
+      final roots = secondHalf ? rootsB : rootsA;
+      final chordRoot = roots[bar % roots.length];
       final index = step % motif.length;
-      final section = step ~/ motif.length;
       final raw = motif[index];
-      final degree = switch (section) {
+      final baseDegree = switch (section) {
         0 => raw,
         1 => raw < 0 ? -1 : (raw + 4) % 9,
         2 => raw < 0 ? (index % 4 == 0 ? 2 : -1) : (raw + 5) % 8,
         _ => raw < 0 ? -1 : (raw + 7) % 9,
       };
+      final degree = baseDegree < 0
+          ? baseDegree
+          : secondHalf
+          ? (baseDegree + 2 + (index % 3 == 0 ? 1 : 0)) % scale.length
+          : baseDegree;
+
       if (degree >= 0) {
         final pc = scale[degree.clamp(0, scale.length - 1)];
-        final midi =
-            bars[0] + pc + (degree >= 7 ? 12 : 0) + (section >= 2 ? 12 : 0);
+        final midi = chordRoot + pc + (section >= 2 ? 12 : 0);
         _mixAt(
           out,
           at,
-          _softNote(_midi(midi), eighth * 0.92, vol: section >= 2 ? 0.11 : 0.15),
+          _softNote(
+            _midi(midi),
+            eighth * 0.92,
+            vol: boss
+                ? 0.1
+                : secondHalf
+                ? 0.11
+                : 0.15,
+          ),
         );
         if (step % 2 == 0) {
-          final counter = scale[(degree + 2).clamp(0, scale.length - 1)];
+          final counter = scale[(degree + 2) % scale.length];
           _mixAt(
             out,
             at,
-            _softNote(_midi(bars[0] + counter - 12), eighth * 1.5, vol: 0.06),
+            _softNote(_midi(chordRoot + counter - 12), eighth * 1.5, vol: 0.06),
           );
         }
       }
+
       if (step % 2 == 0) {
         _mixAt(out, at, hat);
-      } else if (section > 0) {
-        final root = bars[(step ~/ 8) % bars.length];
-        _mixAt(out, at, _softNote(_midi(root + 12), eighth * 0.42, vol: 0.05));
-      }
-      if (section >= 2 && step % 4 == 2) {
-        _mixAt(out, at, snare);
-      }
-      if (step % 4 == 0) {
-        _mixAt(out, at, kick);
-        final root = bars[(step ~/ 8 + (section >= 2 ? 2 : 0)) % bars.length];
-        _mixAt(out, at, _softNote(_midi(root - 12), eighth * 1.8, vol: 0.2));
-      }
-      if (step >= steps - 4 && degree >= 0) {
-        final fill = scale[index.clamp(0, scale.length - 1)];
+      } else if (!boss && section > 0) {
         _mixAt(
           out,
           at,
-          _softNote(_midi(bars[0] + fill + 12), eighth * 0.35, vol: 0.08),
+          _softNote(_midi(chordRoot + 12), eighth * 0.42, vol: 0.05),
+        );
+      }
+      if (boss && step % 8 == 4 || !boss && section >= 2 && step % 4 == 2) {
+        _mixAt(out, at, snare);
+      }
+      if (step % (boss ? 8 : 4) == 0) {
+        _mixAt(out, at, kick);
+        _mixAt(
+          out,
+          at,
+          _softNote(_midi(chordRoot - 12), eighth * 1.8, vol: 0.2),
+        );
+      }
+      if (step >= steps - 4 && degree >= 0) {
+        final fill = scale[index % scale.length];
+        _mixAt(
+          out,
+          at,
+          _softNote(_midi(chordRoot + fill + 12), eighth * 0.35, vol: 0.08),
         );
       }
       if (step % 8 == 0) {
-        final root = bars[(step ~/ 8 + (section >= 2 ? 2 : 0)) % bars.length];
-        for (final add in [0, 4, 7]) {
+        for (final add in [0, scale[2], scale[4], scale[6]]) {
           _mixAt(
             out,
             at,
-            _softNote(_midi(root + add), eighth * 3.6, vol: 0.04),
+            _softNote(
+              _midi(chordRoot + add),
+              eighth * (boss ? 4.8 : 3.6),
+              vol: boss ? 0.035 : 0.04,
+            ),
           );
         }
       }

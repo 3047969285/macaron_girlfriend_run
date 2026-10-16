@@ -62,7 +62,11 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       game.setPaused(true);
     }
     // ignore: unawaited_futures
-    AudioService.instance.startBgm(worldIndex: widget.worldIndex);
+    AudioService.instance.startBgm(
+      worldIndex: widget.worldIndex,
+      boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
+      owner: this,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focus.requestFocus();
@@ -74,7 +78,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     // ignore: unawaited_futures
-    AudioService.instance.stopBgm();
+    AudioService.instance.stopBgm(owner: this);
     _focus.dispose();
     _hudTick.dispose();
     super.dispose();
@@ -135,9 +139,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         LogicalKeyboardKey.keyJ => HeroSkill.dash,
         LogicalKeyboardKey.keyK => HeroSkill.shield,
         LogicalKeyboardKey.keyQ => HeroSkill.petalVolley,
-        LogicalKeyboardKey.digit1 || LogicalKeyboardKey.numpad1 => HeroSkill.pound,
-        LogicalKeyboardKey.digit2 || LogicalKeyboardKey.numpad2 => HeroSkill.airHop,
-        LogicalKeyboardKey.digit3 || LogicalKeyboardKey.numpad3 => HeroSkill.grapple,
+        LogicalKeyboardKey.digit1 ||
+        LogicalKeyboardKey.numpad1 => HeroSkill.pound,
+        LogicalKeyboardKey.digit2 ||
+        LogicalKeyboardKey.numpad2 => HeroSkill.airHop,
+        LogicalKeyboardKey.digit3 ||
+        LogicalKeyboardKey.numpad3 => HeroSkill.grapple,
         _ => null,
       };
       if (skill != null) {
@@ -556,6 +563,9 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                                     '🌱${game.plantBuddyTimer.ceil()}s',
                                   if (game.vehicleTimer > 0)
                                     '🚙${game.vehicleTimer.ceil()}s',
+                                  if (game.vehicleBoosting) '加速',
+                                  if (game.vehicleChargeRatio > 0)
+                                    '蓄力${(game.vehicleChargeRatio * 100).round()}%',
                                 ].join(' '),
                                 style: _hudText,
                               ),
@@ -605,10 +615,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                       ),
                       if (game.levelReady) ...[
                         const SizedBox(height: 6),
-                        _SkillStrip(
-                          game: game,
-                          onCast: game.activateSkill,
-                        ),
+                        _SkillStrip(game: game, onCast: game.activateSkill),
                       ],
                       if (game.comboCount > 1) ...[
                         const SizedBox(height: 6),
@@ -765,11 +772,15 @@ class _SkillCastChip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
-            ready ? '$keyLabel $name' : '$keyLabel ${(cooldown * 100).round()}%',
+            ready
+                ? '$keyLabel $name'
+                : '$keyLabel ${(cooldown * 100).round()}%',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: ready ? MacaronColors.cocoa : MacaronColors.cocoa.withValues(alpha: 0.45),
+              color: ready
+                  ? MacaronColors.cocoa
+                  : MacaronColors.cocoa.withValues(alpha: 0.45),
             ),
           ),
         ),
@@ -995,9 +1006,7 @@ class _TutorialOverlay extends StatelessWidget {
               const Text('• A/D 或←→移动，Shift 跑，S/↓蹲'),
               const Text('• 空格或 W 跳：短按低、长按高'),
               const Text('• J 闪冲，K 糖盾，Q 花弹，1 下砸，2 二段跳，3 糖线'),
-              const Text(
-                '• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲',
-              ),
+              const Text('• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲'),
               const Text('• 连击加分；Boss 半血狂暴跳砸'),
               const Text('• 问号砖、糖果有奖，蓝旗检查点'),
               const Text('• 豌豆自动攻击；拾枪F/点射击，小车可挡一次'),

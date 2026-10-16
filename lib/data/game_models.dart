@@ -60,6 +60,7 @@ class GameConstants {
 
   static const int maxActiveEnemies = 56;
   static const int maxEnemyTraps = 8;
+  static const int maxEnemyShockwaves = 12;
   static const int maxParallaxLayers = 3;
 
   static const int startingLives = 3;
@@ -172,11 +173,19 @@ class GameConstants {
   static double playerGunDurationFor(int difficulty) =>
       13.0 - 2.0 * _difficultyProgress(difficulty);
 
+  /// Boss 战需覆盖进场与首次踩击，再给玩家一轮完整的反击窗口。
+  static double playerBossGunDurationFor(int difficulty) =>
+      (playerGunDurationFor(difficulty) + 7.0).clamp(0.0, 20.0).toDouble();
+
   static double playerVehicleDurationFor(int difficulty) =>
       7.0 - 1.5 * _difficultyProgress(difficulty);
 
   static double playerVehicleSpeedMultiplierFor(int difficulty) =>
       1.24 - 0.08 * _difficultyProgress(difficulty);
+
+  static const vehicleChargeTime = 0.8;
+  static const vehicleMinCharge = 0.4;
+  static const vehicleBoostMultiplier = 1.35;
 
   static double plantShotCooldownFor(int difficulty) =>
       2.7 + 0.8 * _difficultyProgress(difficulty);
@@ -265,6 +274,12 @@ class GameConstants {
 
   static double enemyProjectileSpeedFor(int difficulty) =>
       185 + 45 * _difficultyProgress(difficulty);
+
+  static double enemyShockwaveSpeedFor(int difficulty) =>
+      225 + 35 * _difficultyProgress(difficulty);
+
+  static double enemyShockwaveRangeFor(int difficulty) =>
+      tileSize * (4 + _difficultyProgress(difficulty));
 
   static double enemyPounceVelocityFor(int difficulty) =>
       -(600 + 80 * _difficultyProgress(difficulty));

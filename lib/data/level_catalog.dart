@@ -102,6 +102,8 @@ class LevelCatalog {
     _addDuckTunnel(grid, world, level);
     _placeSceneCheckpoints(grid);
     _fillCheckpointGaps(grid);
+    _placeSpecialRoster(grid, world, level);
+    // Validate patrols after all enemy archetypes have been placed.
     _repairEnemyPatrolRoutes(grid);
     final bossTile = grid[grid.length - 3].indexOf('B');
     if (bossTile >= 0) {
@@ -109,13 +111,12 @@ class LevelCatalog {
       _repairSpringPlacement(grid, keepAwayFromEnemies: true);
     }
     _placeStagePlatforms(grid, world, level);
-    _placeSpecialRoster(grid, world, level);
 
     return grid.map((r) => r.join()).toList();
   }
 
-  /// 非 Boss 关在实地上方放一条可踩的台：U 单向、X 碎裂、O 左右移动。
-  /// 台下整段必须是实地，台子移动或碎掉时人掉下来仍然站在地上。
+  /// 非 Boss 关加入可踩台：U 单向、X 碎裂、O 左右移动；每三关加入 I 垂直移动。
+  /// 台子只占空中路线，不改地面通路；移动轨道避开实心块并留在地面上方。
   static void _placeStagePlatforms(
     List<List<String>> grid,
     int world,
@@ -131,13 +132,19 @@ class LevelCatalog {
       return;
     }
     const specs = <(String, int)>[('U', 3), ('X', 3), ('O', 2)];
+    final openingTutorial = world == 0 && level == 0;
+    var tutorialCursor = 16;
     final usable = width - 32;
     for (var band = 0; band < specs.length; band++) {
       final marker = specs[band].$1;
       final len = specs[band].$2;
       final margin = marker == 'O' ? 2 : 1;
-      final regionStart = 16 + usable * band ~/ 3;
-      final regionEnd = 16 + usable * (band + 1) ~/ 3;
+      final regionStart = openingTutorial
+          ? tutorialCursor
+          : 16 + usable * band ~/ 3;
+      final regionEnd = openingTutorial
+          ? regionStart + 10
+          : 16 + usable * (band + 1) ~/ 3;
 
       bool fits(int x) {
         if (x < 16 || x + len >= width - 16) {
@@ -170,6 +177,7 @@ class LevelCatalog {
       }
 
       var placed = false;
+      var placedAt = -1;
       for (var x = regionStart; x <= regionEnd - len && !placed; x++) {
         if (!fits(x)) {
           continue;
@@ -185,11 +193,16 @@ class LevelCatalog {
           grid[y - 1][coinX] = 'C';
         }
         placed = true;
+        placedAt = x;
       }
       if (placed) {
+        if (openingTutorial) {
+          tutorialCursor = placedAt + len + 1;
+        }
         continue;
       }
-      for (var x = 16; x < width - 16 - len; x++) {
+      final fallbackStart = openingTutorial ? tutorialCursor : 16;
+      for (var x = fallbackStart; x < width - 16 - len; x++) {
         if (!fits(x)) {
           continue;
         }
@@ -203,8 +216,70 @@ class LevelCatalog {
         if (grid[y - 1][coinX] == ' ') {
           grid[y - 1][coinX] = 'C';
         }
+        placedAt = x;
         break;
       }
+      if (openingTutorial && placedAt >= 0) {
+        tutorialCursor = placedAt + len + 1;
+      }
+    }
+
+    if (level % 3 != 2) {
+      return;
+    }
+    const liftMarker = 'I';
+    const liftTiles = 3;
+    final liftY = ground - 4;
+
+    bool fitsLift(int x) {
+      if (x < 16 || x + liftTiles >= width - 16) {
+        return false;
+      }
+      for (var col = x - 1; col <= x + liftTiles; col++) {
+        if (col < 0 || col >= width) {
+          return false;
+        }
+        for (var row = liftY - 1; row <= liftY + 1; row++) {
+          final tile = grid[row][col];
+          if ('#=?D'.contains(tile) || 'UXO'.contains(tile)) {
+            return false;
+          }
+        }
+        if (grid[ground + 1][col] != '#' || grid[ground + 2][col] != '#') {
+          return false;
+        }
+      }
+      for (var i = 0; i < liftTiles; i++) {
+        if (grid[liftY][x + i] != ' ') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    var liftPlaced = false;
+    final preferredStart = width * 2 ~/ 3;
+    for (var x = preferredStart; x < width - 16 - liftTiles; x++) {
+      if (!fitsLift(x)) {
+        continue;
+      }
+      for (var i = 0; i < liftTiles; i++) {
+        grid[liftY][x + i] = liftMarker;
+      }
+      liftPlaced = true;
+      break;
+    }
+    if (liftPlaced) {
+      return;
+    }
+    for (var x = 16; x < preferredStart && !liftPlaced; x++) {
+      if (!fitsLift(x)) {
+        continue;
+      }
+      for (var i = 0; i < liftTiles; i++) {
+        grid[liftY][x + i] = liftMarker;
+      }
+      liftPlaced = true;
     }
   }
 
@@ -351,9 +426,7 @@ class LevelCatalog {
       final mid = (from + to) ~/ 2;
       var placed = false;
       for (var offset = 0; offset <= longest ~/ 2; offset++) {
-        final candidates = offset == 0
-            ? [mid]
-            : [mid - offset, mid + offset];
+        final candidates = offset == 0 ? [mid] : [mid - offset, mid + offset];
         for (final x in candidates) {
           if (x <= from + 3 || x >= to - 3 || !isSafeSpot(x)) {
             continue;
@@ -420,7 +493,12 @@ class LevelCatalog {
       return true;
     }
 
-    double enemyHalfWidth(String marker) => marker == 'R' ? 26 : 21;
+    double enemyHalfWidth(String marker) => switch (marker) {
+      'R' => 26,
+      'L' => 24,
+      'Y' => 23,
+      _ => 21,
+    };
 
     bool hasEnemyClearance(int x, String enemy) {
       final center = (x + 0.5) * GameConstants.tileSize;
@@ -550,7 +628,7 @@ class LevelCatalog {
     }
   }
 
-  /// 五段轮换覆盖五种玩法，保持长关节奏变化且不强迫玩家走危险路线。
+  /// 场景按地图长度铺开；核心玩法分散到全程，额外段落补充跳台与战术变化。
   static void _addSceneChallenges(
     List<List<String>> grid,
     int world,
@@ -558,16 +636,51 @@ class LevelCatalog {
   ) {
     final width = grid.first.length;
     final ground = grid.length - 3;
-    final sectionWidth = (width - 8) ~/ 5;
+    final sectionCount = ((width - 8 + 35) ~/ 36).clamp(5, 13).toInt();
+    final sectionWidth = (width - 8) ~/ sectionCount;
     final difficulty = _difficulty(world, level);
     final rotation = (world * 3 + level) % 5;
     final sequenceStride = level == GameConstants.levelsPerWorld - 1
         ? 1
         : (world + level * 2) % 4 + 1;
+    final lastCoreSection = sectionCount - 1;
+    final coreSections = [
+      0,
+      lastCoreSection ~/ 4,
+      lastCoreSection ~/ 2,
+      lastCoreSection * 3 ~/ 4,
+      lastCoreSection,
+    ];
 
-    for (var section = 0; section < 5; section++) {
+    void placeAirCourse(int startX, int phase) {
+      for (var step = 0; step < 3; step++) {
+        final platformX = startX + step * 4;
+        final platformY = ground - (step == 1 && phase.isEven ? 3 : 2);
+        if (platformX < 4 || platformX + 1 >= width - 4) {
+          continue;
+        }
+        if (grid[platformY][platformX] != ' ' ||
+            grid[platformY][platformX + 1] != ' ') {
+          continue;
+        }
+        _platform(grid, platformX, platformY, 2);
+        _coin(grid, platformX + 1, platformY - 1);
+      }
+    }
+
+    for (var section = 0; section < sectionCount; section++) {
       final start = 4 + section * sectionWidth;
       final x = start + sectionWidth * 2 ~/ 3;
+      final coreIndex = coreSections.indexOf(section);
+      final scene = coreIndex >= 0
+          ? (rotation + coreIndex * sequenceStride) % 5
+          : 5 + (world + level + section) % 3;
+      final nearBossArena =
+          level == GameConstants.levelsPerWorld - 1 &&
+          (x - width ~/ 2).abs() < 18;
+      if (nearBossArena && coreIndex < 0) {
+        continue;
+      }
       void placeEnemy(int targetX) => _placeSceneEnemy(
         grid,
         targetX,
@@ -577,7 +690,7 @@ class LevelCatalog {
         level,
         section,
       );
-      switch ((rotation + section * sequenceStride) % 5) {
+      switch (scene) {
         case 0:
           // 弹跳节奏：春垫、短坑与弧形糖轨；地面仍留有直通过法。
           _put(grid, x, ground, 'S');
@@ -621,6 +734,42 @@ class LevelCatalog {
           if (difficulty >= 5) {
             placeEnemy(x + 7);
           }
+          break;
+        case 5:
+          // 空中弧线：三块错高平台提供可选捷径和糖果，不挡地面通路。
+          placeAirCourse(x, world + level + section);
+          break;
+        case 6:
+          // 弹簧奖励段：把奖励放在弹射弧线上，不额外挖坑制造必跳点。
+          var springX = -1;
+          for (var offset = 0; offset <= 3 && springX < 0; offset++) {
+            final candidate = x + offset;
+            if (candidate >= width - 8 ||
+                grid[ground][candidate] != ' ' ||
+                grid[ground + 1][candidate] != '#' ||
+                grid[ground + 2][candidate] != '#') {
+              continue;
+            }
+            if ([
+              candidate - 1,
+              candidate + 1,
+            ].any((near) => 'AEGRTBTWVLYJ'.contains(grid[ground][near]))) {
+              continue;
+            }
+            springX = candidate;
+          }
+          if (springX >= 0) {
+            _put(grid, springX, ground, 'S');
+            for (var i = 0; i < 5; i++) {
+              final height = i == 2 ? 5 : 4;
+              _coin(grid, springX + 2 + i, ground - height);
+            }
+          }
+          break;
+        case 7:
+          // 技能对抗段：一只预警怪守住地面，浮台留出跳跃/技能绕行选择。
+          placeEnemy(x);
+          placeAirCourse(x + 4, world + level + section);
           break;
       }
     }
@@ -879,7 +1028,12 @@ class LevelCatalog {
     final ground = grid.length - 3;
     final width = grid.first.length;
     bool hasGapJumpClearance(int gapStart) {
-      for (var x = gapStart - 2; x <= gapStart + maxGapTiles + 1; x++) {
+      // 坑后也要检查落地跑道：紧贴坑口的低平台可能挡住跳跃落点，形成隐形墙。
+      for (
+        var x = gapStart - 2;
+        x <= gapStart + maxGapTiles + minLandingTiles;
+        x++
+      ) {
         if (x < 0 || x >= width) {
           continue;
         }
@@ -1289,14 +1443,14 @@ class LevelCatalog {
     }
   }
 
-  /// 除了自动通关会专门跑的 1-1、1-3、各世界倒数第二关和 Boss 关，
-  /// 每个世界都要能遇到糖壳、滚轮和糖泡。头顶的软浮台可以让开，硬砖和隧道不拆。
+  /// 每个非 Boss 关都尽量安排糖壳、滚轮和糖泡，增加敌人组合变化。
+  /// 头顶的软浮台可以让开，硬砖和隧道不拆；无安全空位时再替换普通巡逻怪。
   static void _placeSpecialRoster(
     List<List<String>> grid,
     int world,
     int level,
   ) {
-    if (level == 0 || level == 2 || level == 9 || level == 10) {
+    if (level == GameConstants.levelsPerWorld - 1) {
       return;
     }
     final ground = grid.length - 3;

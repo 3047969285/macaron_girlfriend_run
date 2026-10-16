@@ -971,7 +971,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '关卡主曲是九段原创循环。下面三首仍在包里，合成失败时兜底。\n'
+                    '普通关按世界轮换播放这三首授权音乐；Boss 关使用每个世界的原创短曲。\n'
+                    '音频资源不可用时会自动切换备用曲。\n'
                     '许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),

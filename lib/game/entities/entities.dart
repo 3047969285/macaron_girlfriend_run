@@ -249,11 +249,10 @@ class SoftEnemy extends PositionComponent {
     this.onSkillCue,
     this.onShoot,
     this.onLayTrap,
+    this.onShockwave,
     EnemyKind kind = EnemyKind.walker,
   }) : kind = kind,
-       hitPoints = kind == EnemyKind.bruiser || kind == EnemyKind.shell
-           ? 2
-           : 1,
+       hitPoints = kind == EnemyKind.bruiser || kind == EnemyKind.shell ? 2 : 1,
        _baseY = position.y,
        _hopVy = kind == EnemyKind.hopper ? -320.0 : 0.0,
        super(
@@ -284,6 +283,7 @@ class SoftEnemy extends PositionComponent {
   final void Function(Vector2 at, EnemyKind kind)? onSkillCue;
   final void Function(Vector2 at, double direction)? onShoot;
   final void Function(Vector2 at)? onLayTrap;
+  final void Function(Vector2 at)? onShockwave;
   int hitPoints;
   double dir = 1;
   double _wobble = 0;
@@ -293,14 +293,18 @@ class SoftEnemy extends PositionComponent {
   double _warningTimer = 0;
   double _chargeTimer = 0;
   double _chargeDir = 1;
+  double _guardTimer = 0;
   double? targetX;
   double? targetY;
   bool _justLanded = true;
   bool _pouncing = false;
+  bool _popperAirborne = false;
   double _swoopTimer = 0;
   double _swoopRecoveryTimer = 0;
   double _swoopTargetX = 0;
   bool dead = false;
+
+  bool get isGuarding => kind == EnemyKind.shell && _guardTimer > 0;
 
   /// 镜头外跳过移动，减负长关
   bool simActive = true;
@@ -381,8 +385,7 @@ class SoftEnemy extends PositionComponent {
             kind,
           );
         case EnemyKind.shell:
-          _chargeDir = dir;
-          _chargeTimer = 0.42;
+          _guardTimer = 1.15;
           _skillCooldown = GameConstants.enemySkillCooldownFor(
             difficulty,
             kind,
@@ -395,14 +398,22 @@ class SoftEnemy extends PositionComponent {
             kind,
           );
         case EnemyKind.popper:
-          position.y = _baseY - 36;
-          _hopVy = 40;
+          position.y = _baseY - 28;
+          _hopVy = -330;
+          _popperAirborne = true;
           _skillCooldown = GameConstants.enemySkillCooldownFor(
             difficulty,
             kind,
           );
       }
       if (kind != EnemyKind.hopper) {
+        return;
+      }
+    }
+
+    if (_guardTimer > 0) {
+      _guardTimer = (_guardTimer - dt).clamp(0.0, 1.15);
+      if (_guardTimer > 0) {
         return;
       }
     }
@@ -517,12 +528,14 @@ class SoftEnemy extends PositionComponent {
       position.x = rightBound;
       dir = -1;
     }
-    if (kind == EnemyKind.popper && (_hopVy != 0 || position.y < _baseY)) {
+    if (kind == EnemyKind.popper && _popperAirborne) {
       _hopVy += 1800 * dt;
       position.y += _hopVy * dt;
-      if (position.y >= _baseY) {
+      if (_hopVy > 0 && position.y >= _baseY) {
         position.y = _baseY;
         _hopVy = 0;
+        _popperAirborne = false;
+        onShockwave?.call(position.clone());
       }
     }
     if (kind == EnemyKind.hopper) {
@@ -570,6 +583,21 @@ class SoftEnemy extends PositionComponent {
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale(dir * squash, 1 / squash);
+    if (isGuarding) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(0, -size.y * 0.48),
+          width: size.x + 14,
+          height: size.y + 12,
+        ),
+        Paint()
+          ..color = const Color(
+            0xFFFFE7A6,
+          ).withValues(alpha: 0.48 + math.sin(_wobble * 3) * 0.12)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      );
+    }
     _drawSilhouette(canvas);
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 15);
@@ -654,14 +682,19 @@ class SoftEnemy extends PositionComponent {
             cuePaint,
           );
         case EnemyKind.shell:
-          canvas.drawCircle(center, 6, Paint()..color = _bodyColor);
-          canvas.drawCircle(
-            center,
-            3,
-            Paint()
-              ..color = MacaronColors.cream
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.4,
+          final shield = Path()
+            ..moveTo(center.dx, center.dy - 7)
+            ..lineTo(center.dx + 7, center.dy - 4)
+            ..lineTo(center.dx + 5, center.dy + 3)
+            ..lineTo(center.dx, center.dy + 7)
+            ..lineTo(center.dx - 5, center.dy + 3)
+            ..lineTo(center.dx - 7, center.dy - 4)
+            ..close();
+          canvas.drawPath(shield, cuePaint);
+          canvas.drawLine(
+            center + const Offset(-3, 0),
+            center + const Offset(3, 0),
+            cuePaint,
           );
         case EnemyKind.roller:
           canvas.drawCircle(
@@ -932,11 +965,7 @@ class SoftEnemy extends PositionComponent {
       case EnemyKind.popper:
         final puff = position.y < _baseY ? 1.12 : 1.0;
         canvas.drawCircle(Offset(0, -size.y * 0.5), size.x * 0.38 * puff, body);
-        canvas.drawCircle(
-          Offset(0, -size.y * 0.62),
-          size.x * 0.16,
-          cream,
-        );
+        canvas.drawCircle(Offset(0, -size.y * 0.62), size.x * 0.16, cream);
         _drawFace(canvas, Offset(0, -size.y * 0.5), 3.4);
     }
   }
@@ -1092,6 +1121,116 @@ class StickyCandyPatch extends PositionComponent {
         Paint()..color = Colors.white.withValues(alpha: alpha),
       );
     }
+  }
+}
+
+/// 糖泡落地时向两侧滚出的低矮冲击波，可通过起跳躲避。
+class CandyShockwave extends PositionComponent {
+  CandyShockwave({
+    required Vector2 position,
+    required this.direction,
+    required this.speed,
+    required this.range,
+    required this.canTravel,
+  }) : _previousX = position.x,
+       super(
+         position: position,
+         size: Vector2(42, 24),
+         anchor: Anchor.bottomCenter,
+         priority: 41,
+       );
+
+  final double direction;
+  final double speed;
+  final double range;
+  final bool Function(Rect body, Rect support) canTravel;
+  double _previousX;
+  double _travelled = 0;
+  double _life = 2;
+  double _pulse = 0;
+  bool spent = false;
+
+  Rect get hitbox => Rect.fromCenter(
+    center: Offset(position.x, position.y - size.y * 0.48),
+    width: size.x * 0.72,
+    height: size.y * 0.42,
+  );
+
+  Rect get sweptHitbox =>
+      hitbox.expandToInclude(hitbox.shift(Offset(_previousX - position.x, 0)));
+
+  void consume() {
+    if (spent) {
+      return;
+    }
+    spent = true;
+    removeFromParent();
+  }
+
+  @override
+  void update(double dt) {
+    if (spent) {
+      return;
+    }
+    _previousX = position.x;
+    final travel = math.min(speed * dt, range - _travelled);
+    _life -= dt;
+    _pulse += dt * 12;
+    // 分段检查地面，避免低帧率时一步跨过整格坑口或薄墙。
+    final steps = math.max(1, (travel / (GameConstants.tileSize / 4)).ceil());
+    final step = travel / steps;
+    for (var i = 0; i < steps; i++) {
+      final nextX = position.x + direction * step;
+      final body = hitbox.shift(Offset(direction * step, 0));
+      final support = Rect.fromLTWH(nextX - 2, position.y, 4, 4);
+      if (!canTravel(body, support)) {
+        consume();
+        return;
+      }
+      position.x = nextX;
+      _travelled += step;
+    }
+    if (_travelled >= range || _life <= 0) {
+      consume();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (spent) {
+      return;
+    }
+    final centerY = size.y - 3;
+    final glow = Paint()
+      ..color = MacaronColors.blush.withValues(
+        alpha: 0.26 + math.sin(_pulse).abs() * 0.18,
+      );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.x / 2, centerY),
+        width: size.x * 0.92,
+        height: 7,
+      ),
+      glow,
+    );
+    final wave = Path()
+      ..moveTo(3, centerY)
+      ..quadraticBezierTo(size.x * 0.2, 3, size.x * 0.38, centerY - 1)
+      ..quadraticBezierTo(size.x * 0.58, 1, size.x * 0.74, centerY - 1)
+      ..quadraticBezierTo(size.x * 0.88, 5, size.x - 3, centerY);
+    canvas.drawPath(
+      wave,
+      Paint()
+        ..color = MacaronColors.rose
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(size.x * 0.48, centerY - 7 + math.sin(_pulse) * 1.5),
+      2,
+      Paint()..color = Colors.white.withValues(alpha: 0.9),
+    );
   }
 }
 
@@ -1270,6 +1409,9 @@ class VehiclePickup extends PositionComponent {
 
 /// 玩家和豌豆伙伴发射的糖豆
 class PlayerCandyShot extends PositionComponent {
+  static const peaSize = 20.0;
+  static const hitboxScale = 0.72;
+
   PlayerCandyShot({
     required Vector2 position,
     required Vector2 direction,
@@ -1278,7 +1420,7 @@ class PlayerCandyShot extends PositionComponent {
   }) : direction = direction.clone()..normalize(),
        super(
          position: position,
-         size: Vector2.all(isPea ? 20 : 18),
+         size: Vector2.all(isPea ? peaSize : 18),
          anchor: Anchor.center,
          priority: 44,
        );
@@ -1289,6 +1431,12 @@ class PlayerCandyShot extends PositionComponent {
   double _life = 1.4;
   double _wobble = 0;
   bool spent = false;
+
+  Rect get hitbox => Rect.fromCenter(
+    center: Offset(position.x, position.y),
+    width: size.x * hitboxScale,
+    height: size.y * hitboxScale,
+  );
 
   void consume() {
     if (spent) {
@@ -1399,10 +1547,11 @@ class MacaronBoss extends PositionComponent {
   bool isPouncing = false;
   bool get isRushing => _rushTimer > 0;
 
-  BossAttackPattern get attackPattern =>
-      BossAttackPattern.forWorld(worldIndex);
+  BossAttackPattern get attackPattern => BossAttackPattern.forWorld(worldIndex);
   bool get isTelegraphing => _warningTimer > 0;
   bool get canReceiveProjectile => isTelegraphing && !_projectileDamageUsed;
+  double get projectileWindowRemaining =>
+      canReceiveProjectile ? _warningTimer : 0;
 
   /// 踩踏一次返回是否刚进入狂暴
   bool stompHit() {
@@ -1445,7 +1594,13 @@ class MacaronBoss extends PositionComponent {
     if (dead) {
       return;
     }
-    _wobble += dt * (isRushing ? 15 : enraged ? 8 : 5);
+    _wobble +=
+        dt *
+        (isRushing
+            ? 15
+            : enraged
+            ? 8
+            : 5);
     if (_flash > 0) {
       _flash -= dt;
     }
@@ -1511,7 +1666,8 @@ class MacaronBoss extends PositionComponent {
         _volleyTimer -= dt;
         if (_volleyTimer <= 0) {
           onShoot?.call(
-            position + Vector2(_attackDirection * size.x * 0.55, -size.y * 0.58),
+            position +
+                Vector2(_attackDirection * size.x * 0.55, -size.y * 0.58),
             _attackDirection,
           );
           _volleyShots--;
@@ -1867,7 +2023,7 @@ class GoalFlag extends PositionComponent {
 }
 
 /// 关卡里额外的可踩台。只接脚底，从下面跳可以穿过去。
-enum StagePlatformKind { oneWay, crumble, mover }
+enum StagePlatformKind { oneWay, crumble, mover, verticalMover }
 
 class StagePlatform extends PositionComponent {
   StagePlatform({
@@ -1894,6 +2050,7 @@ class StagePlatform extends PositionComponent {
 
   /// 这一帧台面自己挪了多少。站在上面的人要加上同一段位移。
   double carriedDx = 0;
+  double carriedDy = 0;
 
   Rect get rect => Rect.fromLTWH(position.x, position.y, size.x, size.y);
 
@@ -1901,6 +2058,7 @@ class StagePlatform extends PositionComponent {
 
   void step(double dt) {
     carriedDx = 0;
+    carriedDy = 0;
     if (kind == StagePlatformKind.crumble && solid && !_touched) {
       _stand = math.max(0, _stand - dt);
     }
@@ -1908,8 +2066,15 @@ class StagePlatform extends PositionComponent {
     if (kind == StagePlatformKind.mover && solid) {
       final before = position.x;
       _phase += dt;
-      position.x = origin.x + math.sin(_phase * 1.3) * GameConstants.tileSize * 2;
+      position.x =
+          origin.x + math.sin(_phase * 1.3) * GameConstants.tileSize * 2;
       carriedDx = position.x - before;
+    } else if (kind == StagePlatformKind.verticalMover && solid) {
+      final before = position.y;
+      _phase += dt;
+      position.y =
+          origin.y + math.sin(_phase * 1.3) * GameConstants.tileSize * 0.75;
+      carriedDy = position.y - before;
     } else if (kind == StagePlatformKind.crumble && !solid) {
       position.y += 220 * dt;
       _respawn -= dt;
@@ -1939,10 +2104,14 @@ class StagePlatform extends PositionComponent {
       StagePlatformKind.oneWay => MacaronColors.sky,
       StagePlatformKind.crumble => MacaronColors.lemon,
       StagePlatformKind.mover => MacaronColors.lilac,
+      StagePlatformKind.verticalMover => MacaronColors.mint,
     };
     final slab = Rect.fromLTWH(0, 0, size.x, size.y);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(slab.shift(const Offset(0, 3)), const Radius.circular(6)),
+      RRect.fromRectAndRadius(
+        slab.shift(const Offset(0, 3)),
+        const Radius.circular(6),
+      ),
       Paint()..color = Colors.black.withValues(alpha: 0.16),
     );
     canvas.drawRRect(
@@ -1959,17 +2128,41 @@ class StagePlatform extends PositionComponent {
       }
     } else if (kind == StagePlatformKind.crumble) {
       final crack = Paint()
-        ..color = MacaronColors.cocoa.withValues(alpha: 0.55 + crumbleRatio * 0.4)
+        ..color = MacaronColors.cocoa.withValues(
+          alpha: 0.55 + crumbleRatio * 0.4,
+        )
         ..strokeWidth = 1.4;
       final sag = crumbleRatio * 4;
-      canvas.drawLine(Offset(size.x * 0.3, 3), Offset(size.x * 0.55, 12 + sag), crack);
-      canvas.drawLine(Offset(size.x * 0.55, 12 + sag), Offset(size.x * 0.8, 2), crack);
-    } else {
+      canvas.drawLine(
+        Offset(size.x * 0.3, 3),
+        Offset(size.x * 0.55, 12 + sag),
+        crack,
+      );
+      canvas.drawLine(
+        Offset(size.x * 0.55, 12 + sag),
+        Offset(size.x * 0.8, 2),
+        crack,
+      );
+    } else if (kind == StagePlatformKind.mover) {
       final dir = math.cos(_phase * 1.3) >= 0 ? 1.0 : -1.0;
       final arrow = Path()
         ..moveTo(size.x / 2 - dir * 8, 3)
         ..lineTo(size.x / 2 + dir * 8, 8)
         ..lineTo(size.x / 2 - dir * 8, 13);
+      canvas.drawPath(
+        arrow,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round,
+      );
+    } else {
+      final dir = math.cos(_phase * 1.3) >= 0 ? 1.0 : -1.0;
+      final arrow = Path()
+        ..moveTo(size.x / 2 - 7, size.y / 2 + dir * 5)
+        ..lineTo(size.x / 2, size.y / 2 - dir * 5)
+        ..lineTo(size.x / 2 + 7, size.y / 2 + dir * 5);
       canvas.drawPath(
         arrow,
         Paint()

@@ -37,8 +37,10 @@ class GirlfriendPlayer extends PositionComponent {
   bool skillDashing = false;
   bool pounding = false;
   bool isDriving = false;
+  bool vehicleBoosting = false;
   bool holdingCandyGun = false;
   bool plantBuddyActive = false;
+  bool plantFacingRight = true;
   double invincibleTimer = 0;
 
   bool get hasPlantBuddy => plantBuddyActive || cosmeticId == 'pea_buddy';
@@ -46,6 +48,13 @@ class GirlfriendPlayer extends PositionComponent {
   double _anim = 0;
   double _moodClock = 0;
   bool _eyesClosed = false;
+  double _plantShotTimer = 0;
+  double _wheelSpin = 0;
+
+  void plantFired({required bool toRight}) {
+    plantFacingRight = toRight;
+    _plantShotTimer = 0.18;
+  }
 
   bool get isInvincible => invincibleTimer > 0 || skillDashing;
 
@@ -114,13 +123,20 @@ class GirlfriendPlayer extends PositionComponent {
     skillDashing = false;
     pounding = false;
     isDriving = false;
+    vehicleBoosting = false;
     holdingCandyGun = false;
     plantBuddyActive = false;
+    plantFacingRight = facingRight;
+    _plantShotTimer = 0;
     invincibleTimer = GameConstants.invincibleDuration;
   }
 
   @override
   void update(double dt) {
+    if (isDriving) {
+      _wheelSpin = (_wheelSpin + velocity.x.abs() * dt / 7) % (math.pi * 2);
+    }
+    _plantShotTimer = math.max(0, _plantShotTimer - dt);
     _anim += dt * (velocity.x.abs() > 10 ? 14 : 4);
     _moodClock += dt;
     final blinkPhase = _moodClock % 3.8;
@@ -156,11 +172,37 @@ class GirlfriendPlayer extends PositionComponent {
         ? 0.72
         : (onGround ? 1.0 : 1.08);
     final running = velocity.x.abs() > 10 && onGround && !ducking;
-    final legSwing = ducking ? 0.0 : math.sin(_anim) * (running ? 4.0 : 1.5);
+    final falling = !onGround && velocity.y > 90 && !pounding && !skillDashing;
+    final rising = !onGround && velocity.y < -90 && !pounding && !skillDashing;
+    final idle = onGround && velocity.x.abs() <= 10 && !ducking;
+    final legSwing = ducking
+        ? 0.0
+        : pounding
+        ? 7.0
+        : falling
+        ? 5.0 + math.sin(_anim) * 1.5
+        : rising
+        ? -3.0
+        : math.sin(_anim) * (running ? 4.0 : 1.5);
     final bodyBob = running
         ? math.sin(_anim * 2) * 2.4
-        : (onGround && !ducking ? math.sin(_moodClock * 1.6) * 1.1 : 0.0);
-    final bodyLean = skillDashing ? 0.16 : (running ? 0.045 : 0.0);
+        : idle
+        ? math.sin(_moodClock * 1.6) * 1.1
+        : falling
+        ? 1.2
+        : 0.0;
+    final idleTilt = idle ? math.sin(_moodClock * 0.8) * 0.025 : 0.0;
+    final bodyLean = skillDashing
+        ? 0.16
+        : pounding
+        ? 0.1
+        : falling
+        ? -0.11
+        : rising
+        ? 0.035
+        : running
+        ? 0.045
+        : idleTilt;
 
     canvas.save();
     canvas.translate(size.x / 2, size.y);
@@ -206,14 +248,25 @@ class GirlfriendPlayer extends PositionComponent {
     if (role == PlayerRole.girlfriend && !ducking) {
       _drawRibbon(canvas, running);
     }
-    _drawLegsAndShoes(canvas, legSwing, ducking, running: running);
-    _drawArms(canvas, size.y, legSwing);
+    _drawLegsAndShoes(
+      canvas,
+      legSwing,
+      ducking,
+      running: running,
+      airborne: falling || rising,
+      pounding: pounding,
+    );
+    _drawArms(canvas, size.y, legSwing, falling: falling, pounding: pounding);
     _drawOutfit(
       canvas,
       dress,
       accent,
       size.y,
-      hemSwing: math.sin(_anim) * (running ? 5.0 : 1.6),
+      hemSwing: pounding
+          ? 3.0
+          : falling
+          ? -4.0
+          : math.sin(_anim) * (running ? 5.0 : 1.6),
     );
     _drawFace(canvas, faceCenter);
     _drawHairFront(canvas, faceCenter, hairColor);
@@ -291,8 +344,7 @@ class GirlfriendPlayer extends PositionComponent {
       }
       return;
     }
-    final sway =
-        math.sin(_anim * 0.42) * (velocity.x.abs() > 10 ? 4.2 : 1.4);
+    final sway = math.sin(_anim * 0.42) * (velocity.x.abs() > 10 ? 4.2 : 1.4);
     final hair = Path()
       ..moveTo(faceCenter.dx - 11, faceCenter.dy - 2)
       ..cubicTo(
@@ -386,6 +438,8 @@ class GirlfriendPlayer extends PositionComponent {
     double legSwing,
     bool ducking, {
     bool running = false,
+    bool airborne = false,
+    bool pounding = false,
   }) {
     const skinShadow = Color(0xFFE9B9A8);
     const skin = Color(0xFFFFE4D6);
@@ -400,7 +454,15 @@ class GirlfriendPlayer extends PositionComponent {
       final lift = running ? math.sin(phase * math.pi) * 14 : 0.0;
       final stride = running
           ? math.sin(phase * math.pi * 2) * 11
-          : (side < 0 ? legSwing : -legSwing);
+          : (side < 0 ? legSwing : -legSwing) +
+                (airborne || pounding ? side * 3.0 : 0.0);
+      final footLift = running
+          ? lift * 0.15
+          : airborne
+          ? 6.0
+          : pounding
+          ? 2.5
+          : 0.0;
       final leg = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: Offset(side * 8 + stride, -10 - lift),
@@ -441,7 +503,7 @@ class GirlfriendPlayer extends PositionComponent {
 
       final shoe = RRect.fromRectAndRadius(
         Rect.fromCenter(
-          center: Offset(side * 8 + stride, -3.7 - lift * 0.15),
+          center: Offset(side * 8 + stride, -3.7 - footLift),
           width: 14,
           height: 7,
         ),
@@ -461,8 +523,8 @@ class GirlfriendPlayer extends PositionComponent {
           ).createShader(shoe.outerRect),
       );
       canvas.drawLine(
-        Offset(side * 8 + stride - 4, -2.8 - lift * 0.15),
-        Offset(side * 8 + stride + 3, -2.8 - lift * 0.15),
+        Offset(side * 8 + stride - 4, -2.8 - footLift),
+        Offset(side * 8 + stride + 3, -2.8 - footLift),
         Paint()
           ..color = Colors.white.withValues(alpha: 0.9)
           ..strokeWidth = 1.1
@@ -471,14 +533,28 @@ class GirlfriendPlayer extends PositionComponent {
     }
   }
 
-  void _drawArms(Canvas canvas, double height, double legSwing) {
+  void _drawArms(
+    Canvas canvas,
+    double height,
+    double legSwing, {
+    bool falling = false,
+    bool pounding = false,
+  }) {
     final shoulderY = -height * 0.4;
     final handY = -height * 0.23;
     for (final side in [-1.0, 1.0]) {
       final shoulder = Offset(side * 9, shoulderY + 2);
       final armSwing = side < 0 ? -legSwing * 0.42 : legSwing * 0.42;
-      final elbow = Offset(side * 13, shoulderY + 7 + armSwing * 0.35);
-      final hand = Offset(side * 16, handY + armSwing);
+      final elbow = falling
+          ? Offset(side * 17, shoulderY - 3 + armSwing * 0.2)
+          : pounding
+          ? Offset(side * 16, shoulderY + 10 + armSwing * 0.2)
+          : Offset(side * 13, shoulderY + 7 + armSwing * 0.35);
+      final hand = falling
+          ? Offset(side * 22, shoulderY - 10 + armSwing * 0.25)
+          : pounding
+          ? Offset(side * 21, shoulderY + 18 + armSwing * 0.2)
+          : Offset(side * 16, handY + armSwing);
       final arm = Path()
         ..moveTo(shoulder.dx, shoulder.dy)
         ..quadraticBezierTo(elbow.dx, elbow.dy, hand.dx, hand.dy);
@@ -532,7 +608,12 @@ class GirlfriendPlayer extends PositionComponent {
         19 + hemSwing,
         hemY - 1,
       )
-      ..quadraticBezierTo(hemSwing * 0.35, hemY + 4, -19 + hemSwing * 0.2, hemY - 1)
+      ..quadraticBezierTo(
+        hemSwing * 0.35,
+        hemY + 4,
+        -19 + hemSwing * 0.2,
+        hemY - 1,
+      )
       ..cubicTo(-12, waistY - 3, -12, shoulderY + 2, -5, shoulderY)
       ..close();
     final bounds = Rect.fromLTRB(-21, shoulderY - 3, 21, hemY + 4);
@@ -1068,12 +1149,30 @@ class GirlfriendPlayer extends PositionComponent {
   }
 
   void _drawVehicle(Canvas canvas) {
+    if (vehicleBoosting) {
+      for (var i = 0; i < 3; i++) {
+        canvas.drawLine(
+          Offset(-43 - i * 7.0, -14 + i * 6.0),
+          Offset(-33, -14 + i * 6.0),
+          Paint()
+            ..color = (i.isEven ? MacaronColors.lemon : Colors.white)
+                .withValues(alpha: 0.8 - i * 0.15)
+            ..strokeWidth = 3
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-35, -20, 70, 22),
         const Radius.circular(9),
       ),
-      Paint()..color = MacaronColors.mint,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFE5FFF1), MacaronColors.mint, Color(0xFF69BD9D)],
+        ).createShader(const Rect.fromLTWH(-35, -20, 70, 22)),
     );
     canvas.drawPath(
       Path()
@@ -1087,6 +1186,17 @@ class GirlfriendPlayer extends PositionComponent {
     for (final x in [-21.0, 21.0]) {
       canvas.drawCircle(Offset(x, -1), 7, Paint()..color = MacaronColors.cocoa);
       canvas.drawCircle(Offset(x, -1), 3, Paint()..color = Colors.white);
+      canvas.save();
+      canvas.translate(x, -1);
+      canvas.rotate(_wheelSpin);
+      canvas.drawLine(
+        const Offset(-4, 0),
+        const Offset(4, 0),
+        Paint()
+          ..color = MacaronColors.mint
+          ..strokeWidth = 1.5,
+      );
+      canvas.restore();
     }
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1121,6 +1231,11 @@ class GirlfriendPlayer extends PositionComponent {
 
   void _drawPeaBuddy(Canvas canvas) {
     final bob = math.sin(_anim * 0.55) * 1.5;
+    final recoil = _plantShotTimer / 0.18;
+    canvas.save();
+    canvas.translate(1, 0);
+    canvas.scale(plantFacingRight == facingRight ? 1.0 : -1.0, 1.0);
+    canvas.translate(-1 - recoil * 2, 0);
     canvas.drawLine(
       Offset(-4, -size.y * 0.88),
       Offset(-2, -size.y * 1.02 + bob),
@@ -1159,6 +1274,24 @@ class GirlfriendPlayer extends PositionComponent {
       1.5,
       Paint()..color = MacaronColors.cocoa,
     );
+    canvas.drawCircle(
+      Offset(-1, -size.y * 1.03 + bob - 3),
+      1.4,
+      Paint()..color = MacaronColors.cocoa,
+    );
+    canvas.drawCircle(
+      Offset(-3, -size.y * 1.03 + bob - 5),
+      2,
+      Paint()..color = Colors.white.withValues(alpha: 0.75),
+    );
+    if (recoil > 0) {
+      canvas.drawCircle(
+        Offset(13, -size.y * 1.03 + bob),
+        2 + recoil * 2,
+        Paint()..color = MacaronColors.mint.withValues(alpha: recoil * 0.8),
+      );
+    }
+    canvas.restore();
   }
 
   void _drawSunflowerBuddy(Canvas canvas) {
