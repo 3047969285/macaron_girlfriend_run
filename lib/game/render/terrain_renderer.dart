@@ -166,21 +166,52 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawPlatformCluster(Canvas canvas, Rect r, {bool duckCeiling = false}) {
-    final radius = Radius.circular(r.height * 0.28);
+    final radius = Radius.circular(
+      duckCeiling
+          ? 8
+          : switch (palette.name) {
+              '草莓甜点' || '蜜月彩虹' => 12,
+              '薄荷汽水' => 9,
+              '玫瑰城堡' || '蓝莓峡谷' || '焦糖矿山' => 4,
+              _ => 6,
+            },
+    );
     final rrect = RRect.fromRectAndRadius(r, radius);
     canvas.drawRRect(
       RRect.fromRectAndRadius(r.shift(const Offset(0, 4)), radius),
       Paint()..color = palette.groundDark.withValues(alpha: 0.34),
     );
+    final material = switch (palette.name) {
+      '奶油草地' => const Color(0xFFC79C79),
+      '草莓甜点' => const Color(0xFFEAA5BA),
+      '薄荷汽水' => const Color(0xFF87CFC7),
+      '香芋星空' => const Color(0xFF7760AC),
+      '柠檬沙滩' => const Color(0xFFCBA672),
+      '玫瑰城堡' => const Color(0xFFCC9CAE),
+      '蓝莓峡谷' => const Color(0xFF738CB1),
+      '焦糖矿山' => const Color(0xFFAE784F),
+      '蜜月彩虹' => const Color(0xFFD8E9F6),
+      _ => palette.accent,
+    };
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = Color.lerp(
-          palette.accent,
-          palette.ground,
-          0.16,
-        )!.withValues(alpha: 0.96),
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(material, Colors.white, 0.3)!,
+            material,
+            Color.lerp(material, palette.groundDark, 0.32)!,
+          ],
+        ).createShader(r),
     );
+    if (!duckCeiling) {
+      canvas.save();
+      canvas.clipRRect(rrect);
+      _drawPlatformMaterial(canvas, r);
+      canvas.restore();
+    }
     canvas.drawRRect(
       rrect,
       Paint()
@@ -211,6 +242,177 @@ class TerrainRenderer extends PositionComponent {
     }
   }
 
+  void _drawPlatformMaterial(Canvas canvas, Rect r) {
+    final seam = Paint()
+      ..color = palette.groundDark.withValues(alpha: 0.42)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final cream = Paint()..color = const Color(0xFFFFF3DB);
+    final center = r.center;
+    switch (palette.name) {
+      case '奶油草地':
+        for (var x = r.left - r.height; x < r.right; x += 18) {
+          canvas.drawLine(
+            Offset(x, r.bottom),
+            Offset(x + r.height, r.top),
+            seam,
+          );
+          canvas.drawLine(
+            Offset(x, r.top),
+            Offset(x + r.height, r.bottom),
+            seam,
+          );
+        }
+        _drawMeadowTurf(canvas, r);
+      case '草莓甜点':
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top + 20, r.width, 7), cream);
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 9), cream);
+        for (var x = r.left + 8; x < r.right; x += 22) {
+          canvas.drawCircle(Offset(x, r.top + 8), 5, cream);
+          canvas.drawOval(
+            Rect.fromCenter(
+              center: Offset(x + 5, r.bottom - 10),
+              width: 2.5,
+              height: 4,
+            ),
+            Paint()..color = const Color(0xFFFFE6A7),
+          );
+        }
+      case '薄荷汽水':
+        for (var i = 0; i < (r.width / 23).ceil(); i++) {
+          final x = r.left + 12 + i * 23;
+          final y = r.top + 20 + (i % 2) * 12;
+          canvas.drawCircle(
+            Offset(x, y),
+            4 + i % 3,
+            Paint()
+              ..color = Colors.white.withValues(alpha: 0.75)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
+        }
+        canvas.drawLine(
+          Offset(r.left + 8, r.bottom - 6),
+          Offset(r.left + 19, r.top + 13),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.55)
+            ..strokeWidth = 3,
+        );
+        _drawCap(canvas, r, const Color(0xFFDFFFF5), Colors.white);
+      case '香芋星空':
+        for (var x = r.left; x < r.right; x += 40) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(x, r.bottom)
+              ..lineTo(x + 20, r.top)
+              ..lineTo(x + 40, r.bottom)
+              ..close(),
+            Paint()..color = const Color(0xFFC7A9EA).withValues(alpha: 0.3),
+          );
+        }
+        for (var x = r.left + 23; x < r.right; x += 48) {
+          final star = Path()
+            ..moveTo(x, center.dy - 7)
+            ..lineTo(x + 2, center.dy - 2)
+            ..lineTo(x + 7, center.dy)
+            ..lineTo(x + 2, center.dy + 2)
+            ..lineTo(x, center.dy + 7)
+            ..lineTo(x - 2, center.dy + 2)
+            ..lineTo(x - 7, center.dy)
+            ..lineTo(x - 2, center.dy - 2)
+            ..close();
+          canvas.drawPath(star, Paint()..color = const Color(0xFFFFE8AA));
+        }
+      case '柠檬沙滩':
+        for (var x = r.left + 24; x < r.right; x += 24) {
+          canvas.drawLine(Offset(x, r.top), Offset(x, r.bottom), seam);
+        }
+        for (final y in [r.top + 12, r.bottom - 10]) {
+          canvas.drawLine(Offset(r.left + 7, y), Offset(r.right - 7, y), seam);
+        }
+        for (var x = r.left + 12; x < r.right; x += 24) {
+          canvas.drawCircle(
+            Offset(x, r.top + 6),
+            1.8,
+            Paint()..color = const Color(0xFF856746),
+          );
+        }
+      case '玫瑰城堡':
+        canvas.drawLine(
+          Offset(r.left, center.dy),
+          Offset(r.right, center.dy),
+          seam,
+        );
+        for (var x = r.left + 24; x < r.right; x += 48) {
+          canvas.drawLine(Offset(x, r.top), Offset(x, center.dy), seam);
+          canvas.drawLine(
+            Offset(x + 24, center.dy),
+            Offset(x + 24, r.bottom),
+            seam,
+          );
+        }
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: center, width: 17, height: 24),
+            const Radius.circular(8),
+          ),
+          cream,
+        );
+        canvas.drawCircle(center, 4, Paint()..color = palette.accent);
+      case '蓝莓峡谷':
+        for (var i = 0; i < 3; i++) {
+          final y = r.top + 13 + i * 12;
+          canvas.drawPath(
+            Path()
+              ..moveTo(r.left, y)
+              ..lineTo(r.left + r.width * 0.35, y - 5)
+              ..lineTo(r.left + r.width * 0.7, y + 2)
+              ..lineTo(r.right, y - 3),
+            seam,
+          );
+        }
+        canvas.drawPath(
+          Path()
+            ..moveTo(center.dx + 8, r.top + 4)
+            ..lineTo(center.dx, center.dy)
+            ..lineTo(center.dx + 5, r.bottom),
+          seam,
+        );
+      case '焦糖矿山':
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top, r.width, 7), cream);
+        for (var x = r.left + 7; x < r.right; x += 36) {
+          canvas.drawLine(
+            Offset(x, r.top + 10),
+            Offset(x + 26, r.bottom - 5),
+            seam,
+          );
+          canvas.drawLine(
+            Offset(x + 26, r.top + 10),
+            Offset(x, r.bottom - 5),
+            seam,
+          );
+        }
+        final gem = Path()
+          ..moveTo(center.dx, r.top + 11)
+          ..lineTo(center.dx + 7, center.dy)
+          ..lineTo(center.dx, r.bottom - 7)
+          ..lineTo(center.dx - 7, center.dy)
+          ..close();
+        canvas.drawPath(gem, Paint()..color = const Color(0xFFFFD98A));
+      case '蜜月彩虹':
+        _drawRainbowCap(canvas, Rect.fromLTWH(r.left, r.top + 18, r.width, 10));
+        for (var x = r.left + 9; x < r.right; x += 19) {
+          canvas.drawCircle(
+            Offset(x, r.top + 7),
+            9,
+            Paint()..color = Colors.white,
+          );
+        }
+      default:
+        _drawCap(canvas, r, palette.ground, palette.accent);
+    }
+  }
+
   void _drawMeadowTurf(Canvas canvas, Rect r) {
     canvas.drawRect(
       Rect.fromLTWH(r.left, r.top, r.width, 10),
@@ -224,7 +426,11 @@ class TerrainRenderer extends PositionComponent {
     for (var i = 0; i < 4; i++) {
       final x = r.left + 6 + (i * 11 + _sceneValue(sceneSeed, tileX, i) % 8);
       final h = 7.0 + _sceneValue(sceneSeed, tileX, i + 3) % 6;
-      canvas.drawLine(Offset(x, r.top + 8), Offset(x - 2, r.top + 8 - h), blade);
+      canvas.drawLine(
+        Offset(x, r.top + 8),
+        Offset(x - 2, r.top + 8 - h),
+        blade,
+      );
       if (i == 1 && _sceneValue(sceneSeed, tileX, 9) % 3 == 0) {
         canvas.drawCircle(
           Offset(x, r.top - 2),
