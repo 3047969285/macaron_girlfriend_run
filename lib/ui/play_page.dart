@@ -65,6 +65,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     // ignore: unawaited_futures
     AudioService.instance.startBgm(
       worldIndex: widget.worldIndex,
+      levelIndex: widget.levelIndex,
       boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
       owner: this,
     );

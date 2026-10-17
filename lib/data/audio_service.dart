@@ -24,6 +24,7 @@ class AudioService {
   bool _bgmPlaying = false;
   int _bgmWorld = -1;
   bool _bgmBoss = false;
+  bool _bgmSynth = false;
   Object? _bgmOwner;
   int _bgmRevision = 0;
   double? _appliedBgmVolume;
@@ -120,6 +121,7 @@ class AudioService {
   /// 普通关按世界轮换授权曲，Boss 关播放世界专属短主题。
   Future<void> startBgm({
     int worldIndex = 0,
+    int levelIndex = 0,
     bool boss = false,
     Object? owner,
   }) async {
@@ -134,7 +136,12 @@ class AudioService {
       return;
     }
     final world = worldIndex.clamp(0, 8).toInt();
-    if (_bgmPlaying && _bgmWorld == world && _bgmBoss == boss) {
+    // 同一世界的普通关在授权曲和该世界原创合成曲之间交替，Boss 关用专属短曲。
+    final synth = !boss && levelIndex.isOdd;
+    if (_bgmPlaying &&
+        _bgmWorld == world &&
+        _bgmBoss == boss &&
+        _bgmSynth == synth) {
       await applyVolumes();
       if (!_isBgmRequestCurrent(revision, owner)) {
         return;
@@ -154,6 +161,8 @@ class AudioService {
     try {
       if (boss) {
         await _bgm.play(BytesSource(_bgmBytes(world, boss: true)));
+      } else if (synth) {
+        await _bgm.play(BytesSource(_bgmBytes(world, boss: false)));
       } else {
         await _bgm.play(AssetSource(_bgmAssets[world % _bgmAssets.length]));
       }
@@ -161,7 +170,7 @@ class AudioService {
       if (!_isBgmRequestCurrent(revision, owner)) {
         return;
       }
-      if (boss) {
+      if (boss || synth) {
         await _bgm.play(AssetSource(asset));
       } else {
         await _bgm.play(BytesSource(_bgmBytes(world, boss: false)));
@@ -172,6 +181,7 @@ class AudioService {
     }
     _bgmWorld = world;
     _bgmBoss = boss;
+    _bgmSynth = synth;
     _bgmPlaying = true;
   }
 
@@ -194,6 +204,7 @@ class AudioService {
     _bgmPlaying = false;
     _bgmWorld = -1;
     _bgmBoss = false;
+    _bgmSynth = false;
   }
 
   /// 暂停 BGM
@@ -210,7 +221,12 @@ class AudioService {
       return;
     }
     if (!_bgmPlaying && _bgmWorld >= 0) {
-      await startBgm(worldIndex: _bgmWorld, boss: _bgmBoss, owner: _bgmOwner);
+      await startBgm(
+        worldIndex: _bgmWorld,
+        levelIndex: _bgmSynth ? 1 : 0,
+        boss: _bgmBoss,
+        owner: _bgmOwner,
+      );
       return;
     }
     if (!_bgmPlaying) {
