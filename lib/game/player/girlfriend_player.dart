@@ -240,9 +240,13 @@ class GirlfriendPlayer extends PositionComponent {
     }
 
     canvas.save();
-    canvas.scale(1.12, 1.08);
-    final faceCenter = Offset(0, -size.y * 0.72);
-    _drawHairBack(canvas, faceCenter, hairColor);
+    canvas.scale(1.1, 1.1);
+    final faceCenter = Offset(0, -size.y * 0.78);
+    // 半写实比例：头缩小、躯干和手臂拉长（碰撞盒尺寸不变）。
+    final bodyH = size.y * 1.3;
+    _withHead(canvas, faceCenter, () {
+      _drawHairBack(canvas, faceCenter, hairColor);
+    });
     if (role == PlayerRole.girlfriend && !ducking) {
       _drawRibbon(canvas, running);
     }
@@ -254,22 +258,24 @@ class GirlfriendPlayer extends PositionComponent {
       airborne: falling || rising,
       pounding: pounding,
     );
-    _drawArms(canvas, size.y, legSwing, falling: falling, pounding: pounding);
+    _drawArms(canvas, bodyH, legSwing, falling: falling, pounding: pounding);
+    _drawNeck(canvas, faceCenter, bodyH);
     _drawOutfit(
       canvas,
       dress,
       accent,
-      size.y,
+      bodyH,
       hemSwing: pounding
           ? 3.0
           : falling
           ? -4.0
           : (running ? math.sin(_anim) * 5.0 : 0.0),
     );
-    _drawFace(canvas, faceCenter);
-    _drawHairFront(canvas, faceCenter, hairColor);
-
-    _drawCosmetic(canvas);
+    _withHead(canvas, faceCenter, () {
+      _drawFace(canvas, faceCenter);
+      _drawHairFront(canvas, faceCenter, hairColor);
+      _drawCosmetic(canvas);
+    });
     if (plantBuddyActive && cosmeticId != 'pea_buddy') {
       _drawPeaBuddy(canvas);
     }
@@ -279,6 +285,36 @@ class GirlfriendPlayer extends PositionComponent {
 
     canvas.restore();
     canvas.restore();
+  }
+
+  /// 头部整体缩小到 80%，以脸中心为基准，身体比例更接近真人。
+  static const double _headScale = 0.68;
+
+  void _withHead(Canvas canvas, Offset center, VoidCallback draw) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(_headScale);
+    canvas.translate(-center.dx, -center.dy);
+    draw();
+    canvas.restore();
+  }
+
+  void _drawNeck(Canvas canvas, Offset faceCenter, double bodyH) {
+    final top = faceCenter.dy + 9;
+    final bottom = -bodyH * 0.43 + 4;
+    final neck = RRect.fromRectAndRadius(
+      Rect.fromLTRB(-3.2, top, 3.2, bottom),
+      const Radius.circular(2.5),
+    );
+    canvas.drawRRect(
+      neck,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFE9B9A8), Color(0xFFFFE4D6)],
+        ).createShader(neck.outerRect),
+    );
   }
 
   void _drawRibbon(Canvas canvas, bool running) {
@@ -463,9 +499,9 @@ class GirlfriendPlayer extends PositionComponent {
           : 0.0;
       final leg = RRect.fromRectAndRadius(
         Rect.fromCenter(
-          center: Offset(side * 8 + stride, -10 - lift),
-          width: 9,
-          height: ducking ? 10 : (running ? 16 : 18),
+          center: Offset(side * 8 + stride, -13 - lift),
+          width: 7.5,
+          height: ducking ? 12 : (running ? 20 : 24),
         ),
         const Radius.circular(4),
       );
@@ -594,27 +630,28 @@ class GirlfriendPlayer extends PositionComponent {
     }
     final shoulderY = -height * 0.43;
     final waistY = -height * 0.3;
-    const hemY = -4.0;
+    // 裙摆上提，露出小腿，身材更修长。
+    const hemY = -17.0;
     final skirt = Path()
-      ..moveTo(-5, shoulderY)
-      ..quadraticBezierTo(0, shoulderY - 3, 5, shoulderY)
+      ..moveTo(-4.5, shoulderY)
+      ..quadraticBezierTo(0, shoulderY - 3, 4.5, shoulderY)
       ..cubicTo(
-        12,
+        9,
         shoulderY + 2,
-        12 + hemSwing,
+        9 + hemSwing,
         waistY - 3,
-        19 + hemSwing,
+        15 + hemSwing,
         hemY - 1,
       )
       ..quadraticBezierTo(
         hemSwing * 0.35,
-        hemY + 4,
-        -19 + hemSwing * 0.2,
+        hemY + 3,
+        -15 + hemSwing * 0.2,
         hemY - 1,
       )
-      ..cubicTo(-12, waistY - 3, -12, shoulderY + 2, -5, shoulderY)
+      ..cubicTo(-9, waistY - 3, -9, shoulderY + 2, -4.5, shoulderY)
       ..close();
-    final bounds = Rect.fromLTRB(-21, shoulderY - 3, 21, hemY + 4);
+    final bounds = Rect.fromLTRB(-17, shoulderY - 3, 17, hemY + 4);
     canvas.drawPath(
       skirt.shift(const Offset(0, 2)),
       Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.16),
@@ -678,9 +715,9 @@ class GirlfriendPlayer extends PositionComponent {
     );
     for (final side in [-1.0, 1.0]) {
       final sleeve = Rect.fromCenter(
-        center: Offset(side * 10, shoulderY + 5),
-        width: 11,
-        height: 9,
+        center: Offset(side * 9, shoulderY + 4),
+        width: 7.5,
+        height: 6.5,
       );
       canvas.drawOval(
         sleeve.shift(const Offset(0.8, 1.2)),
@@ -752,8 +789,8 @@ class GirlfriendPlayer extends PositionComponent {
       Paint()..color = MacaronColors.lemon,
     );
     canvas.drawLine(
-      Offset(-15, hemY - 1.3),
-      Offset(15, hemY - 1.3),
+      Offset(-12, hemY - 1.3),
+      Offset(12, hemY - 1.3),
       Paint()
         ..color = Colors.white.withValues(alpha: 0.55)
         ..strokeWidth = 1.2
@@ -803,9 +840,9 @@ class GirlfriendPlayer extends PositionComponent {
     );
     for (final side in [-1.0, 1.0]) {
       final sleeve = Rect.fromCenter(
-        center: Offset(side * 10, shoulderY + 7),
-        width: 10,
-        height: 13,
+        center: Offset(side * 9, shoulderY + 6),
+        width: 7.5,
+        height: 11,
       );
       canvas.drawOval(
         sleeve,
@@ -914,7 +951,7 @@ class GirlfriendPlayer extends PositionComponent {
             ..strokeCap = StrokeCap.round,
         );
       } else {
-        final eyeWhite = Rect.fromCenter(center: eye, width: 6.6, height: 8.8);
+        final eyeWhite = Rect.fromCenter(center: eye, width: 6.0, height: 7.8);
         canvas.drawOval(eyeWhite, Paint()..color = Colors.white);
         final iris = Rect.fromCenter(
           center: eye.translate(0.45, 0.8),
@@ -998,7 +1035,7 @@ class GirlfriendPlayer extends PositionComponent {
           width: 6.2,
           height: 3.8,
         ),
-        Paint()..color = MacaronColors.rose.withValues(alpha: 0.34),
+        Paint()..color = MacaronColors.rose.withValues(alpha: 0.22),
       );
       canvas.drawCircle(
         center.translate(side * 10 - 0.6, 5),
