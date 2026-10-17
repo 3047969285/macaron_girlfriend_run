@@ -20,77 +20,94 @@ Future<T?> showMacaronDialog<T>({
     pageBuilder: (ctx, _, __) {
       final dialog = SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 320,
-                margin: const EdgeInsets.all(24),
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFFF6F0),
-                      Color(0xFFFFE8F0),
-                      Color(0xFFE8FFF6),
+          child: Material(
+            color: Colors.transparent,
+            // 矮屏（横屏手机只有 ~375 高）上标题和按钮固定可见，只让正文滚动，
+            // 避免主按钮被挤到折叠线以下。
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final verticalMargin = constraints.maxHeight < 480 ? 8.0 : 24.0;
+                return Container(
+                  width: 320,
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight - verticalMargin * 2,
+                  ),
+                  margin: EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: verticalMargin,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFF6F0),
+                        Color(0xFFFFE8F0),
+                        Color(0xFFE8FFF6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 24,
+                        offset: Offset(0, 10),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: MacaronColors.cocoa,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: MacaronColors.cocoa,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      body,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        height: 1.45,
-                        color: MacaronColors.cocoa.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    for (final a in actions) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: CupertinoButton(
-                          color: a.primary ? MacaronColors.rose : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          onPressed: () => a.onPressed(ctx),
+                      const SizedBox(height: 12),
+                      Flexible(
+                        child: SingleChildScrollView(
                           child: Text(
-                            a.label,
+                            body,
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: a.primary
-                                  ? Colors.white
-                                  : MacaronColors.cocoa,
-                              fontWeight: FontWeight.w800,
+                              height: 1.45,
+                              color: MacaronColors.cocoa.withValues(alpha: 0.8),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 18),
+                      for (final a in actions) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: CupertinoButton(
+                            color: a.primary
+                                ? MacaronColors.rose
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            onPressed: () => a.onPressed(ctx),
+                            child: Text(
+                              a.label,
+                              style: TextStyle(
+                                color: a.primary
+                                    ? Colors.white
+                                    : MacaronColors.cocoa,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ],
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
+import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
 import 'package:macaron_girlfriend_run/ui/splash_page.dart';
 
 Future<void> main() async {
@@ -27,6 +28,11 @@ Future<void> main() async {
   runApp(const MacaronApp());
 }
 
+/// 整个应用统一按横屏布局：竖屏手机上菜单、选关、商店也会旋转成横屏画面，
+/// 不再把标题和按钮挤成一列。游戏页内部已有的 GameViewport 在横屏约束下不会二次旋转。
+Widget macaronAppShell(BuildContext context, Widget? child) =>
+    GameViewport(child: child ?? const SizedBox.shrink());
+
 /// 应用根
 class MacaronApp extends StatelessWidget {
   const MacaronApp({super.key});
@@ -36,6 +42,7 @@ class MacaronApp extends StatelessWidget {
     return MaterialApp(
       title: '马卡龙女友跑酷',
       debugShowCheckedModeBanner: false,
+      builder: macaronAppShell,
       theme: MacaronColors.theme.copyWith(
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {

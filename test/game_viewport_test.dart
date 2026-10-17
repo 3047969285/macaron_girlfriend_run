@@ -1,8 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/main.dart';
 import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
 
 void main() {
+  testWidgets(
+    'app shell lays out every page in landscape on a portrait phone',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 720);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      late Size menuSize;
+      late Size nestedSize;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: macaronAppShell,
+          home: Builder(
+            builder: (context) {
+              menuSize = MediaQuery.of(context).size;
+              // 游戏页自带 GameViewport：外壳已经转成横屏，内层不能再转一次。
+              return GameViewport(
+                showHint: false,
+                child: Builder(
+                  builder: (inner) {
+                    nestedSize = MediaQuery.of(inner).size;
+                    return const SizedBox.expand();
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      expect(menuSize, const Size(720, 320));
+      expect(nestedSize, const Size(720, 320));
+      final turns = tester
+          .widgetList<RotatedBox>(find.byType(RotatedBox))
+          .map((box) => box.quarterTurns)
+          .toList();
+      expect(turns.where((t) => t == 1), hasLength(1));
+      expect(turns.where((t) => t == 0), isNotEmpty);
+      expect(find.text('横置手机或加宽窗口'), findsOneWidget);
+
+      tester.view.physicalSize = const Size(720, 320);
+      await tester.pump();
+      expect(menuSize, const Size(720, 320));
+      expect(
+        tester
+            .widgetList<RotatedBox>(find.byType(RotatedBox))
+            .every((box) => box.quarterTurns == 0),
+        isTrue,
+      );
+      expect(find.text('横置手机或加宽窗口'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'portrait rotates layout and insets while retaining child state',
     (tester) async {

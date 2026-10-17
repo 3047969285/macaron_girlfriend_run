@@ -610,7 +610,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                   );
                 },
               ),
-            if (_showTutorial) _TutorialOverlay(onDone: _dismissTutorial),
+            if (_showTutorial) TutorialOverlay(onDone: _dismissTutorial),
           ],
         ),
       ),
@@ -1011,8 +1011,9 @@ class _PauseOverlay extends StatelessWidget {
   }
 }
 
-class _TutorialOverlay extends StatelessWidget {
-  const _TutorialOverlay({required this.onDone});
+/// 首次进关的操作说明；公开是为了让矮屏布局可以单独测试。
+class TutorialOverlay extends StatelessWidget {
+  const TutorialOverlay({super.key, required this.onDone});
 
   final VoidCallback onDone;
 
@@ -1021,56 +1022,67 @@ class _TutorialOverlay extends StatelessWidget {
     return ColoredBox(
       color: Colors.black54,
       child: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: 340,
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: MacaronColors.cream,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '怎么玩',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: MacaronColors.cocoa,
+        // 矮屏（横屏手机约 375 高）上标题和“开始冒险”固定可见，只滚动中间的说明。
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final margin = constraints.maxHeight < 480 ? 8.0 : 20.0;
+            return Container(
+              width: 340,
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight - margin * 2,
+              ),
+              margin: EdgeInsets.symmetric(horizontal: 20, vertical: margin),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: MacaronColors.cream,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '怎么玩',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: MacaronColors.cocoa,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text('• A/D 或←→移动，Shift 跑，S/↓蹲'),
-                const Text('• 空格或 W 跳：短按低、长按高'),
-                const Text('• J 闪冲，K 糖盾，Q 花弹，1 下砸，2 二段跳，3 糖线'),
-                const Text('• 看头顶预警：粉怪射糖可蹲、橙怪扑、红胖冲（需两踩）、薄荷怪设陷阱、蓝飞怪俯冲'),
-                const Text('• 连击加分；Boss 半血狂暴跳砸'),
-                const Text('• 问号砖、糖果有奖，蓝旗检查点'),
-                const Text('• 豌豆、闪冲和普通踩踏只破一层护甲。枪能补最后一层，1 下砸把糖壳和红胖直接砸碎'),
-                const Text('• 拾枪后 F 能打掉飞来的糖豆。小车可挡一次，蓄力加速才能碾过糖壳和红胖'),
-                const Text('• 主技能随关卡变化，上方可选六技能'),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: CupertinoButton(
-                    color: MacaronColors.rose,
-                    borderRadius: BorderRadius.circular(16),
-                    onPressed: onDone,
-                    child: const Text(
-                      '开始冒险',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                  const SizedBox(height: 12),
+                  const Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• A/D 移动，Shift 跑，S 蹲'),
+                          Text('• 空格跳，长按更高'),
+                          Text('• J 冲，K 盾，Q 花弹，1 砸，2 二段跳，3 糖线'),
+                          Text('• 看头顶预警再出手'),
+                        ],
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButton(
+                      color: MacaronColors.rose,
+                      borderRadius: BorderRadius.circular(16),
+                      onPressed: onDone,
+                      child: const Text(
+                        '开始冒险',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
