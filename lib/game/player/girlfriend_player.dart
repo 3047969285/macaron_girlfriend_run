@@ -174,7 +174,6 @@ class GirlfriendPlayer extends PositionComponent {
     final running = velocity.x.abs() > 10 && onGround && !ducking;
     final falling = !onGround && velocity.y > 90 && !pounding && !skillDashing;
     final rising = !onGround && velocity.y < -90 && !pounding && !skillDashing;
-    final idle = onGround && velocity.x.abs() <= 10 && !ducking;
     final legSwing = ducking
         ? 0.0
         : pounding
@@ -183,15 +182,14 @@ class GirlfriendPlayer extends PositionComponent {
         ? 5.0 + math.sin(_anim) * 1.5
         : rising
         ? -3.0
-        : math.sin(_anim) * (running ? 4.0 : 1.5);
+        : (running ? math.sin(_anim) * 4.0 : 0.0);
+    // 待机时人物保持静止，只有眨眼；动作只在跑动、跳跃、下落时出现。
     final bodyBob = running
         ? math.sin(_anim * 2) * 2.4
-        : idle
-        ? math.sin(_moodClock * 1.6) * 1.1
         : falling
         ? 1.2
         : 0.0;
-    final idleTilt = idle ? math.sin(_moodClock * 0.8) * 0.025 : 0.0;
+    const idleTilt = 0.0;
     final bodyLean = skillDashing
         ? 0.16
         : pounding
@@ -266,7 +264,7 @@ class GirlfriendPlayer extends PositionComponent {
           ? 3.0
           : falling
           ? -4.0
-          : math.sin(_anim) * (running ? 5.0 : 1.6),
+          : (running ? math.sin(_anim) * 5.0 : 0.0),
     );
     _drawFace(canvas, faceCenter);
     _drawHairFront(canvas, faceCenter, hairColor);
@@ -284,7 +282,7 @@ class GirlfriendPlayer extends PositionComponent {
   }
 
   void _drawRibbon(Canvas canvas, bool running) {
-    final swing = math.sin(_anim) * (running ? 10.0 : 3.0);
+    final swing = running ? math.sin(_anim) * 10.0 : 0.0;
     canvas.drawPath(
       Path()
         ..moveTo(-6, -size.y * 0.42)
@@ -344,7 +342,7 @@ class GirlfriendPlayer extends PositionComponent {
       }
       return;
     }
-    final sway = math.sin(_anim * 0.42) * (velocity.x.abs() > 10 ? 4.2 : 1.4);
+    final sway = velocity.x.abs() > 10 ? math.sin(_anim * 0.42) * 4.2 : 0.0;
     final hair = Path()
       ..moveTo(faceCenter.dx - 11, faceCenter.dy - 2)
       ..cubicTo(
