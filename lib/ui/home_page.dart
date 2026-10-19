@@ -6,6 +6,7 @@ import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
+import 'package:macaron_girlfriend_run/ui/input_mode.dart';
 import 'package:macaron_girlfriend_run/ui/macaron_dialogs.dart';
 import 'package:macaron_girlfriend_run/ui/play_page.dart';
 import 'package:macaron_girlfriend_run/ui/shop_page.dart';
@@ -129,6 +130,7 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => PlayPage(
                             worldIndex: pos.$1,
                             levelIndex: pos.$2,
+                            origin: PlayOrigin.home,
                           ),
                         ),
                       );
@@ -172,38 +174,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  _PillButton(
-                    label: 'iPhone 版',
-                    onTap: () {
-                      showCupertinoDialog<void>(
-                        context: context,
-                        builder: (ctx) => CupertinoAlertDialog(
-                          title: const Text('iPhone 怎么玩'),
-                          content: const Text(
-                            '不必同 Wi-Fi，可以部署到公网：\n\n'
-                            '① 最快：运行「部署iPhone公网.bat」→ 打开 netlify.com/drop → '
-                            '拖入桌面「马卡龙-iPhone网页版」→ 得到 netlify.app 链接\n\n'
-                            '② 永久：工程推 GitHub → Pages 开 GitHub Actions\n\n'
-                            '③ 同 Wi-Fi：运行「给iPhone玩.bat」\n\n'
-                            'Safari 打开 → 分享 → 添加到主屏幕',
-                          ),
-                          actions: [
-                            CupertinoDialogAction(
-                              isDefaultAction: true,
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('知道了'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => _open(const AboutPage()),
-                    child: const Text('关于与上架说明'),
                   ),
                 ],
               ),
@@ -272,14 +242,33 @@ class _PillButton extends StatelessWidget {
 
 /// 九大世界选关
 class WorldMapPage extends StatefulWidget {
-  const WorldMapPage({super.key});
+  const WorldMapPage({super.key, this.initialWorld = 0});
+
+  /// 超出 0..worldCount-1 时夹紧。
+  final int initialWorld;
 
   @override
   State<WorldMapPage> createState() => _WorldMapPageState();
 }
 
 class _WorldMapPageState extends State<WorldMapPage> {
-  int world = 0;
+  late int world;
+
+  int _clampWorld(int index) => index.clamp(0, GameConstants.worldCount - 1);
+
+  @override
+  void initState() {
+    super.initState();
+    world = _clampWorld(widget.initialWorld);
+  }
+
+  @override
+  void didUpdateWidget(covariant WorldMapPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialWorld != widget.initialWorld) {
+      world = _clampWorld(widget.initialWorld);
+    }
+  }
 
   Future<void> _openLevel(int level) async {
     await AudioService.instance.click();
@@ -486,7 +475,7 @@ class HowToPlayPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SimplePage(
       title: '玩法说明',
-      children: const [
+      children: [
         _TipCard(
           emoji: '🎯',
           title: '本关目标',
@@ -498,9 +487,8 @@ class HowToPlayPage extends StatelessWidget {
           emoji: '🕹️',
           title: '操作',
           body:
-              '触控：← → 移动 · 蹲 · 跑 · 跳，上方六枚技能随时可按。\n'
-              '键盘：方向键/WASD · 空格或 W 跳 · Shift 跑 · Esc 暂停。\n'
-              '技能：J 闪冲 · K 糖盾 · Q 花弹 · 1 下砸 · 2 二段跳 · 3 糖线。',
+              '触控：${InputModeRules.touchLines.join(' · ')}\n'
+              '键盘：${InputModeRules.keyboardLines.join(' · ')}',
         ),
         SizedBox(height: 10),
         _TipCard(
@@ -815,7 +803,7 @@ class _AchievementCard extends StatelessWidget {
   }
 }
 
-/// 关于页（上架信息）
+/// 关于页
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
@@ -835,10 +823,6 @@ class AboutPage extends StatelessWidget {
           '相机前瞻、长关性能与 iPhone 网页加载。',
         ),
         SizedBox(height: 10),
-        Text('Android：Google Play / 各安卓商店 — 安装 apk 或自行签名上架。'),
-        SizedBox(height: 10),
-        Text('iPhone：App Store 需 Mac 或 Codemagic 云构建 ipa（见 docs/BUILD_IOS.md）；无 Mac 可用 Safari 网页版 + 添加到主屏幕。'),
-        SizedBox(height: 10),
         Text('隐私：进度仅保存在本机，无账号、无联网、无广告追踪。'),
         SizedBox(height: 10),
         Text('适龄提示：休闲益智，建议 4+。'),
@@ -854,6 +838,19 @@ class SettingsPage extends StatefulWidget {
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
+/// 音量滑块规则：开关关时显示 0；拖到 0 即关，大于 0 即开。
+class AudioSliderRules {
+  AudioSliderRules._();
+
+  /// enabled 为 false 时返回 0，否则返回 volume。
+  static double display({required bool enabled, required double volume}) =>
+      enabled ? volume : 0;
+
+  /// 返回新的开关和音量：(enabled: value > 0, volume: value)。
+  static ({bool enabled, double volume}) apply(double value) =>
+      (enabled: value > 0, volume: value);
+}
+
 
 class _SettingsPageState extends State<SettingsPage> {
   late int fpsMode;
@@ -888,39 +885,22 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             _pageHeader(context, '设置'),
             _section('音效与触感'),
-            SwitchListTile(
-              title: const Text('操作音效'),
-              value: sound,
-              activeThumbColor: MacaronColors.rose,
-              onChanged: (v) async {
-                setState(() => sound = v);
-                await SaveService.instance.setSoundEnabled(v);
-              },
-            ),
-            SwitchListTile(
-              title: const Text('背景音乐'),
-              value: music,
-              activeThumbColor: MacaronColors.rose,
-              onChanged: (v) async {
-                setState(() => music = v);
-                await SaveService.instance.setMusicEnabled(v);
-                if (!v) {
-                  // ignore: unawaited_futures
-                  AudioService.instance.stopBgm();
-                } else {
-                  // ignore: unawaited_futures
-                  AudioService.instance.resumeBgm();
-                }
-              },
-            ),
             ListTile(
               title: const Text('音效音量'),
               subtitle: Slider(
-                value: soundVol,
+                value: AudioSliderRules.display(
+                  enabled: sound,
+                  volume: soundVol,
+                ),
                 activeColor: MacaronColors.rose,
                 onChanged: (v) async {
-                  setState(() => soundVol = v);
-                  await SaveService.instance.setSoundVolume(v);
+                  final r = AudioSliderRules.apply(v);
+                  setState(() {
+                    sound = r.enabled;
+                    soundVol = r.volume;
+                  });
+                  await SaveService.instance.setSoundEnabled(r.enabled);
+                  await SaveService.instance.setSoundVolume(r.volume);
                   await AudioService.instance.applyVolumes();
                 },
               ),
@@ -928,12 +908,28 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               title: const Text('音乐音量'),
               subtitle: Slider(
-                value: musicVol,
+                value: AudioSliderRules.display(
+                  enabled: music,
+                  volume: musicVol,
+                ),
                 activeColor: MacaronColors.lilac,
                 onChanged: (v) async {
-                  setState(() => musicVol = v);
-                  await SaveService.instance.setMusicVolume(v);
+                  final r = AudioSliderRules.apply(v);
+                  final wasAudible = music && musicVol > 0;
+                  setState(() {
+                    music = r.enabled;
+                    musicVol = r.volume;
+                  });
+                  await SaveService.instance.setMusicEnabled(r.enabled);
+                  await SaveService.instance.setMusicVolume(r.volume);
                   await AudioService.instance.applyVolumes();
+                  if (wasAudible && !r.enabled) {
+                    // ignore: unawaited_futures
+                    AudioService.instance.stopBgm();
+                  } else if (!wasAudible && r.enabled) {
+                    // ignore: unawaited_futures
+                    AudioService.instance.resumeBgm();
+                  }
                 },
               ),
             ),
@@ -1004,29 +1000,31 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
-            _section('帧率'),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final e in const [
-                  (0, '自动'),
-                  (1, '60'),
-                  (2, '90'),
-                  (3, '120'),
-                ])
-                  ChoiceChip(
-                    label: Text(e.$2),
-                    selected: fpsMode == e.$1,
-                    selectedColor: MacaronColors.blush,
-                    onSelected: (_) async {
-                      setState(() => fpsMode = e.$1);
-                      await SaveService.instance.setFpsMode(e.$1);
-                      await FpsBootstrap.applyMode(e.$1);
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            if (FpsBootstrap.isSupported) ...[
+              _section('帧率'),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final e in const [
+                    (0, '自动'),
+                    (1, '60'),
+                    (2, '90'),
+                    (3, '120'),
+                  ])
+                    ChoiceChip(
+                      label: Text(e.$2),
+                      selected: fpsMode == e.$1,
+                      selectedColor: MacaronColors.blush,
+                      onSelected: (_) async {
+                        setState(() => fpsMode = e.$1);
+                        await SaveService.instance.setFpsMode(e.$1);
+                        await FpsBootstrap.applyMode(e.$1);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             _section('角色外观'),
             Wrap(
               spacing: 8,
@@ -1109,6 +1107,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   }
                 }
               },
+            ),
+            ListTile(
+              title: const Text('关于'),
+              trailing: const Icon(CupertinoIcons.info),
+              onTap: () => Navigator.push(
+                context,
+                CupertinoPageRoute<void>(builder: (_) => const AboutPage()),
+              ),
             ),
           ],
         ),

@@ -140,7 +140,19 @@ class MacaronGame extends FlameGame {
       levelReady && vehicleTimer > 0 && !player.dead && _vehicleBoostTimer > 0;
   HeroSkill get activeSkill =>
       GameConstants.heroSkillForLevel(worldIndex, levelIndex);
-  String get skillButtonLabel => activeSkill.shortLabel;
+  HeroSkill? _selectedSkill;
+
+  /// 触屏技能键当前会放的技能；开局等于当关技能。
+  HeroSkill get selectedSkill => _selectedSkill ?? activeSkill;
+
+  /// 按 HeroSkill.values 顺序切到下一个，末尾回到开头；之后通知 HUD 刷新。
+  void cycleSelectedSkill() {
+    final values = HeroSkill.values;
+    _selectedSkill = values[(selectedSkill.index + 1) % values.length];
+    _notifyHud();
+  }
+
+  String get skillButtonLabel => selectedSkill.shortLabel;
 
   double cooldownRatioOf(HeroSkill skill) {
     final maxCd = GameConstants.skillCooldownFor(
@@ -153,7 +165,7 @@ class MacaronGame extends FlameGame {
     return ((_skillCooldowns[skill] ?? 0) / maxCd).clamp(0.0, 1.0);
   }
 
-  double get skillCooldownRatio => cooldownRatioOf(activeSkill);
+  double get skillCooldownRatio => cooldownRatioOf(selectedSkill);
 
   double mathMax(double a, double b) => a > b ? a : b;
 
@@ -544,10 +556,6 @@ class MacaronGame extends FlameGame {
     return out;
   }
 
-  void tapJump() {
-    setJumpHeld(true);
-  }
-
   /// 跳跃按键按下松开必须成对，松开后才能再跳，防止连跳多动症
   void setJumpHeld(bool held) {
     if (userPaused || _finished) {
@@ -721,31 +729,32 @@ class MacaronGame extends FlameGame {
     world.add(shot);
   }
 
+  /// 无参时释放选中技能（触屏「换」切换的那个）；有参时只放指定技能，不改选中技能。
   void activateSkill([HeroSkill? skill]) {
-    final selectedSkill = skill ?? activeSkill;
+    final skillToCast = skill ?? selectedSkill;
     if (!levelReady || userPaused || _finished || player.dead) {
       return;
     }
-    if ((_skillCooldowns[selectedSkill] ?? 0) > 0) {
+    if ((_skillCooldowns[skillToCast] ?? 0) > 0) {
       return;
     }
-    if (selectedSkill == HeroSkill.petalVolley &&
+    if (skillToCast == HeroSkill.petalVolley &&
         _playerShots.where((shot) => !shot.spent).length >=
             GameConstants.maxPlayerShots) {
       return;
     }
-    if (selectedSkill == HeroSkill.airHop && !player.onGround && _airHopUsed) {
+    if (skillToCast == HeroSkill.airHop && !player.onGround && _airHopUsed) {
       return;
     }
-    final started = _castSkill(selectedSkill);
+    final started = _castSkill(skillToCast);
     if (!started) {
       return;
     }
-    _skillCooldowns[selectedSkill] = GameConstants.skillCooldownFor(
-      selectedSkill,
+    _skillCooldowns[skillToCast] = GameConstants.skillCooldownFor(
+      skillToCast,
       level.difficulty,
     );
-    fx.heroCallout(switch (selectedSkill) {
+    fx.heroCallout(switch (skillToCast) {
       HeroSkill.dash => '闪开，现在！',
       HeroSkill.shield => '糖盾，护住！',
       HeroSkill.petalVolley => '花瓣齐发！',

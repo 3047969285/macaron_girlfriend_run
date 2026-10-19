@@ -133,37 +133,41 @@ class _ShopPageState extends State<ShopPage> {
                           color: on
                               ? MacaronColors.mint
                               : (has ? MacaronColors.sky : MacaronColors.rose),
+                          // 已穿戴的不可点，颜色仍保持薄荷色
+                          disabledColor: MacaronColors.mint,
                           borderRadius: BorderRadius.circular(14),
-                          onPressed: () async {
-                            await AudioService.instance.click();
-                            if (on) {
-                              return;
-                            }
-                            if (!has) {
-                              final ok = await SaveService.instance
-                                  .purchaseCosmetic(item.id);
-                              if (!ok && context.mounted) {
-                                await showCupertinoDialog<void>(
-                                  context: context,
-                                  builder: (ctx) => CupertinoAlertDialog(
-                                    title: const Text('糖果不够'),
-                                    content: const Text('再去闯关攒一点吧'),
-                                    actions: [
-                                      CupertinoDialogAction(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        child: const Text('好'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                return;
-                              }
-                            }
-                            await SaveService.instance.equipCosmetic(item.id);
-                            if (mounted) {
-                              setState(() {});
-                            }
-                          },
+                          onPressed: on
+                              ? null
+                              : () async {
+                                  await AudioService.instance.click();
+                                  if (!has) {
+                                    final ok = await SaveService.instance
+                                        .purchaseCosmetic(item.id);
+                                    if (!ok && context.mounted) {
+                                      await showCupertinoDialog<void>(
+                                        context: context,
+                                        builder: (ctx) => CupertinoAlertDialog(
+                                          title: const Text('糖果不够'),
+                                          content: const Text('再去闯关攒一点吧'),
+                                          actions: [
+                                            CupertinoDialogAction(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx),
+                                              child: const Text('好'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                  }
+                                  await SaveService.instance.equipCosmetic(
+                                    item.id,
+                                  );
+                                  if (mounted) {
+                                    setState(() {});
+                                  }
+                                },
                           child: Text(
                             on ? '穿戴中' : (has ? '穿上' : '兑换'),
                             style: const TextStyle(

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
@@ -9,6 +10,10 @@ import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 /// 高刷帧率适配（Android 可切换；iOS 跟随系统 ProMotion）
 class FpsBootstrap {
   FpsBootstrap._();
+
+  /// 只有 Android 原生能切刷新率。测试可用 debugDefaultTargetPlatformOverride 覆盖。
+  static bool get isSupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   /// 按存档档位尽量拉高刷新率
   static Future<void> applyFromSave() async {
@@ -60,6 +65,7 @@ class TouchControls extends StatelessWidget {
     this.onDuck,
     this.onInteract,
     this.onSkill,
+    this.onCycleSkill,
     this.onShoot,
     this.skillCooldown = 0,
     this.skillLabel = '冲刺',
@@ -73,6 +79,9 @@ class TouchControls extends StatelessWidget {
   final ValueChanged<bool>? onDuck;
   final VoidCallback? onInteract;
   final VoidCallback? onSkill;
+
+  /// 非空时，在技能键旁显示文字为「换」的小按钮，点按调用它。
+  final VoidCallback? onCycleSkill;
   final ValueChanged<bool>? onShoot;
   final double skillCooldown;
   final String skillLabel;
@@ -86,17 +95,20 @@ class TouchControls extends StatelessWidget {
     final horizontalPadding = compact ? 12.0 : 28.0;
     final availableWidth =
         screenWidth - pad.left - pad.right - horizontalPadding * 2;
+    final hasCycle = onCycleSkill != null && onSkill != null;
     final wideControlWidth =
         142.0 +
         (onDuck == null ? 0 : 74) +
         64 +
         (onSkill == null ? 0 : 62) +
+        (hasCycle ? 40 : 0) +
         (onShoot == null ? 0 : 72) +
         12 +
         78;
     final compactTopWidth =
         (onShoot == null ? 0.0 : 54 + (onSkill == null ? 0 : 6)) +
-        (onSkill == null ? 0 : 50);
+        (onSkill == null ? 0 : 50) +
+        (hasCycle ? 6 + 30 : 0);
     final compactBottomWidth = (onDuck == null ? 0.0 : 58) + 54 + 6 + 68;
     final controlWidth = compact
         ? 132 + math.max(compactTopWidth, compactBottomWidth)
@@ -160,6 +172,14 @@ class TouchControls extends StatelessWidget {
                           label: skillLabel,
                           size: 50 * s,
                         ),
+                      if (hasCycle) ...[
+                        SizedBox(width: 6 * s),
+                        _CycleButton(
+                          onCycle: onCycleSkill!,
+                          onInteract: onInteract,
+                          size: 30 * s,
+                        ),
+                      ],
                     ],
                   ),
                 if (compactTopWidth > 0) SizedBox(height: 6 * s),
@@ -261,6 +281,14 @@ class TouchControls extends StatelessWidget {
                   size: 54 * s,
                 ),
               ],
+              if (hasCycle) ...[
+                SizedBox(width: 8 * s),
+                _CycleButton(
+                  onCycle: onCycleSkill!,
+                  onInteract: onInteract,
+                  size: 32 * s,
+                ),
+              ],
               SizedBox(width: 12 * s),
               _RoundHold(
                 label: '跳',
@@ -273,6 +301,34 @@ class TouchControls extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 技能键旁的「换」按钮：点一下切换选中技能，复用 _RoundHold 的按压手感。
+class _CycleButton extends StatelessWidget {
+  const _CycleButton({
+    required this.onCycle,
+    required this.size,
+    this.onInteract,
+  });
+
+  final VoidCallback onCycle;
+  final VoidCallback? onInteract;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoundHold(
+      label: '换',
+      size: size,
+      fill: MacaronColors.lemon.withValues(alpha: 0.95),
+      onInteract: onInteract,
+      onChanged: (down) {
+        if (down) {
+          onCycle();
+        }
+      },
     );
   }
 }

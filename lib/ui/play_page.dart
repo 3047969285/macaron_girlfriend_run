@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
@@ -10,7 +11,26 @@ import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
+import 'package:macaron_girlfriend_run/ui/home_page.dart';
+import 'package:macaron_girlfriend_run/ui/input_mode.dart';
 import 'package:macaron_girlfriend_run/ui/macaron_dialogs.dart';
+
+/// 进关来源：决定「选关」回首页还是回选关地图。
+enum PlayOrigin { home, map }
+
+/// 「选关」动作：pop 回上一页，或用选关地图替换游戏页。
+enum LevelSelectAction { pop, replaceWithMap }
+
+class PlayNavigation {
+  PlayNavigation._();
+
+  /// map → pop；home → replaceWithMap。
+  static LevelSelectAction levelSelectActionFor(PlayOrigin origin) =>
+      switch (origin) {
+        PlayOrigin.map => LevelSelectAction.pop,
+        PlayOrigin.home => LevelSelectAction.replaceWithMap,
+      };
+}
 
 /// 关卡游玩页
 class PlayPage extends StatefulWidget {
@@ -18,10 +38,12 @@ class PlayPage extends StatefulWidget {
     super.key,
     required this.worldIndex,
     required this.levelIndex,
+    this.origin = PlayOrigin.map,
   });
 
   final int worldIndex;
   final int levelIndex;
+  final PlayOrigin origin;
 
   @override
   State<PlayPage> createState() => _PlayPageState();
@@ -34,6 +56,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   bool _busy = false;
   bool _showTutorial = false;
   bool _lifecyclePaused = false;
+  InputMode _inputMode = InputModeRules.initialFor(defaultTargetPlatform);
 
   @override
   void initState() {
@@ -109,9 +132,31 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     }
   }
 
+  void _setInputMode(InputMode mode) {
+    if (_inputMode != mode) {
+      setState(() => _inputMode = mode);
+    }
+  }
+
   void _onControlInteract() {
     // ignore: unawaited_futures
     AudioService.instance.unlockAudio();
+    _setInputMode(InputMode.touch);
+  }
+
+  /// 「选关」：来自地图则返回，来自首页则用选关地图替换本页（停在当前世界）。
+  void _goToLevelSelect() {
+    switch (PlayNavigation.levelSelectActionFor(widget.origin)) {
+      case LevelSelectAction.pop:
+        Navigator.pop(context, true);
+      case LevelSelectAction.replaceWithMap:
+        Navigator.pushReplacement(
+          context,
+          CupertinoPageRoute<void>(
+            builder: (_) => WorldMapPage(initialWorld: widget.worldIndex),
+          ),
+        );
+    }
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -119,6 +164,9 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     final up = event is KeyUpEvent;
     if (!down && !up) {
       return KeyEventResult.ignored;
+    }
+    if (down) {
+      _setInputMode(InputMode.keyboard);
     }
     final key = event.logicalKey;
     if (down &&
@@ -267,7 +315,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
             label: '选关',
             onPressed: (ctx) {
               Navigator.pop(ctx);
-              Navigator.pop(context, true);
+              _goToLevelSelect();
             },
           ),
           if (widget.worldIndex < GameConstants.worldCount - 1)
@@ -280,8 +328,11 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                 Navigator.pushReplacement(
                   context,
                   CupertinoPageRoute<void>(
-                    builder: (_) =>
-                        PlayPage(worldIndex: next.$1, levelIndex: next.$2),
+                    builder: (_) => PlayPage(
+                      worldIndex: next.$1,
+                      levelIndex: next.$2,
+                      origin: widget.origin,
+                    ),
                   ),
                 );
               },
@@ -306,7 +357,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
           label: '选关',
           onPressed: (ctx) {
             Navigator.pop(ctx);
-            Navigator.pop(context, true);
+            _goToLevelSelect();
           },
         ),
         if (widget.levelIndex < GameConstants.levelsPerWorld - 1 ||
@@ -320,8 +371,11 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
               Navigator.pushReplacement(
                 context,
                 CupertinoPageRoute<void>(
-                  builder: (_) =>
-                      PlayPage(worldIndex: next.$1, levelIndex: next.$2),
+                  builder: (_) => PlayPage(
+                    worldIndex: next.$1,
+                    levelIndex: next.$2,
+                    origin: widget.origin,
+                  ),
                 ),
               );
             },
@@ -369,6 +423,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                 builder: (_) => PlayPage(
                   worldIndex: widget.worldIndex,
                   levelIndex: widget.levelIndex,
+                  origin: widget.origin,
                 ),
               ),
             );
@@ -425,7 +480,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
           label: '确认退出',
           onPressed: (ctx) {
             Navigator.pop(ctx);
-            Navigator.pop(context);
+            _goToLevelSelect();
           },
         ),
       ],
@@ -515,10 +570,10 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                         game: game,
                         worldName: worldName,
                         levelTitle: levelTitle,
-                        onExit: (_showTutorial || _busy) ? null : _confirmExit,
                         onPause: (_showTutorial || _busy) ? null : _togglePause,
                       ),
-                      if (game.levelReady) ...[
+                      if (game.levelReady &&
+                          _inputMode == InputMode.keyboard) ...[
                         const SizedBox(height: 6),
                         _SkillStrip(game: game, onCast: game.activateSkill),
                       ],
@@ -587,6 +642,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                     onDuck: game.setDuckPressed,
                     onJumpHeld: game.setJumpHeld,
                     onSkill: game.activateSkill,
+                    onCycleSkill: game.cycleSelectedSkill,
                     onShoot: game.weaponVisible ? game.setShootPressed : null,
                     skillCooldown: game.skillCooldownRatio,
                     skillLabel: game.skillButtonLabel,
@@ -595,6 +651,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
               ),
             if (game.userPaused && !_showTutorial)
               _PauseOverlay(
+                inputMode: _inputMode,
                 fromLifecycle: _lifecyclePaused,
                 starTips: game.starTips(),
                 onResume: _togglePause,
@@ -606,12 +663,14 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                       builder: (_) => PlayPage(
                         worldIndex: widget.worldIndex,
                         levelIndex: widget.levelIndex,
+                        origin: widget.origin,
                       ),
                     ),
                   );
                 },
               ),
-            if (_showTutorial) TutorialOverlay(onDone: _dismissTutorial),
+            if (_showTutorial)
+              TutorialOverlay(onDone: _dismissTutorial, inputMode: _inputMode),
           ],
         ),
       ),
@@ -630,13 +689,11 @@ class _GameHudHeader extends StatelessWidget {
     required this.game,
     required this.worldName,
     required this.levelTitle,
-    this.onExit,
     this.onPause,
   });
   final MacaronGame game;
   final String worldName;
   final String levelTitle;
-  final VoidCallback? onExit;
   final VoidCallback? onPause;
 
   @override
@@ -680,15 +737,6 @@ class _GameHudHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              _HudChip(
-                onTap: onExit,
-                child: const Icon(
-                  CupertinoIcons.back,
-                  size: 18,
-                  color: MacaronColors.cocoa,
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -924,6 +972,7 @@ class _PauseOverlay extends StatelessWidget {
     required this.onQuit,
     required this.onRetry,
     required this.starTips,
+    required this.inputMode,
     this.fromLifecycle = false,
   });
 
@@ -931,6 +980,7 @@ class _PauseOverlay extends StatelessWidget {
   final VoidCallback onQuit;
   final VoidCallback onRetry;
   final String starTips;
+  final InputMode inputMode;
   final bool fromLifecycle;
 
   @override
@@ -962,7 +1012,7 @@ class _PauseOverlay extends StatelessWidget {
                 Text(
                   fromLifecycle
                       ? '回来点「继续」就能接着跑～限时已帮你停住'
-                      : '键盘：方向/WASD 移动 · 空格/W 跳 · Shift 跑 · J闪冲 K糖盾 Q花弹 · 1下砸 2二段 3糖线\n蓝台可从下穿过 · 黄台会塌 · 紫台会带着走',
+                      : '${InputModeRules.linesFor(inputMode).join(' · ')}\n蓝台可从下穿过 · 黄台会塌 · 紫台会带着走',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
@@ -1014,9 +1064,14 @@ class _PauseOverlay extends StatelessWidget {
 
 /// 首次进关的操作说明；公开是为了让矮屏布局可以单独测试。
 class TutorialOverlay extends StatelessWidget {
-  const TutorialOverlay({super.key, required this.onDone});
+  const TutorialOverlay({
+    super.key,
+    required this.onDone,
+    this.inputMode = InputMode.touch,
+  });
 
   final VoidCallback onDone;
+  final InputMode inputMode;
 
   @override
   Widget build(BuildContext context) {
@@ -1051,15 +1106,13 @@ class TutorialOverlay extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Flexible(
+                  Flexible(
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('• A/D 移动，Shift 跑，S 蹲'),
-                          Text('• 空格跳，长按更高'),
-                          Text('• J 冲，K 盾，Q 花弹，1 砸，2 二段跳，3 糖线'),
-                          Text('• 看头顶预警再出手'),
+                          for (final line in InputModeRules.linesFor(inputMode))
+                            Text('• $line'),
                         ],
                       ),
                     ),
