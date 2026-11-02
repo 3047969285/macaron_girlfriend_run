@@ -131,12 +131,33 @@ class GirlfriendPlayer extends PositionComponent {
     invincibleTimer = GameConstants.invincibleDuration;
   }
 
+  /// 站在地面上时，物理每隔几帧会下沉约 3 像素再被顶回来，`onGround` 随之闪烁。
+  /// 画面上这会表现成颤抖，所以只在显示层吸收：刚落地不久、没有起跳、下沉
+  /// 不到 4.5 像素时，仍按站立姿态绘制，并把脚钉在落地高度。
+  double _groundGrace = 0;
+  double _lastGroundY = 0;
+
+  bool get visuallyGrounded =>
+      onGround ||
+      (_groundGrace > 0 && velocity.y >= 0 && position.y - _lastGroundY < 4.5);
+
+  /// 画面需要上提的距离（<= 0），抵消物理下沉。
+  double get visualLift => (visuallyGrounded && !onGround)
+      ? math.min(0, _lastGroundY - position.y)
+      : 0;
+
   @override
   void update(double dt) {
     if (isDriving) {
       _wheelSpin = (_wheelSpin + velocity.x.abs() * dt / 7) % (math.pi * 2);
     }
     _plantShotTimer = math.max(0, _plantShotTimer - dt);
+    if (onGround) {
+      _groundGrace = 0.15;
+      _lastGroundY = position.y;
+    } else {
+      _groundGrace = math.max(0, _groundGrace - dt);
+    }
     _anim += dt * (velocity.x.abs() > 10 ? 14 : 4);
     _moodClock += dt;
     final blinkPhase = _moodClock % 3.8;
@@ -161,19 +182,20 @@ class GirlfriendPlayer extends PositionComponent {
         ? MacaronColors.rose
         : const Color(0xFF75536D);
 
+    final grounded = visuallyGrounded;
     final squash = pounding
         ? 0.78
         : ducking
         ? 1.12
-        : (onGround ? 1.0 : 0.92);
+        : (grounded ? 1.0 : 0.92);
     final stretch = pounding
         ? 1.28
         : ducking
         ? 0.72
-        : (onGround ? 1.0 : 1.08);
-    final running = velocity.x.abs() > 10 && onGround && !ducking;
-    final falling = !onGround && velocity.y > 90 && !pounding && !skillDashing;
-    final rising = !onGround && velocity.y < -90 && !pounding && !skillDashing;
+        : (grounded ? 1.0 : 1.08);
+    final running = velocity.x.abs() > 10 && grounded && !ducking;
+    final falling = !grounded && velocity.y > 90 && !pounding && !skillDashing;
+    final rising = !grounded && velocity.y < -90 && !pounding && !skillDashing;
     final legSwing = ducking
         ? 0.0
         : pounding
@@ -203,7 +225,7 @@ class GirlfriendPlayer extends PositionComponent {
         : idleTilt;
 
     canvas.save();
-    canvas.translate(size.x / 2, size.y);
+    canvas.translate(size.x / 2, size.y + visualLift);
     canvas.scale(facingRight ? 1.0 : -1.0, 1.0);
     canvas.scale(squash, stretch);
     canvas.translate(0, bodyBob);
