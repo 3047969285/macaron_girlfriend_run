@@ -294,14 +294,47 @@ class AudioService {
     }
   }
 
-  /// 理想汽车第一次撞到怪时的“降维打击”。
-  Future<void> ramSting() async {
+  int _openingRevision = 0;
+
+  /// 每局刚开始播放《兰花草》：先压住背景乐，放完再接回来。
+  Future<void> levelOpening() async {
+    if (!musicOn) {
+      return;
+    }
+    final revision = ++_openingRevision;
+    try {
+      await init();
+      if (_bgmPlaying) {
+        await _bgm.pause();
+      }
+      await _sting.setVolume(SaveService.instance.musicVolume);
+      await _sting.play(AssetSource(_gumAsset));
+      await _sting.onPlayerComplete.first;
+    } catch (_) {}
+    if (revision == _openingRevision && !_marchPlaying && _bgmPlaying) {
+      try {
+        await _bgm.resume();
+      } catch (_) {}
+    }
+  }
+
+  final AudioPlayer _killPlayer = AudioPlayer();
+  DateTime _killStingAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 打死一个怪物就播放《同龄人原本没想降维打击》。
+  /// 片段约 8 秒，播放中再杀怪不重头开始，免得被切碎。
+  Future<void> killSting() async {
     if (!soundOn) {
       return;
     }
+    final now = DateTime.now();
+    if (now.difference(_killStingAt) < const Duration(seconds: 8)) {
+      return;
+    }
+    _killStingAt = now;
     try {
-      await _sting.setVolume(SaveService.instance.soundVolume);
-      await _sting.play(AssetSource(_ramAsset));
+      await _killPlayer.setVolume(SaveService.instance.soundVolume);
+      await _killPlayer.play(AssetSource(_ramAsset));
     } catch (_) {}
   }
 
@@ -425,18 +458,6 @@ class AudioService {
   }
 
   Future<void> win() async {
-    // 胜利后自动播放《兰花草》；放不出来时退回原来的合成胜利音。
-    if (soundOn || musicOn) {
-      try {
-        await stopTheme();
-        if (_bgmPlaying) {
-          await _bgm.pause();
-        }
-        await _sting.setVolume(SaveService.instance.musicVolume);
-        await _sting.play(AssetSource(_gumAsset));
-        return;
-      } catch (_) {}
-    }
     await _playFx(() => _wavWin);
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
