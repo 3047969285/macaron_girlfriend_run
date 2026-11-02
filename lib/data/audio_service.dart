@@ -243,16 +243,26 @@ class AudioService {
       }
       await _march.setReleaseMode(ReleaseMode.loop);
       await _march.setVolume(SaveService.instance.musicVolume);
-      await _march.play(
-        BytesSource(
-          _themeBytes.putIfAbsent(
-            kind,
-            () => kind == 'gum' ? SynthWav.gumLoop() : SynthWav.marchLoop(),
+      try {
+        // 用户提供的梗音频；加载失败时退回原创合成旋律。
+        await _march.play(AssetSource(kind == 'gum' ? _gumAsset : _marchAsset));
+      } catch (_) {
+        await _march.play(
+          BytesSource(
+            _themeBytes.putIfAbsent(
+              kind,
+              () => kind == 'gum' ? SynthWav.gumLoop() : SynthWav.marchLoop(),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (_) {}
   }
+
+  static const String _marchAsset = 'audio/meme_li_march.mp4';
+  static const String _gumAsset = 'audio/meme_gum.mp4';
+  static const String _mambaAsset = 'audio/meme_mamba_out.mp4';
+  final AudioPlayer _sting = AudioPlayer();
 
   Future<void> stopTheme([String? kind]) async {
     if (!_marchPlaying || (kind != null && kind != _theme)) {
@@ -272,7 +282,15 @@ class AudioService {
 
   /// 飞机结束的收尾音。
   Future<void> mambaOut() async {
-    await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
+    if (!soundOn) {
+      return;
+    }
+    try {
+      await _sting.setVolume(SaveService.instance.soundVolume);
+      await _sting.play(AssetSource(_mambaAsset));
+    } catch (_) {
+      await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
+    }
   }
 
   /// 暂停 BGM
