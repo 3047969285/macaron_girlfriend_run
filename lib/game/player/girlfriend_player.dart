@@ -269,9 +269,6 @@ class GirlfriendPlayer extends PositionComponent {
     _withHead(canvas, faceCenter, () {
       _drawHairBack(canvas, faceCenter, hairColor);
     });
-    if (role == PlayerRole.girlfriend && !ducking) {
-      _drawRibbon(canvas, running);
-    }
     _drawLegsAndShoes(
       canvas,
       legSwing,
@@ -280,7 +277,14 @@ class GirlfriendPlayer extends PositionComponent {
       airborne: falling || rising,
       pounding: pounding,
     );
-    _drawArms(canvas, bodyH, legSwing, falling: falling, pounding: pounding);
+    _drawArms(
+      canvas,
+      bodyH,
+      legSwing,
+      falling: falling,
+      pounding: pounding,
+      runPhase: running ? _anim : null,
+    );
     _drawNeck(canvas, faceCenter, bodyH);
     _drawOutfit(
       canvas,
@@ -336,30 +340,6 @@ class GirlfriendPlayer extends PositionComponent {
           end: Alignment.bottomCenter,
           colors: [Color(0xFFE9B9A8), Color(0xFFFFE4D6)],
         ).createShader(neck.outerRect),
-    );
-  }
-
-  void _drawRibbon(Canvas canvas, bool running) {
-    final swing = running ? math.sin(_anim) * 10.0 : 0.0;
-    canvas.drawPath(
-      Path()
-        ..moveTo(-6, -size.y * 0.42)
-        ..quadraticBezierTo(
-          -18 + swing,
-          -size.y * 0.22,
-          -8 + swing * 0.45,
-          -size.y * 0.06,
-        ),
-      Paint()
-        ..color = MacaronColors.rose
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      Offset(-8 + swing * 0.45, -size.y * 0.06),
-      3.2,
-      Paint()..color = MacaronColors.lemon,
     );
   }
 
@@ -489,6 +469,8 @@ class GirlfriendPlayer extends PositionComponent {
     );
   }
 
+  /// 腿部骨架：髋 → 膝 → 踝两段，按姿态/跑步相位摆动，脚随小腿转。
+  /// 朝向 +x（向右），整个人物水平翻转时一起翻转。
   void _drawLegsAndShoes(
     Canvas canvas,
     double legSwing,
@@ -500,73 +482,118 @@ class GirlfriendPlayer extends PositionComponent {
     const skinShadow = Color(0xFFE9B9A8);
     const skin = Color(0xFFFFE4D6);
     final isBoyfriend = role == PlayerRole.boyfriend;
+    const hipY = -19.0;
+    const thigh = 6.5;
+    const shin = 6.5;
+    const hipX = 4.2;
+    const groundAnkleY = -6.0;
+
+    // 每条腿的（大腿角度，膝盖弯曲）；角度以向下为 0，向前（+x）为正。
+    (double, double) pose(double side) {
+      if (ducking) {
+        return (0.95, 1.55);
+      }
+      if (pounding) {
+        return (0.08 * side, 0.0);
+      }
+      if (running) {
+        final phase = _anim + (side < 0 ? 0 : math.pi);
+        // 前摆的腿（sin 上升）在身体下方收膝，后蹬的腿伸直。
+        final swing = math.sin(phase);
+        final lift = math.max(0.0, math.cos(phase));
+        return (0.78 * swing, 0.12 + 1.0 * lift);
+      }
+      if (airborne) {
+        // 上升：一条腿屈膝收起；下落：双腿分开准备落地。
+        if (velocity.y < 0) {
+          return side < 0 ? (0.55, 1.0) : (-0.18, 0.45);
+        }
+        return (0.3 * side, 0.18);
+      }
+      return (0.0, 0.0);
+    }
+
+    final legs =
+        <
+          (double side, Offset hip, Offset knee, Offset ankle, double shinAngle)
+        >[];
+    var lowest = -1000.0;
+    for (final side in [-1.0, 1.0]) {
+      final (thighAngle, bend) = pose(side);
+      final hip = Offset(side * hipX, hipY);
+      final knee =
+          hip + Offset(math.sin(thighAngle), math.cos(thighAngle)) * thigh;
+      final shinAngle = thighAngle - bend;
+      final ankle =
+          knee + Offset(math.sin(shinAngle), math.cos(shinAngle)) * shin;
+      legs.add((side, hip, knee, ankle, shinAngle));
+      lowest = math.max(lowest, ankle.dy);
+    }
+    // 让落地的那只脚踩在地面上（只下压，最多 4 像素；腾空时不下压）。
+    final onFloor = !airborne && !pounding;
+    final drop = onFloor ? (groundAnkleY - lowest).clamp(0.0, 4.0) : 0.0;
+
     final shoeColors = isBoyfriend
         ? const [Colors.white, Color(0xFFD8E5FF)]
         : const [Colors.white, Color(0xFFFFD8E4)];
-    for (final side in [-1.0, 1.0]) {
-      final phase = running
-          ? ((_anim / (math.pi * 2)) + (side < 0 ? 0 : 0.5)) % 1.0
-          : 0.0;
-      final lift = running ? math.sin(phase * math.pi) * 14 : 0.0;
-      final stride = running
-          ? math.sin(phase * math.pi * 2) * 11
-          : (side < 0 ? legSwing : -legSwing) +
-                (airborne || pounding ? side * 3.0 : 0.0);
-      final footLift = running
-          ? lift * 0.15
-          : airborne
-          ? 6.0
-          : pounding
-          ? 2.5
-          : 0.0;
-      final leg = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(side * 8 + stride, -13 - lift),
-          width: 7.5,
-          height: ducking ? 12 : (running ? 20 : 24),
-        ),
-        const Radius.circular(4),
-      );
+
+    // 远侧的腿（side = -1 先画）在下，近侧的腿盖在上面。
+    for (final (_, hip, knee, ankle, shinAngle) in legs) {
+      final top = Offset(hip.dx, hip.dy - 3 + drop);
+      final k = knee.translate(0, drop);
+      final a = ankle.translate(0, drop);
+      final path = Path()
+        ..moveTo(top.dx, top.dy)
+        ..lineTo(k.dx, k.dy)
+        ..lineTo(a.dx, a.dy);
+      final legPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
       if (isBoyfriend) {
-        canvas.drawRRect(
-          leg.shift(const Offset(0.7, 1)),
-          Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.18),
+        canvas.drawPath(
+          path.shift(const Offset(0.8, 1)),
+          legPaint
+            ..color = MacaronColors.cocoa.withValues(alpha: 0.18)
+            ..strokeWidth = 7.2,
         );
-        canvas.drawRRect(
-          leg,
-          Paint()
-            ..shader = const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF8CAFE4), Color(0xFF526FAD)],
-            ).createShader(leg.outerRect),
+        canvas.drawPath(
+          path,
+          legPaint
+            ..color = const Color(0xFF6F8FCB)
+            ..strokeWidth = 6.4,
         );
-        canvas.drawLine(
-          Offset(side * 8 + stride - 2.4, -15 - lift),
-          Offset(side * 8 + stride - 2.4, -6 - lift * 0.4),
-          Paint()
-            ..color = Colors.white.withValues(alpha: 0.44)
-            ..strokeWidth = 0.9
-            ..strokeCap = StrokeCap.round,
+        canvas.drawPath(
+          path,
+          legPaint
+            ..color = const Color(0xFF8CAFE4)
+            ..strokeWidth = 3.4,
         );
       } else {
-        canvas.drawRRect(leg, Paint()..color = skinShadow);
-        canvas.drawRRect(
-          leg.shift(const Offset(-1, -0.5)),
-          Paint()..color = skin,
+        canvas.drawPath(
+          path,
+          legPaint
+            ..color = skinShadow
+            ..strokeWidth = 6.0,
+        );
+        canvas.drawPath(
+          path,
+          legPaint
+            ..color = skin
+            ..strokeWidth = 4.2,
         );
       }
 
+      // 鞋：圆润的小短靴，脚尖朝前，随小腿方向微微转动。
+      canvas.save();
+      canvas.translate(a.dx, a.dy + 0.5);
+      canvas.rotate((-shinAngle * 0.35).clamp(-0.6, 0.6));
       final shoe = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(side * 8 + stride, -3.7 - footLift),
-          width: 14,
-          height: 7,
-        ),
-        const Radius.circular(3.5),
+        Rect.fromLTWH(-3.6, -1.5, 11, 6.2),
+        const Radius.circular(3.1),
       );
       canvas.drawRRect(
-        shoe.shift(const Offset(0, 1)),
+        shoe.shift(const Offset(0, 0.9)),
         Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.2),
       );
       canvas.drawRRect(
@@ -579,13 +606,14 @@ class GirlfriendPlayer extends PositionComponent {
           ).createShader(shoe.outerRect),
       );
       canvas.drawLine(
-        Offset(side * 8 + stride - 4, -2.8 - footLift),
-        Offset(side * 8 + stride + 3, -2.8 - footLift),
+        const Offset(-2.4, 3.1),
+        const Offset(6.2, 3.1),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.9)
+          ..color = MacaronColors.rose.withValues(alpha: 0.55)
           ..strokeWidth = 1.1
           ..strokeCap = StrokeCap.round,
       );
+      canvas.restore();
     }
   }
 
@@ -595,22 +623,26 @@ class GirlfriendPlayer extends PositionComponent {
     double legSwing, {
     bool falling = false,
     bool pounding = false,
+    double? runPhase,
   }) {
     final shoulderY = -height * 0.4;
     final handY = -height * 0.23;
     for (final side in [-1.0, 1.0]) {
       final shoulder = Offset(side * 9, shoulderY + 2);
       final armSwing = side < 0 ? -legSwing * 0.42 : legSwing * 0.42;
+      // 跑步时手臂与同侧的腿反向前后摆，肘部半程、手到位，和腿的相位一致。
+      final legPhase = (runPhase ?? 0) + (side < 0 ? 0 : math.pi);
+      final swingX = runPhase == null ? 0.0 : -math.sin(legPhase) * 5.5;
       final elbow = falling
           ? Offset(side * 17, shoulderY - 3 + armSwing * 0.2)
           : pounding
           ? Offset(side * 16, shoulderY + 10 + armSwing * 0.2)
-          : Offset(side * 13, shoulderY + 7 + armSwing * 0.35);
+          : Offset(side * 12 + swingX * 0.5, shoulderY + 7 + armSwing * 0.35);
       final hand = falling
           ? Offset(side * 22, shoulderY - 10 + armSwing * 0.25)
           : pounding
           ? Offset(side * 21, shoulderY + 18 + armSwing * 0.2)
-          : Offset(side * 16, handY + armSwing);
+          : Offset(side * 14 + swingX, handY + armSwing * 0.5);
       final arm = Path()
         ..moveTo(shoulder.dx, shoulder.dy)
         ..quadraticBezierTo(elbow.dx, elbow.dy, hand.dx, hand.dy);
@@ -751,7 +783,7 @@ class GirlfriendPlayer extends PositionComponent {
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white, Color(0xFFFFEDF2)],
+            colors: [Color(0xFFFFF4F8), Color(0xFFFFD3E2)],
           ).createShader(sleeve),
       );
       canvas.drawOval(
