@@ -971,7 +971,7 @@ class MacaronGame extends FlameGame {
     final look = player.facingRight
         ? GameConstants.cameraLookAhead * 0.55
         : -GameConstants.cameraLookAhead * 0.55;
-    var cx = player.position.x + look;
+    var cx = player.position.x + look + size.x * cameraLeadBias;
     var cy = player.position.y - 80;
     final minX = size.x / 2;
     final maxX = mathMax(minX, mapW - size.x / 2);
@@ -1007,7 +1007,9 @@ class MacaronGame extends FlameGame {
     super.update(dt);
 
     if (enemies.isNotEmpty && size.x > 0) {
-      final camX = camera.viewfinder.position.x;
+      // 相机为了让人物靠中偏左而整体前移了；敌人是否行动仍以原来的中心为准，
+      // 画面偏移不影响关卡节奏。
+      final camX = camera.viewfinder.position.x - size.x * cameraLeadBias;
       final margin = size.x * 0.85 + 220;
       for (final e in enemies) {
         e.simActive = (e.position.x - camX).abs() < margin;
@@ -2151,6 +2153,10 @@ class MacaronGame extends FlameGame {
     _shakeMag = mag;
   }
 
+  /// 相机比人物多带一点前方：人物落在屏幕宽度约 38% 的位置（中偏左），
+  /// 左下角的轮盘不会挡住人物，前方的路也看得更远。
+  static const double cameraLeadBias = 0.12;
+
   void _updateCamera(double dt) {
     if (size.x <= 0 || size.y <= 0) {
       return;
@@ -2165,7 +2171,7 @@ class MacaronGame extends FlameGame {
         GameConstants.cameraLookAhead *
         (player.wantsRun ? 1.0 : 0.55);
     _lookAhead += (wantLook - _lookAhead) * (6 * dt).clamp(0.0, 1.0);
-    var cx = player.position.x + _lookAhead;
+    var cx = player.position.x + _lookAhead + size.x * cameraLeadBias;
     var cy = player.position.y - 80;
     if (_shakeTimer > 0) {
       final s = _shakeMag * (_shakeTimer / 0.18);

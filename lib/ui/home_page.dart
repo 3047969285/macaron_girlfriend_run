@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
@@ -142,7 +140,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// 标题、进度条和六个入口：继续冒险最大，选关/商店次之，玩法/任务/设置最小。
+/// 极简首页菜单：标题、一条细进度线、一个主按钮，下面一行纯文字入口。
 class _HomeMenu extends StatelessWidget {
   const _HomeMenu({
     required this.progress,
@@ -166,88 +164,69 @@ class _HomeMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gap = compact ? 8.0 : 12.0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _OutlinedTitle('马卡龙女友跑酷', fontSize: compact ? 30 : 36),
-        SizedBox(height: compact ? 8 : 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            backgroundColor: Colors.white.withValues(alpha: 0.7),
-            color: MacaronColors.rose,
+        Text(
+          '马卡龙女友跑酷',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: compact ? 28 : 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3,
+            color: MacaronColors.cocoa,
           ),
         ),
-        SizedBox(height: compact ? 14 : 22),
-        _MenuButton(
-          label: '继续冒险',
-          icon: CupertinoIcons.play_fill,
-          height: compact ? 54 : 62,
-          fontSize: compact ? 20 : 22,
-          primary: true,
-          onTap: onContinue,
+        SizedBox(height: compact ? 10 : 16),
+        Center(
+          child: SizedBox(
+            width: 120,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 3,
+                backgroundColor: MacaronColors.cocoa.withValues(alpha: 0.1),
+                color: MacaronColors.rose,
+              ),
+            ),
+          ),
         ),
-        SizedBox(height: gap),
-        Row(
-          children: [
-            Expanded(
-              child: _MenuButton(
-                label: '选关地图',
-                icon: CupertinoIcons.map_fill,
-                height: compact ? 44 : 50,
-                onTap: onMap,
+        SizedBox(height: compact ? 20 : 30),
+        CupertinoButton(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          onPressed: onContinue,
+          child: Container(
+            height: compact ? 50 : 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: MacaronColors.rose,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Text(
+              '继续冒险',
+              style: TextStyle(
+                fontSize: compact ? 18 : 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+                color: Colors.white,
               ),
             ),
-            SizedBox(width: gap),
-            Expanded(
-              child: _MenuButton(
-                label: '糖果商店',
-                icon: CupertinoIcons.bag_fill,
-                height: compact ? 44 : 50,
-                onTap: onShop,
-              ),
-            ),
-          ],
+          ),
         ),
-        SizedBox(height: gap),
-        Row(
+        SizedBox(height: compact ? 12 : 18),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 4,
+          runSpacing: 0,
           children: [
-            Expanded(
-              child: _MenuButton(
-                label: '玩法',
-                icon: CupertinoIcons.question_circle_fill,
-                height: compact ? 38 : 42,
-                fontSize: 14,
-                subtle: true,
-                onTap: onHow,
-              ),
-            ),
-            SizedBox(width: gap),
-            Expanded(
-              child: _MenuButton(
-                label: '任务',
-                icon: CupertinoIcons.star_fill,
-                height: compact ? 38 : 42,
-                fontSize: 14,
-                subtle: true,
-                onTap: onTasks,
-              ),
-            ),
-            SizedBox(width: gap),
-            Expanded(
-              child: _MenuButton(
-                label: '设置',
-                icon: CupertinoIcons.gear_solid,
-                height: compact ? 38 : 42,
-                fontSize: 14,
-                subtle: true,
-                onTap: onSettings,
-              ),
-            ),
+            _TextLink('选关地图', onMap),
+            _TextLink('糖果商店', onShop),
+            _TextLink('玩法', onHow),
+            _TextLink('任务', onTasks),
+            _TextLink('设置', onSettings),
           ],
         ),
       ],
@@ -255,129 +234,32 @@ class _HomeMenu extends StatelessWidget {
   }
 }
 
-/// 白色描边加可可色填充的标题字，压在任何背景上都清楚。
-class _OutlinedTitle extends StatelessWidget {
-  const _OutlinedTitle(this.text, {required this.fontSize});
-
-  final String text;
-  final double fontSize;
-
-  @override
-  Widget build(BuildContext context) {
-    final base = TextStyle(
-      fontSize: fontSize,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 2,
-    );
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Stack(
-        children: [
-          Text(
-            text,
-            style: base.copyWith(
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 7
-                ..strokeJoin = StrokeJoin.round
-                ..color = Colors.white,
-              shadows: const [
-                Shadow(
-                  color: Color(0x33FF6F9C),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-          ),
-          Text(text, style: base.copyWith(color: const Color(0xFFE0507E))),
-        ],
-      ),
-    );
-  }
-}
-
-/// 首页按钮：主按钮粉色渐变，次级白色玻璃，最小的一排半透明。
-class _MenuButton extends StatelessWidget {
-  const _MenuButton({
-    required this.label,
-    required this.icon,
-    required this.height,
-    required this.onTap,
-    this.fontSize = 17,
-    this.primary = false,
-    this.subtle = false,
-  });
+/// 没有底色和图标的文字入口。
+class _TextLink extends StatelessWidget {
+  const _TextLink(this.label, this.onTap);
 
   final String label;
-  final IconData icon;
-  final double height;
-  final double fontSize;
-  final bool primary;
-  final bool subtle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final textColor = primary ? Colors.white : MacaronColors.cocoa;
-    final decoration = BoxDecoration(
-      borderRadius: BorderRadius.circular(height / 2),
-      gradient: primary
-          ? const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFF9EBD), Color(0xFFFF6F9C)],
-            )
-          : null,
-      color: primary
-          ? null
-          : Colors.white.withValues(alpha: subtle ? 0.55 : 0.88),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: primary ? 0.9 : 0.7),
-        width: 2,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: (primary ? const Color(0xFFFF6F9C) : const Color(0xFF8E6A7A))
-              .withValues(alpha: primary ? 0.38 : 0.14),
-          blurRadius: primary ? 18 : 10,
-          offset: Offset(0, primary ? 7 : 4),
-        ),
-      ],
-    );
     return CupertinoButton(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       minimumSize: Size.zero,
       onPressed: onTap,
-      child: Container(
-        height: height,
-        alignment: Alignment.center,
-        decoration: decoration,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: fontSize + 1,
-              color: primary ? Colors.white : const Color(0xFFE0507E),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w800,
-                color: textColor,
-              ),
-            ),
-          ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: MacaronColors.cocoa.withValues(alpha: 0.72),
         ),
       ),
     );
   }
 }
 
-/// 首页主角：站在草地上的静态立绘（只眨眼，不乱动）。
+/// 首页主角：安静站着的立绘（不更新，所以不会乱动）。
 class _HeroFigure extends StatefulWidget {
   const _HeroFigure({required this.role, required this.cosmeticId});
 
@@ -396,7 +278,7 @@ class _HeroFigureState extends State<_HeroFigure> {
     super.initState();
     _player = GirlfriendPlayer(role: widget.role, cosmeticId: widget.cosmeticId)
       ..onGround = true;
-    // 先走到一个睁眼的时刻；立绘之后不再更新，所以不会乱动。
+    // 先走到一个睁眼的时刻；立绘之后不再更新。
     _player.update(0.6);
   }
 
@@ -414,10 +296,9 @@ class _HeroPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 立绘高度占可用高度的 62%，脚踩在草地上沿略下方。
-    final target = size.height * 0.62;
+    final target = size.height * 0.56;
     final k = target / player.size.y;
-    final feet = Offset(size.width * 0.5, size.height * 0.9);
+    final feet = Offset(size.width * 0.5, size.height * 0.78);
     canvas.save();
     canvas.translate(feet.dx, feet.dy);
     canvas.scale(k);
@@ -430,198 +311,26 @@ class _HeroPainter extends CustomPainter {
   bool shouldRepaint(_HeroPainter oldDelegate) => false;
 }
 
-/// 首页背景：粉到奶油到薄荷的天空，云、远山、近丘、草地和漂浮的马卡龙。
+/// 极简背景：奶油色到极淡粉色的竖向渐变，加一个只露出一角的粉色大圆。
 class _HomeScenePainter extends CustomPainter {
   const _HomeScenePainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
     canvas.drawRect(
       Offset.zero & size,
       Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFC2D9), Color(0xFFFFE9E0), Color(0xFFD3F5E6)],
-          stops: [0.0, 0.55, 1.0],
+          colors: [Color(0xFFFFFAF6), Color(0xFFFFF0F4)],
         ).createShader(Offset.zero & size),
     );
-    // 柔和的日光。
     canvas.drawCircle(
-      Offset(w * 0.82, h * 0.16),
-      h * 0.32,
-      Paint()
-        ..shader =
-            RadialGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.75),
-                Colors.white.withValues(alpha: 0),
-              ],
-            ).createShader(
-              Rect.fromCircle(
-                center: Offset(w * 0.82, h * 0.16),
-                radius: h * 0.32,
-              ),
-            ),
+      Offset(size.width * 0.18, size.height * 0.62),
+      size.shortestSide * 0.52,
+      Paint()..color = const Color(0xFFFFE3EC).withValues(alpha: 0.7),
     );
-
-    void cloud(double cx, double cy, double s) {
-      final paint = Paint()..color = Colors.white.withValues(alpha: 0.82);
-      for (final (dx, dy, r) in const [
-        (-1.0, 0.1, 0.55),
-        (-0.35, -0.2, 0.75),
-        (0.45, -0.05, 0.65),
-        (1.05, 0.12, 0.5),
-      ]) {
-        canvas.drawCircle(Offset(cx + dx * s, cy + dy * s), r * s, paint);
-      }
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTRB(
-            cx - 1.4 * s,
-            cy + 0.1 * s,
-            cx + 1.45 * s,
-            cy + 0.62 * s,
-          ),
-          Radius.circular(0.3 * s),
-        ),
-        paint,
-      );
-    }
-
-    cloud(w * 0.14, h * 0.2, h * 0.075);
-    cloud(w * 0.55, h * 0.12, h * 0.06);
-    cloud(w * 0.9, h * 0.36, h * 0.05);
-
-    Path hills(double base, double amp, double freq, double phase) {
-      final p = Path()..moveTo(0, h);
-      for (var x = 0.0; x <= w; x += 6) {
-        final y =
-            base +
-            amp * math.sin(x / w * freq * math.pi * 2 + phase) +
-            amp * 0.4 * math.sin(x / w * freq * 5.1 + phase * 1.7);
-        p.lineTo(x, y);
-      }
-      return p
-        ..lineTo(w, h)
-        ..close();
-    }
-
-    canvas.drawPath(
-      hills(h * 0.62, h * 0.05, 1.1, 0.4),
-      Paint()..color = const Color(0xFFFFD3E3),
-    );
-    canvas.drawPath(
-      hills(h * 0.7, h * 0.045, 1.6, 2.0),
-      Paint()..color = const Color(0xFFC4EFD9),
-    );
-    canvas.drawPath(
-      hills(h * 0.8, h * 0.03, 1.3, 1.1),
-      Paint()..color = const Color(0xFFA6E6C5),
-    );
-    // 近处草地，上沿是一排圆润的草丛。
-    final ground = Path()
-      ..moveTo(0, h * 0.88)
-      ..lineTo(w, h * 0.88)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(ground, Paint()..color = const Color(0xFF8FDDB3));
-    final tuft = Paint()..color = const Color(0xFF8FDDB3);
-    for (var x = 0.0; x < w; x += h * 0.07) {
-      canvas.drawCircle(Offset(x, h * 0.885), h * 0.04, tuft);
-    }
-    canvas.drawRect(
-      Rect.fromLTWH(0, h * 0.93, w, h * 0.07),
-      Paint()..color = const Color(0xFF7ACFA1),
-    );
-
-    // 漂浮的马卡龙和糖粒，只是装饰，不动。
-    void macaron(double cx, double cy, double r, Color a, Color b) {
-      final top = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(cx, cy - r * 0.32),
-          width: r * 2,
-          height: r * 0.9,
-        ),
-        Radius.circular(r * 0.6),
-      );
-      final bottom = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(cx, cy + r * 0.32),
-          width: r * 2,
-          height: r * 0.9,
-        ),
-        Radius.circular(r * 0.6),
-      );
-      canvas.drawRRect(bottom, Paint()..color = b);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(cx, cy),
-            width: r * 1.8,
-            height: r * 0.36,
-          ),
-          Radius.circular(r * 0.18),
-        ),
-        Paint()..color = const Color(0xFFFFF6E8),
-      );
-      canvas.drawRRect(top, Paint()..color = a);
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(cx - r * 0.45, cy - r * 0.5),
-          width: r * 0.5,
-          height: r * 0.2,
-        ),
-        Paint()..color = Colors.white.withValues(alpha: 0.55),
-      );
-    }
-
-    macaron(
-      w * 0.07,
-      h * 0.52,
-      h * 0.035,
-      const Color(0xFFFFB3CE),
-      const Color(0xFFFF9EBD),
-    );
-    macaron(
-      w * 0.36,
-      h * 0.3,
-      h * 0.03,
-      const Color(0xFFBFEBD8),
-      const Color(0xFFA3DFC4),
-    );
-    macaron(
-      w * 0.93,
-      h * 0.6,
-      h * 0.04,
-      const Color(0xFFD8C8F5),
-      const Color(0xFFC2AEEB),
-    );
-    macaron(
-      w * 0.62,
-      h * 0.07,
-      h * 0.028,
-      const Color(0xFFFFE08A),
-      const Color(0xFFFFD25E),
-    );
-    final sprinkle = [
-      const Color(0xFFFF9EBD),
-      const Color(0xFFBFEBD8),
-      const Color(0xFFD8C8F5),
-      const Color(0xFFFFE08A),
-    ];
-    for (var i = 0; i < 26; i++) {
-      final fx = (math.sin(i * 12.9898) * 43758.5453) % 1;
-      final fy = (math.sin(i * 78.233) * 12345.6789) % 1;
-      canvas.drawCircle(
-        Offset(w * fx.abs(), h * 0.05 + h * 0.55 * fy.abs()),
-        h * 0.006,
-        Paint()..color = sprinkle[i % 4].withValues(alpha: 0.8),
-      );
-    }
   }
 
   @override

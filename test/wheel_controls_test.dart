@@ -7,8 +7,9 @@ final _wheelFinder = find.byWidgetPredicate(
 );
 
 Widget _controls({
-  required void Function(bool) onLeft,
-  required void Function(bool) onRight,
+  void Function(bool)? onLeft,
+  void Function(bool)? onRight,
+  void Function(bool)? onRun,
 }) => MaterialApp(
   home: Scaffold(
     body: Stack(
@@ -18,9 +19,9 @@ Widget _controls({
           right: 0,
           bottom: 0,
           child: TouchControls(
-            onLeft: onLeft,
-            onRight: onRight,
-            onRun: (_) {},
+            onLeft: onLeft ?? (_) {},
+            onRight: onRight ?? (_) {},
+            onRun: onRun ?? (_) {},
             onDuck: (_) {},
             onJumpHeld: (_) {},
             onSkill: () {},
@@ -51,19 +52,62 @@ void main() {
     final gesture = await tester.startGesture(center);
     expect(log, isEmpty, reason: 'the centre is the dead zone');
 
-    await gesture.moveTo(center + const Offset(40, 0));
+    await gesture.moveTo(center + const Offset(18, 0));
     expect(log, ['Rtrue']);
-    await gesture.moveTo(center + const Offset(-40, 0));
+    await gesture.moveTo(center + const Offset(-18, 0));
     expect(log, ['Rtrue', 'Rfalse', 'Ltrue']);
     await gesture.moveTo(center + const Offset(2, 0));
     expect(log.last, 'Lfalse', reason: 'back to the dead zone releases');
-    await gesture.moveTo(center + const Offset(40, 0));
+    await gesture.moveTo(center + const Offset(18, 0));
     await gesture.up();
     expect(log.last, 'Rfalse', reason: 'lifting the finger releases');
     await tester.pump();
   });
 
-  testWidgets('buttons sit in the thumb zones and never overlap', (
+  testWidgets('pushing the wheel all the way runs; a partial push walks', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(812, 375);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final runs = <bool>[];
+    await tester.pumpWidget(_controls(onRun: runs.add));
+
+    final center = tester.getRect(_wheelFinder).center;
+    final gesture = await tester.startGesture(center);
+    await gesture.moveTo(center + const Offset(14, 0));
+    expect(runs, isEmpty, reason: 'a gentle push only walks');
+    await gesture.moveTo(center + const Offset(60, 0));
+    expect(runs, [true], reason: 'a full push runs');
+    await gesture.moveTo(center + const Offset(14, 0));
+    expect(runs, [true, false], reason: 'easing off stops the run');
+    await gesture.up();
+  });
+
+  testWidgets('the run button is a toggle in the bottom middle', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(812, 375);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final runs = <bool>[];
+    await tester.pumpWidget(_controls(onRun: runs.add));
+
+    final run = tester.getRect(find.text('跑'));
+    expect(run.center.dx, closeTo(812 / 2, 12), reason: 'bottom middle');
+    expect(run.bottom, lessThanOrEqualTo(375));
+
+    await tester.tap(find.text('跑'));
+    await tester.pump();
+    expect(runs, [true]);
+    await tester.tap(find.text('跑'));
+    await tester.pump();
+    expect(runs, [true, false], reason: 'a second tap switches it off');
+  });
+
+  testWidgets('jump sits above duck, run in the middle, nothing overlaps', (
     tester,
   ) async {
     for (final size in [
@@ -73,7 +117,7 @@ void main() {
     ]) {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
-      await tester.pumpWidget(_controls(onLeft: (_) {}, onRight: (_) {}));
+      await tester.pumpWidget(_controls());
       expect(tester.takeException(), isNull, reason: '$size');
 
       final rects = <String, Rect>{
@@ -83,12 +127,38 @@ void main() {
       final wheel = tester.getRect(_wheelFinder);
 
       expect(wheel.center.dx, lessThan(size.width * 0.3), reason: '$size');
-      for (final entry in rects.entries) {
+      // 轮盘不能太大：直径不超过屏幕高度的 38%，不遮挡人物。
+      expect(
+        wheel.width,
+        lessThanOrEqualTo(size.height * 0.38),
+        reason: '$size',
+      );
+
+      final jump = rects['跳']!;
+      final duck = rects['蹲']!;
+      expect(
+        jump.center.dy,
+        lessThan(duck.center.dy),
+        reason: 'jump above duck ($size)',
+      );
+      expect(
+        (jump.center.dx - duck.center.dx).abs(),
+        lessThan(14),
+        reason: 'jump and duck share a column ($size)',
+      );
+
+      final run = rects['跑']!;
+      expect(run.center.dx, greaterThan(size.width * 0.35), reason: '$size');
+      expect(run.center.dx, lessThan(size.width * 0.65), reason: '$size');
+
+      for (final label in ['射击', '闪冲', '蹲', '跳', '换']) {
         expect(
-          entry.value.center.dx,
+          rects[label]!.center.dx,
           greaterThan(size.width * 0.5),
-          reason: '${entry.key} $size',
+          reason: '$label $size',
         );
+      }
+      for (final entry in rects.entries) {
         expect(
           entry.value.bottom,
           lessThanOrEqualTo(size.height),
@@ -98,15 +168,6 @@ void main() {
           entry.value.top,
           greaterThanOrEqualTo(0),
           reason: '${entry.key} $size',
-        );
-      }
-      final jump = rects['跳']!;
-      for (final other in ['射击', '闪冲', '蹲', '跑', '换']) {
-        // 最上方的键可以在跳跃键正上方略偏右，但不能跑到它右边去。
-        expect(
-          rects[other]!.center.dx,
-          lessThan(jump.center.dx + 40),
-          reason: '$other should stay above or left of jump ($size)',
         );
       }
       final labels = rects.keys.toList();

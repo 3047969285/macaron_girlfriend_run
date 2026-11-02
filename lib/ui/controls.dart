@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -54,8 +52,11 @@ class FpsBootstrap {
   }
 }
 
-/// 虚拟方向键与跳跑蹲键
-class TouchControls extends StatelessWidget {
+/// 虚拟轮盘与跳跃、技能键。
+///
+/// 布局按拇指够得到的位置排：左下角是小轮盘（推到底自动奔跑）；右下角竖排，跳在上、
+/// 蹲在下；技能和射击在它们左边；“跑”是开关，放在底部中间，两根拇指都够得着。
+class TouchControls extends StatefulWidget {
   const TouchControls({
     super.key,
     required this.onLeft,
@@ -87,13 +88,36 @@ class TouchControls extends StatelessWidget {
   final String skillLabel;
   final double scale;
 
-  /// 左侧轮盘 + 右下角大跳跃键 + 围绕跳跃键的弧形技能键，按拇指自然够得到的位置排布。
-  static const double _wheelSize = 132;
+  @override
+  State<TouchControls> createState() => _TouchControlsState();
+}
+
+class _TouchControlsState extends State<TouchControls> {
+  static const double _wheelSize = 104;
   static const double _jumpSize = 76;
-  static const double _arcRadius = 108;
-  static const double _arcStepDeg = 33;
-  static const double _baseWidth = 360;
-  static const double _baseHeight = 180;
+  static const double _baseWidth = 340;
+  static const double _baseHeight = 150;
+
+  /// 点“跑”切换常驻奔跑；轮盘推到底也会奔跑，两者任一为真就在跑。
+  bool _runToggled = false;
+  bool _wheelRun = false;
+  bool _runSent = false;
+
+  void _syncRun() {
+    final run = _runToggled || _wheelRun;
+    if (run != _runSent) {
+      _runSent = run;
+      widget.onRun(run);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_runSent) {
+      widget.onRun(false);
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +125,7 @@ class TouchControls extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final available = width - pad.left - pad.right - 16;
     final maxScale = (available / _baseWidth).clamp(0.6, 1.25);
-    final s = scale.clamp(0.6, maxScale).toDouble();
+    final s = widget.scale.clamp(0.6, maxScale).toDouble();
     final rightPad = 10.0 + pad.right;
     final bottomPad = 8.0 + pad.bottom;
 
@@ -116,57 +140,7 @@ class TouchControls extends StatelessWidget {
       );
     }
 
-    final jumpRx = _jumpSize / 2 + 4;
-    final jumpBy = _jumpSize / 2 + 4;
-    final hasCycle = onCycleSkill != null && onSkill != null;
-
-    // 弧上依次是：技能、跑、蹲、射击（没有的跳过），越常用越靠近拇指的自然落点。
-    final arc = <(double size, Widget widget)>[
-      if (onSkill != null)
-        (
-          58.0,
-          _SkillButton(
-            onPressed: onSkill!,
-            onInteract: onInteract,
-            cooldown: skillCooldown,
-            label: skillLabel,
-            size: 58 * s,
-          ),
-        ),
-      (
-        52.0,
-        _RoundHold(
-          label: '跑',
-          onChanged: onRun,
-          onInteract: onInteract,
-          fill: MacaronColors.mint.withValues(alpha: 0.88),
-          size: 52 * s,
-        ),
-      ),
-      if (onDuck != null)
-        (
-          52.0,
-          _RoundHold(
-            label: '蹲',
-            onChanged: onDuck!,
-            onInteract: onInteract,
-            fill: MacaronColors.lilac.withValues(alpha: 0.88),
-            size: 52 * s,
-          ),
-        ),
-      if (onShoot != null)
-        (
-          52.0,
-          _RoundHold(
-            label: '射击',
-            onChanged: onShoot!,
-            onInteract: onInteract,
-            fill: MacaronColors.rose.withValues(alpha: 0.9),
-            size: 52 * s,
-          ),
-        ),
-    ];
-
+    final hasCycle = widget.onCycleSkill != null && widget.onSkill != null;
     final children = <Widget>[
       Positioned(
         left: 10.0 + pad.left,
@@ -174,51 +148,102 @@ class TouchControls extends StatelessWidget {
         width: _wheelSize * s,
         height: _wheelSize * s,
         child: _MoveWheel(
-          onLeft: onLeft,
-          onRight: onRight,
-          onInteract: onInteract,
+          onLeft: widget.onLeft,
+          onRight: widget.onRight,
+          onFull: (full) {
+            _wheelRun = full;
+            _syncRun();
+          },
+          onInteract: widget.onInteract,
         ),
       ),
+      // 跳在上面。
       place(
-        jumpRx,
-        jumpBy,
+        44,
+        38 + 54 / 2 + 8 + _jumpSize / 2 - 6,
         _jumpSize,
         _RoundHold(
           label: '跳',
-          onChanged: onJumpHeld,
-          onInteract: onInteract,
+          onChanged: widget.onJumpHeld,
+          onInteract: widget.onInteract,
           fill: MacaronColors.blush.withValues(alpha: 0.95),
           size: _jumpSize * s,
         ),
       ),
-    ];
-    for (var i = 0; i < arc.length; i++) {
-      final angle = i * _arcStepDeg * math.pi / 180;
-      final (size, widget) = arc[i];
-      children.add(
+      // 蹲在下面。
+      if (widget.onDuck != null)
         place(
-          jumpRx + _arcRadius * math.cos(angle),
-          jumpBy + _arcRadius * math.sin(angle),
-          size,
-          widget,
+          44,
+          38,
+          54,
+          _RoundHold(
+            label: '蹲',
+            onChanged: widget.onDuck!,
+            onInteract: widget.onInteract,
+            fill: MacaronColors.lilac.withValues(alpha: 0.88),
+            size: 54 * s,
+          ),
         ),
-      );
-    }
-    if (hasCycle) {
-      // 「换」在技能键的左边，同一高度。
-      children.add(
+      if (widget.onSkill != null)
         place(
-          jumpRx + _arcRadius + 58 / 2 + 8 + 30 / 2,
-          jumpBy,
+          122,
+          78,
+          58,
+          _SkillButton(
+            onPressed: widget.onSkill!,
+            onInteract: widget.onInteract,
+            cooldown: widget.skillCooldown,
+            label: widget.skillLabel,
+            size: 58 * s,
+          ),
+        ),
+      if (widget.onShoot != null)
+        place(
+          118,
+          140,
+          50,
+          _RoundHold(
+            label: '射击',
+            onChanged: widget.onShoot!,
+            onInteract: widget.onInteract,
+            fill: MacaronColors.rose.withValues(alpha: 0.9),
+            size: 50 * s,
+          ),
+        ),
+      if (hasCycle)
+        place(
+          178,
+          70,
           30,
           _CycleButton(
-            onCycle: onCycleSkill!,
-            onInteract: onInteract,
+            onCycle: widget.onCycleSkill!,
+            onInteract: widget.onInteract,
             size: 30 * s,
           ),
         ),
-      );
-    }
+      // 跑：开关，底部中间。
+      Positioned(
+        left: 0,
+        right: 0,
+        bottom: bottomPad,
+        child: Center(
+          child: SizedBox(
+            width: 52 * s,
+            height: 52 * s,
+            child: _ToggleButton(
+              label: '跑',
+              on: _runToggled,
+              fill: MacaronColors.mint,
+              onInteract: widget.onInteract,
+              onToggle: () {
+                setState(() => _runToggled = !_runToggled);
+                _syncRun();
+              },
+            ),
+          ),
+        ),
+      ),
+    ];
 
     return SizedBox(
       width: double.infinity,
@@ -228,16 +253,77 @@ class TouchControls extends StatelessWidget {
   }
 }
 
+/// 点一下切换的圆形按钮（开着时变实心加粗描边）。
+class _ToggleButton extends StatelessWidget {
+  const _ToggleButton({
+    required this.label,
+    required this.on,
+    required this.fill,
+    required this.onToggle,
+    this.onInteract,
+  });
+
+  final String label;
+  final bool on;
+  final Color fill;
+  final VoidCallback onToggle;
+  final VoidCallback? onInteract;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) {
+        onInteract?.call();
+        onToggle();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: fill.withValues(alpha: on ? 1.0 : 0.6),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: on ? 1.0 : 0.65),
+            width: on ? 3 : 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: on
+                  ? fill.withValues(alpha: 0.55)
+                  : const Color(0x18000000),
+              blurRadius: on ? 14 : 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: on ? FontWeight.w900 : FontWeight.w600,
+            color: MacaronColors.cocoa,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 轮盘：按住拖动，向左/向右超过死区即触发对应方向，松开归零。
 class _MoveWheel extends StatefulWidget {
   const _MoveWheel({
     required this.onLeft,
     required this.onRight,
+    required this.onFull,
     this.onInteract,
   });
 
   final ValueChanged<bool> onLeft;
   final ValueChanged<bool> onRight;
+
+  /// 轮盘被推到底（接近最大行程）时为 true，用来触发奔跑。
+  final ValueChanged<bool> onFull;
   final VoidCallback? onInteract;
 
   @override
@@ -274,7 +360,17 @@ class _MoveWheelState extends State<_MoveWheel> {
       dir = ratio > _engage ? 1 : 0;
     }
     _setDir(dir);
+    _setFull(clamped.dx.abs() >= limit * 0.9);
     setState(() => _knob = clamped);
+  }
+
+  bool _full = false;
+
+  void _setFull(bool value) {
+    if (value != _full) {
+      _full = value;
+      widget.onFull(value);
+    }
   }
 
   void _setDir(int dir) {
@@ -297,6 +393,7 @@ class _MoveWheelState extends State<_MoveWheel> {
   void _end() {
     _pointer = null;
     _setDir(0);
+    _setFull(false);
     setState(() => _knob = Offset.zero);
   }
 
@@ -304,6 +401,9 @@ class _MoveWheelState extends State<_MoveWheel> {
   void dispose() {
     if (_dir != 0) {
       _setDir(0);
+    }
+    if (_full) {
+      widget.onFull(false);
     }
     super.dispose();
   }
@@ -346,7 +446,7 @@ class _MoveWheelState extends State<_MoveWheel> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(
-                    alpha: _pointer == null ? 0.38 : 0.52,
+                    alpha: _pointer == null ? 0.22 : 0.4,
                   ),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.8),
