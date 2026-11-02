@@ -1318,28 +1318,28 @@ class GunPickup extends PositionComponent {
       19,
       Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
+    // AK-47：木托、金属机匣、长枪管、弧形弹匣。
+    final wood = Paint()..color = const Color(0xFF9A5B35);
+    final steel = Paint()..color = const Color(0xFF3F4048);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(8, 14 + y, 25, 12),
-        const Radius.circular(5),
+        Rect.fromLTWH(3, 18 + y, 11, 7),
+        const Radius.circular(2),
       ),
-      Paint()..color = MacaronColors.rose,
+      wood,
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(25, 17 + y, 11, 6),
-        const Radius.circular(3),
-      ),
-      Paint()..color = MacaronColors.cocoa,
+    canvas.drawRect(Rect.fromLTWH(13, 17 + y, 14, 6), steel);
+    canvas.drawRect(Rect.fromLTWH(26, 18 + y, 14, 3), steel);
+    canvas.drawRect(Rect.fromLTWH(24, 21 + y, 9, 3), wood);
+    canvas.drawPath(
+      Path()
+        ..moveTo(18, 23 + y)
+        ..lineTo(23, 23 + y)
+        ..lineTo(25, 33 + y)
+        ..lineTo(20, 33 + y)
+        ..close(),
+      Paint()..color = const Color(0xFF55565E),
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(12, 24 + y, 7, 10),
-        const Radius.circular(3),
-      ),
-      Paint()..color = MacaronColors.lemon,
-    );
-    canvas.drawCircle(Offset(14, 17 + y), 2, Paint()..color = Colors.white);
   }
 }
 
@@ -1436,17 +1436,18 @@ class VehiclePickup extends PositionComponent {
         Rect.fromLTWH(5, 14 + y, 38, 15),
         const Radius.circular(7),
       ),
-      Paint()..color = MacaronColors.mint,
+      Paint()..color = const Color(0xFFF2F4F7),
     );
     canvas.drawPath(
       Path()
-        ..moveTo(13, 15 + y)
-        ..lineTo(19, 7 + y)
-        ..lineTo(31, 7 + y)
-        ..lineTo(37, 15 + y)
+        ..moveTo(11, 15 + y)
+        ..lineTo(16, 7 + y)
+        ..lineTo(35, 7 + y)
+        ..lineTo(39, 15 + y)
         ..close(),
       Paint()..color = MacaronColors.sky,
     );
+    drawCarLabel(canvas, const Offset(24, 21.5), 7.5, y);
     canvas.drawCircle(
       Offset(14, 29 + y),
       5,
@@ -1459,6 +1460,124 @@ class VehiclePickup extends PositionComponent {
     );
     canvas.drawCircle(Offset(14, 29 + y), 2, Paint()..color = Colors.white);
     canvas.drawCircle(Offset(34, 29 + y), 2, Paint()..color = Colors.white);
+  }
+}
+
+final Map<String, TextPainter> _labelCache = {};
+
+TextPainter _labelPainter(String text, double fontSize, Color color) {
+  return _labelCache.putIfAbsent('$text|$fontSize|${color.toARGB32()}', () {
+    return TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+  });
+}
+
+/// 车身上的“理想”字样（居中于 [center]，[dy] 为上下浮动）。
+void drawCarLabel(Canvas canvas, Offset center, double fontSize, double dy) {
+  final tp = _labelPainter('理想', fontSize, const Color(0xFF3B4A6B));
+  tp.paint(
+    canvas,
+    Offset(center.dx - tp.width / 2, center.dy + dy - tp.height / 2),
+  );
+}
+
+enum BonusKind { superman, plane, gum }
+
+/// 超人、飞机、口香糖三种限时道具。
+class BonusPickup extends PositionComponent {
+  BonusPickup({required Vector2 position, required this.kind})
+    : super(
+        position: position,
+        size: Vector2.all(44),
+        anchor: Anchor.center,
+        priority: 48,
+      );
+
+  final BonusKind kind;
+  bool collected = false;
+  double _bob = 0;
+
+  @override
+  void update(double dt) {
+    _bob += dt * 3.6;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (collected) {
+      return;
+    }
+    final y = math.sin(_bob) * 3;
+    final c = Offset(size.x / 2, size.y / 2 + y);
+    canvas.drawCircle(
+      c,
+      20,
+      Paint()..color = Colors.white.withValues(alpha: 0.85),
+    );
+    switch (kind) {
+      case BonusKind.superman:
+        canvas.drawPath(
+          Path()
+            ..moveTo(c.dx - 12, c.dy - 8)
+            ..lineTo(c.dx + 12, c.dy - 8)
+            ..lineTo(c.dx + 8, c.dy + 14)
+            ..lineTo(c.dx - 8, c.dy + 14)
+            ..close(),
+          Paint()..color = const Color(0xFFE8484F),
+        );
+        final s = _labelPainter('S', 15, const Color(0xFFFFE066));
+        s.paint(canvas, Offset(c.dx - s.width / 2, c.dy - s.height / 2 + 1));
+      case BonusKind.plane:
+        canvas.drawPath(
+          Path()
+            ..moveTo(c.dx - 15, c.dy + 2)
+            ..lineTo(c.dx + 15, c.dy - 2)
+            ..lineTo(c.dx - 15, c.dy - 3)
+            ..close(),
+          Paint()..color = MacaronColors.sky,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(c.dx - 4, c.dy)
+            ..lineTo(c.dx - 12, c.dy + 12)
+            ..lineTo(c.dx + 2, c.dy + 1)
+            ..close(),
+          Paint()..color = const Color(0xFF6FB4E8),
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(c.dx - 4, c.dy - 1)
+            ..lineTo(c.dx - 12, c.dy - 13)
+            ..lineTo(c.dx + 2, c.dy - 2)
+            ..close(),
+          Paint()..color = const Color(0xFF6FB4E8),
+        );
+      case BonusKind.gum:
+        canvas.drawCircle(
+          c,
+          13,
+          Paint()..color = MacaronColors.rose.withValues(alpha: 0.85),
+        );
+        canvas.drawCircle(
+          c + const Offset(-4, -4),
+          4,
+          Paint()..color = Colors.white.withValues(alpha: 0.8),
+        );
+        final s = _labelPainter('糖', 11, Colors.white);
+        s.paint(
+          canvas,
+          Offset(c.dx - s.width / 2 + 2, c.dy - s.height / 2 + 2),
+        );
+    }
   }
 }
 

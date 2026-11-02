@@ -226,7 +226,9 @@ class SaveService {
   Future<List<AchievementItem>> takeNewlyUnlockedAchievements() async {
     final all = achievements();
     final seen = seenAchievementIds;
-    final fresh = all.where((a) => a.unlocked && !seen.contains(a.title)).toList();
+    final fresh = all
+        .where((a) => a.unlocked && !seen.contains(a.title))
+        .toList();
     if (fresh.isNotEmpty) {
       await markAchievementsSeen(fresh.map((e) => e.title));
     }
@@ -243,8 +245,10 @@ class SaveService {
 
   /// 继续冒险：未通关重试本关；已通关则去当前最远可玩关
   (int, int) continuePlayTarget() {
-    final frontier =
-        unlockedGlobalIndex.clamp(0, GameConstants.totalLevels - 1);
+    final frontier = unlockedGlobalIndex.clamp(
+      0,
+      GameConstants.totalLevels - 1,
+    );
     final last = toGlobal(lastWorldIndex, lastLevelIndex);
     if (last <= frontier && starsOf(last) == 0) {
       return (

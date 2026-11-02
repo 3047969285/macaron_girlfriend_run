@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/game/entities/entities.dart'
+    show drawCarLabel;
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 /// 甜妹平台跳跃主角
@@ -39,6 +41,9 @@ class GirlfriendPlayer extends PositionComponent {
   bool isDriving = false;
   bool vehicleBoosting = false;
   bool holdingCandyGun = false;
+  bool superMode = false;
+  bool flying = false;
+  bool gumBubble = false;
   bool plantBuddyActive = false;
   bool plantFacingRight = true;
   double invincibleTimer = 0;
@@ -125,6 +130,9 @@ class GirlfriendPlayer extends PositionComponent {
     isDriving = false;
     vehicleBoosting = false;
     holdingCandyGun = false;
+    superMode = false;
+    flying = false;
+    gumBubble = false;
     plantBuddyActive = false;
     plantFacingRight = facingRight;
     _plantShotTimer = 0;
@@ -257,7 +265,12 @@ class GirlfriendPlayer extends PositionComponent {
       Paint()..color = Colors.black.withValues(alpha: 0.18),
     );
 
-    if (isDriving) {
+    if (superMode) {
+      _drawCape(canvas);
+    }
+    if (flying) {
+      _drawPlane(canvas);
+    } else if (isDriving) {
       _drawVehicle(canvas);
     }
 
@@ -308,9 +321,93 @@ class GirlfriendPlayer extends PositionComponent {
     if (holdingCandyGun) {
       _drawCandyGun(canvas);
     }
+    if (superMode) {
+      // 眼睛发红光。
+      for (final dx in const [-3.2, 3.2]) {
+        canvas.drawCircle(
+          Offset(dx + 4, faceCenter.dy - 1),
+          3.2,
+          Paint()
+            ..color = const Color(0xFFFF4040).withValues(alpha: 0.75)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+        );
+      }
+    }
 
     canvas.restore();
+    if (gumBubble) {
+      canvas.drawCircle(
+        Offset(0, -size.y * 0.55),
+        size.y * 0.78,
+        Paint()..color = MacaronColors.blush.withValues(alpha: 0.28),
+      );
+      canvas.drawCircle(
+        Offset(0, -size.y * 0.55),
+        size.y * 0.78,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
     canvas.restore();
+  }
+
+  void _drawCape(Canvas canvas) {
+    final flap = math.sin(_anim * 0.9) * 4;
+    canvas.drawPath(
+      Path()
+        ..moveTo(-4, -size.y * 0.88)
+        ..quadraticBezierTo(
+          -26,
+          -size.y * 0.6 + flap,
+          -34,
+          -size.y * 0.18 + flap,
+        )
+        ..lineTo(-6, -size.y * 0.3)
+        ..close(),
+      Paint()..color = const Color(0xFFE8484F),
+    );
+  }
+
+  void _drawPlane(Canvas canvas) {
+    final y = math.sin(_anim * 0.5) * 1.5;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(-42, -22 + y, 84, 16),
+        const Radius.circular(8),
+      ),
+      Paint()..color = const Color(0xFFF2F4F7),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(36, -22 + y)
+        ..lineTo(54, -14 + y)
+        ..lineTo(36, -6 + y)
+        ..close(),
+      Paint()..color = MacaronColors.rose,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(-42, -20 + y)
+        ..lineTo(-52, -34 + y)
+        ..lineTo(-30, -20 + y)
+        ..close(),
+      Paint()..color = MacaronColors.rose,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(-8, -8 + y)
+        ..lineTo(-22, 8 + y)
+        ..lineTo(6, -6 + y)
+        ..close(),
+      Paint()..color = MacaronColors.sky,
+    );
+    canvas.drawCircle(
+      Offset(-46 - _wheelSpin.abs() % 3, -14 + y),
+      3,
+      Paint()..color = MacaronColors.lemon.withValues(alpha: 0.8),
+    );
   }
 
   /// 头部整体缩小到 80%，以脸中心为基准，身体比例更接近真人。
@@ -1260,9 +1357,10 @@ class GirlfriendPlayer extends PositionComponent {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFE5FFF1), MacaronColors.mint, Color(0xFF69BD9D)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFE6E9EF), Color(0xFFB9C0CC)],
         ).createShader(const Rect.fromLTWH(-35, -20, 70, 22)),
     );
+    drawCarLabel(canvas, const Offset(0, -9), 9, 0);
     canvas.drawPath(
       Path()
         ..moveTo(-23, -19)
@@ -1296,25 +1394,29 @@ class GirlfriendPlayer extends PositionComponent {
     );
   }
 
+  /// AK-47。
   void _drawCandyGun(Canvas canvas) {
+    final y = -size.y * 0.48;
+    final wood = Paint()..color = const Color(0xFF9A5B35);
+    final steel = Paint()..color = const Color(0xFF3F4048);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(13, -size.y * 0.48, 23, 9),
-        const Radius.circular(4),
+        Rect.fromLTWH(8, y + 1, 9, 6),
+        const Radius.circular(2),
       ),
-      Paint()..color = MacaronColors.rose,
+      wood,
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(17, -size.y * 0.48 + 6, 7, 9),
-        const Radius.circular(3),
-      ),
-      Paint()..color = MacaronColors.lemon,
-    );
-    canvas.drawCircle(
-      Offset(17, -size.y * 0.48 - 1),
-      2,
-      Paint()..color = Colors.white,
+    canvas.drawRect(Rect.fromLTWH(16, y, 13, 5), steel);
+    canvas.drawRect(Rect.fromLTWH(28, y + 1, 16, 2.5), steel);
+    canvas.drawRect(Rect.fromLTWH(26, y + 4, 8, 2.5), wood);
+    canvas.drawPath(
+      Path()
+        ..moveTo(20, y + 5)
+        ..lineTo(25, y + 5)
+        ..lineTo(26, y + 14)
+        ..lineTo(21, y + 14)
+        ..close(),
+      Paint()..color = const Color(0xFF55565E),
     );
   }
 

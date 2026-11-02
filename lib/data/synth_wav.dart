@@ -347,6 +347,145 @@ class SynthWav {
     return out;
   }
 
+  /// 驾驶「理想」时放的原创进行曲：4/4、124 BPM、8 小节，C 大调，
+  /// 钢琴主旋律 + 低音/和弦“嗵—嚓”的行进节奏。
+  static const double marchBpm = 124;
+  static const int marchBars = 8;
+  static const List<List<double>> _marchMelody = [
+    [67, 1],
+    [72, 1],
+    [76, 1],
+    [72, 1],
+    [74, 1.5],
+    [72, .5],
+    [71, 1],
+    [67, 1],
+    [69, 1],
+    [72, 1],
+    [77, 1],
+    [76, 1],
+    [74, 2],
+    [67, 1],
+    [0, 1],
+    [67, 1],
+    [72, 1],
+    [76, 1],
+    [79, 1],
+    [77, 1.5],
+    [76, .5],
+    [74, 1],
+    [72, 1],
+    [71, 1],
+    [74, 1],
+    [77, 1],
+    [74, 1],
+    [72, 3],
+    [0, 1],
+  ];
+  static const List<int> _marchRoots = [48, 43, 41, 43, 48, 41, 43, 48];
+
+  static Uint8List marchLoop() => _pieceLoop(
+    melody: _marchMelody,
+    roots: _marchRoots,
+    bpm: marchBpm,
+    beatsPerBar: 4,
+  );
+
+  /// 口香糖道具的原创田园圆舞曲：3/4、96 BPM、8 小节，G 大调。
+  static const List<List<double>> _gumMelody = [
+    [67, 1],
+    [71, 1],
+    [74, 1],
+    [76, 2],
+    [74, 1],
+    [72, 1],
+    [74, 1],
+    [72, 1],
+    [71, 2],
+    [0, 1],
+    [69, 1],
+    [72, 1],
+    [76, 1],
+    [74, 2],
+    [71, 1],
+    [72, 1],
+    [71, 1],
+    [69, 1],
+    [67, 2],
+    [0, 1],
+  ];
+  static const List<int> _gumRoots = [43, 43, 48, 43, 45, 50, 48, 43];
+
+  static Uint8List gumLoop() =>
+      _pieceLoop(melody: _gumMelody, roots: _gumRoots, bpm: 96, beatsPerBar: 3);
+
+  static Uint8List _pieceLoop({
+    required List<List<double>> melody,
+    required List<int> roots,
+    required double bpm,
+    required int beatsPerBar,
+  }) {
+    final bars = roots.length;
+    final beat = 60 / bpm;
+    final total = (_sampleRate * beat * beatsPerBar * bars).round();
+    final out = List<double>.filled(total, 0);
+    var at = 0.0;
+    for (final n in melody) {
+      final dur = n[1] * beat;
+      if (n[0] > 0) {
+        _mixAt(
+          out,
+          (at * _sampleRate).round(),
+          _piano(_midi(n[0].round()), dur * 0.92, vol: 0.16),
+        );
+      }
+      at += dur;
+    }
+    for (var bar = 0; bar < bars; bar++) {
+      final root = roots[bar];
+      final minor = root % 12 == 9; // A 小调和弦
+      for (var b = 0; b < beatsPerBar; b++) {
+        final start = ((bar * beatsPerBar + b) * beat * _sampleRate).round();
+        final strong = beatsPerBar == 4 ? b.isEven : b == 0;
+        if (strong) {
+          _mixAt(out, start, _piano(_midi(root), beat * 0.9, vol: 0.14));
+          _mixAt(out, start, _thump(0.25, vol: 0.1));
+        } else {
+          for (final iv in minor ? const [12, 15, 19] : const [12, 16, 19]) {
+            _mixAt(
+              out,
+              start,
+              _guitar(_midi(root + iv), beat * 0.8, vol: 0.06),
+            );
+          }
+        }
+        _mixAt(out, start, _brush(0.12, vol: b.isOdd ? 0.03 : 0.015));
+      }
+    }
+    return build(out);
+  }
+
+  /// 飞机结束时的短收尾：慢下行的钢琴音加低沉心跳，原创，不是任何现成音源。
+  static Uint8List mambaOut() {
+    final out = List<double>.filled((_sampleRate * 4.2).round(), 0);
+    const List<List<double>> notes = [
+      [76, 0.0, 0.7],
+      [74, 0.7, 0.7],
+      [71, 1.4, 0.9],
+      [67, 2.3, 1.8],
+    ];
+    for (final n in notes) {
+      _mixAt(
+        out,
+        (n[1] * _sampleRate).round(),
+        _piano(_midi(n[0].round()), n[2], vol: 0.2),
+      );
+    }
+    _mixAt(out, (2.3 * _sampleRate).round(), _piano(_midi(43), 1.8, vol: 0.2));
+    _mixAt(out, (2.3 * _sampleRate).round(), _thump(0.4, vol: 0.16));
+    return build(out);
+  }
+
   /// 每个世界 16 小节原创循环，后半更换和弦走向并变奏旋律。
   /// [alt] 为 true 时换一种和弦走向与旋律起点，同一世界的相邻关卡不重复。
   static Uint8List bgmLoopForWorld(int worldIndex, {bool alt = false}) {

@@ -32,6 +32,7 @@ class FxLayer extends PositionComponent {
   final List<_FxParticle> _particles = [];
   final List<_FxRing> _rings = [];
   final List<_FxLabel> _labels = [];
+  final List<_FxBeam> _beams = [];
   final math.Random _rng = math.Random();
 
   /// 起跳尘土
@@ -256,6 +257,22 @@ class FxLayer extends PositionComponent {
     );
   }
 
+  /// 超人模式的眼睛射线：从眼睛到目标的两道红光。
+  void eyeBeam(Vector2 from, Vector2 to) {
+    _beams.add(_FxBeam(from: from.clone(), to: to.clone(), life: 0.18));
+    _spawn(
+      to,
+      count: 8,
+      speed: 160,
+      spread: math.pi * 2,
+      colors: [const Color(0xFFFF5A5A), MacaronColors.lemon, Colors.white],
+      sizeMin: 2,
+      sizeMax: 5,
+      life: 0.3,
+      gravity: 120,
+    );
+  }
+
   /// 糖豆撞上玩家或地形时变成一小团糖霜
   void enemyCandyPop(Vector2 at) {
     _spawn(
@@ -377,10 +394,35 @@ class FxLayer extends PositionComponent {
       l.position.y -= dt * 72;
     }
     _labels.removeWhere((l) => l.life <= 0);
+    for (final b in _beams) {
+      b.life -= dt;
+    }
+    _beams.removeWhere((b) => b.life <= 0);
   }
 
   @override
   void render(Canvas canvas) {
+    for (final b in _beams) {
+      final alpha = (b.life / 0.18).clamp(0.0, 1.0);
+      final a = Offset(b.from.x, b.from.y);
+      final c = Offset(b.to.x, b.to.y);
+      canvas.drawLine(
+        a,
+        c,
+        Paint()
+          ..color = const Color(0xFFFF4040).withValues(alpha: alpha * 0.55)
+          ..strokeWidth = 9
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        a,
+        c,
+        Paint()
+          ..color = Colors.white.withValues(alpha: alpha)
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round,
+      );
+    }
     for (final r in _rings) {
       final alpha = (r.life * 2.8).clamp(0.0, 1.0);
       final paint = Paint()
@@ -416,6 +458,14 @@ class FxLayer extends PositionComponent {
       tp.paint(canvas, Offset(l.position.x, l.position.y));
     }
   }
+}
+
+class _FxBeam {
+  _FxBeam({required this.from, required this.to, required this.life});
+
+  final Vector2 from;
+  final Vector2 to;
+  double life;
 }
 
 class _FxRing {

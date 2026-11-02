@@ -74,6 +74,11 @@ class MacaronGame extends FlameGame {
   final List<GunPickup> gunPickups = [];
   final List<PeaSeed> peaSeeds = [];
   final List<VehiclePickup> vehiclePickups = [];
+  final List<BonusPickup> bonusPickups = [];
+
+  /// 关掉后不放超人/飞机/口香糖道具（路线机器人测试需要固定的基础物理）。
+  @visibleForTesting
+  static bool spawnBonusPickups = true;
   final List<LifeHeart> hearts = [];
   final List<SpringPad> springs = [];
   final List<CheckpointPad> checkpoints = [];
@@ -106,6 +111,13 @@ class MacaronGame extends FlameGame {
   double gunTimer = 0;
   double _peaBuddyTimer = 0;
   double vehicleTimer = 0;
+  double superTimer = 0;
+  double planeTimer = 0;
+  double gumTimer = 0;
+  double _beamCooldown = 0;
+  static const double superDuration = 10;
+  static const double planeDuration = 9;
+  static const double gumDuration = 10;
   double _vehicleCharge = 0;
   double _vehicleBoostTimer = 0;
   double _gunCooldown = 0;
@@ -223,6 +235,11 @@ class MacaronGame extends FlameGame {
     gunPickups.clear();
     peaSeeds.clear();
     vehiclePickups.clear();
+    bonusPickups.clear();
+    superTimer = 0;
+    planeTimer = 0;
+    gumTimer = 0;
+    _beamCooldown = 0;
     hearts.clear();
     springs.clear();
     checkpoints.clear();
@@ -383,6 +400,7 @@ class MacaronGame extends FlameGame {
       }
     }
     _collectStagePlatforms(tile);
+    _placeBonusPickups(tile);
 
     totalCoins = coins.length;
     _cachedSolids = terrain.map((e) => e.rect).toList(growable: false);
@@ -404,6 +422,7 @@ class MacaronGame extends FlameGame {
       ...gunPickups,
       ...peaSeeds,
       ...vehiclePickups,
+      ...bonusPickups,
       ...hearts,
       ...springs,
       ...checkpoints,
@@ -420,6 +439,56 @@ class MacaronGame extends FlameGame {
       ..holdingCandyGun = false;
     world.add(player);
     _notifyHud();
+  }
+
+  /// 超人 / 飞机 / 口香糖三种道具不在关卡字符里：按关卡长度的固定比例，
+  /// 在附近第一块有地面且上方留空的列上方两格放置，避开敌人出生点。
+  void _placeBonusPickups(double tile) {
+    if (!spawnBonusPickups ||
+        level.levelIndex == GameConstants.levelsPerWorld - 1) {
+      return; // Boss 关保持原有节奏。
+    }
+    final plan = <(BonusKind, double)>[
+      (BonusKind.gum, 0.28),
+      (BonusKind.superman, 0.50),
+      (BonusKind.plane, 0.72),
+    ];
+    final groundRow = level.height - 2; // 第一行 '#'，角色站在它上一行
+    for (final (kind, fraction) in plan) {
+      final base = (level.width * fraction).round();
+      for (var d = 0; d < 14; d++) {
+        final x = base + (d.isEven ? d ~/ 2 : -(d + 1) ~/ 2);
+        if (x < 6 || x >= level.width - 6) {
+          continue;
+        }
+        if (level.tileAt(x, groundRow) != '#') {
+          continue;
+        }
+        var clear = true;
+        for (var dx = -1; dx <= 1 && clear; dx++) {
+          for (var dy = 1; dy <= 2; dy++) {
+            final t = level.tileAt(x + dx, groundRow - dy);
+            if (t != ' ' && t != 'C') {
+              clear = false;
+              break;
+            }
+          }
+        }
+        if (!clear) {
+          continue;
+        }
+        bonusPickups.add(
+          BonusPickup(
+            kind: kind,
+            position: Vector2(
+              x * tile + tile / 2,
+              (groundRow - 2) * tile + tile / 2,
+            ),
+          ),
+        );
+        break;
+      }
+    }
   }
 
   void _addEnemy(double px, double py, double tile, EnemyKind kind) {
@@ -602,7 +671,7 @@ class MacaronGame extends FlameGame {
             GameConstants.maxPlayerShots) {
       return;
     }
-    _gunCooldown = 0.38;
+    _gunCooldown = 0.16; // AK-47 连发
     _spawnPlayerShot(Vector2(player.facingRight ? 1 : -1, 0), isPea: false);
     AudioService.instance.shoot();
   }
@@ -1060,6 +1129,7 @@ class MacaronGame extends FlameGame {
     _peaBuddyTimer = (_peaBuddyTimer - clampedDt).clamp(0.0, 30.0);
     _gunCooldown = (_gunCooldown - clampedDt).clamp(0.0, 2.0);
     _plantShotCooldown = (_plantShotCooldown - clampedDt).clamp(0.0, 10.0);
+    _updateBonusModes(clampedDt);
     if (gunTimer <= 0) {
       shootPressed = false;
     }
@@ -1228,10 +1298,21 @@ class MacaronGame extends FlameGame {
     }
 
     player.velocity.y += GameConstants.gravity * dt;
+    final flying = planeTimer > 0;
+    if (flying) {
+      // 飞机：跳 = 上升，蹲 = 下降，什么都不按就悬停；自动向前飞。
+      final target = jumpHeld ? -240.0 : (duckPressed ? 240.0 : 0.0);
+      player.velocity.y += (target - player.velocity.y) * math.min(1.0, dt * 8);
+      if (!(player.wantsLeft && !player.wantsRight)) {
+        player.velocity.x =
+            GameConstants.playerRunSpeedFor(level.difficulty) * 1.1;
+        player.facingRight = true;
+      }
+    }
     // 松开跳跃只截断玩家自己起跳的上升段。弹簧是场地给的完整弹射，
     // 不按住跳跃键也要飞完，否则会在垫上反复短跳，水平速度也被清掉。
     final jumpCut = GameConstants.playerJumpCutVelocityFor(level.difficulty);
-    if (!_springBoost && !jumpHeld && player.velocity.y < jumpCut) {
+    if (!flying && !_springBoost && !jumpHeld && player.velocity.y < jumpCut) {
       player.velocity.y = jumpCut;
     }
     if (player.velocity.y >= 0) {
@@ -1468,9 +1549,12 @@ class MacaronGame extends FlameGame {
   void attractCoinsForTest(double dt) => _attractCoins(dt);
 
   void _attractCoins(double dt) {
-    if (!player.poweredUp || player.dead) {
+    // 拿着 AK-47 时是“零元购”：吸力范围翻倍，路过的糖果全拿走。
+    final freeShopping = gunTimer > 0;
+    if ((!player.poweredUp && !freeShopping) || player.dead) {
       return;
     }
+    final radius = freeShopping ? coinMagnetRadius * 2.4 : coinMagnetRadius;
     final target = Vector2(
       player.position.x,
       player.position.y - player.size.y * 0.5,
@@ -1481,10 +1565,10 @@ class MacaronGame extends FlameGame {
       }
       final delta = target - coin.position;
       final distance = delta.length;
-      if (distance > coinMagnetRadius || distance < 1) {
+      if (distance > radius || distance < 1) {
         continue;
       }
-      final pull = coinMagnetSpeed * (1.4 - distance / coinMagnetRadius);
+      final pull = coinMagnetSpeed * (1.4 - distance / radius);
       final step = math.min(distance, pull * dt);
       coin.position += delta / distance * step;
     }
@@ -1566,7 +1650,7 @@ class MacaronGame extends FlameGame {
         AudioService.instance.powerUp();
         fx.powerUp(pickup.position.clone());
         fx.heroCallout(
-          '火力开路！',
+          'AK-47 · 零元购！',
           player.position + Vector2(0, -player.hitHeight * 0.55),
         );
         _notifyHud();
@@ -1593,10 +1677,130 @@ class MacaronGame extends FlameGame {
         AudioService.instance.vehicle();
         fx.powerUp(pickup.position.clone());
         fx.heroCallout(
-          '跑＋蹲蓄力，松蹲加速！',
+          '理想，启动！',
           player.position + Vector2(0, -player.hitHeight * 0.55),
         );
         _notifyHud();
+      }
+    }
+    for (final pickup in bonusPickups) {
+      if (pickup.collected) {
+        continue;
+      }
+      final hitbox = Rect.fromCenter(
+        center: Offset(pickup.position.x, pickup.position.y),
+        width: pickup.size.x * 0.9,
+        height: pickup.size.y * 0.9,
+      );
+      if (!box.overlaps(hitbox)) {
+        continue;
+      }
+      pickup.collected = true;
+      pickup.removeFromParent();
+      score += 200;
+      AudioService.instance.powerUp();
+      fx.powerUp(pickup.position.clone());
+      final at = player.position + Vector2(0, -player.hitHeight * 0.55);
+      switch (pickup.kind) {
+        case BonusKind.superman:
+          superTimer = superDuration;
+          fx.heroCallout('超人模式！', at);
+        case BonusKind.plane:
+          planeTimer = planeDuration;
+          player.onGround = false;
+          player.velocity.y = -220;
+          fx.heroCallout('起飞！跳上升 蹲下降', at);
+        case BonusKind.gum:
+          gumTimer = gumDuration;
+          fx.heroCallout('我从山中来，带着兰花草', at);
+      }
+      _notifyHud();
+    }
+  }
+
+  /// 道具计时、状态同步和音乐切换（理想进行曲 / 口香糖旋律 / 飞机收尾音）。
+  void _updateBonusModes(double dt) {
+    final hadPlane = planeTimer > 0;
+    superTimer = (superTimer - dt).clamp(0.0, superDuration);
+    planeTimer = (planeTimer - dt).clamp(0.0, planeDuration);
+    gumTimer = (gumTimer - dt).clamp(0.0, gumDuration);
+    _beamCooldown = math.max(0, _beamCooldown - dt);
+    player
+      ..superMode = superTimer > 0
+      ..flying = planeTimer > 0
+      ..gumBubble = gumTimer > 0;
+    if (hadPlane && planeTimer <= 0) {
+      fx.heroCallout(
+        'Mamba out',
+        player.position + Vector2(-30, -player.hitHeight),
+      );
+      AudioService.instance.mambaOut();
+    }
+    final audio = AudioService.instance;
+    final want = gumTimer > 0 ? 'gum' : (vehicleTimer > 0 ? 'march' : null);
+    if (want != null) {
+      audio.startTheme(want);
+    } else if (audio.marchPlaying) {
+      audio.stopTheme();
+    }
+    if (superTimer > 0 && _beamCooldown <= 0) {
+      _fireEyeBeam();
+    }
+  }
+
+  /// 超人模式：自动向面朝方向最近的怪（或 Boss）喷射眼睛射线。
+  void _fireEyeBeam() {
+    final dir = player.facingRight ? 1.0 : -1.0;
+    final eye = player.position + Vector2(dir * 8, -player.hitHeight * 0.8);
+    SoftEnemy? target;
+    var best = 420.0;
+    for (final enemy in enemies) {
+      if (enemy.dead) {
+        continue;
+      }
+      final dx = (enemy.position.x - player.position.x) * dir;
+      final dy = enemy.position.y - player.position.y;
+      if (dx < 0 || dx > best || dy.abs() > 150) {
+        continue;
+      }
+      best = dx;
+      target = enemy;
+    }
+    final currentBoss = boss;
+    final bossDx = currentBoss == null
+        ? double.infinity
+        : (currentBoss.position.x - player.position.x) * dir;
+    if (target == null &&
+        (currentBoss == null ||
+            currentBoss.dead ||
+            bossDx < 0 ||
+            bossDx > 420)) {
+      return;
+    }
+    _beamCooldown = 0.45;
+    AudioService.instance.shoot();
+    if (target != null) {
+      final victim = target;
+      fx.eyeBeam(eye, Vector2(victim.position.x, victim.position.y - 14));
+      while (!victim.dead) {
+        victim.takeStomp();
+      }
+      victim.removeFromParent();
+      enemies.remove(victim);
+      _registerEnemyDefeat(victim);
+      fx.stompKill(victim.position.clone());
+    } else if (currentBoss != null) {
+      fx.eyeBeam(
+        eye,
+        Vector2(currentBoss.position.x, currentBoss.position.y - 40),
+      );
+      final wasEnraged = currentBoss.enraged;
+      if (currentBoss.tryProjectileHit()) {
+        _registerBossDamage(
+          currentBoss,
+          becameEnraged: !wasEnraged && currentBoss.enraged,
+          byProjectile: true,
+        );
       }
     }
   }
@@ -1823,6 +2027,17 @@ class MacaronGame extends FlameGame {
         }
         continue;
       }
+      if (planeTimer > 0) {
+        while (!enemy.dead) {
+          enemy.takeStomp();
+        }
+        enemy.removeFromParent();
+        enemies.remove(enemy);
+        _registerEnemyDefeat(enemy);
+        AudioService.instance.stomp();
+        fx.stompKill(enemy.position.clone());
+        continue;
+      }
       if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
         final crush =
             vehicleBoosting ||
@@ -2047,7 +2262,7 @@ class MacaronGame extends FlameGame {
   }
 
   void _hurtOrKill({bool forceKill = false}) {
-    if (!forceKill && player.isInvincible) {
+    if (!forceKill && (player.isInvincible || gumTimer > 0 || planeTimer > 0)) {
       return;
     }
     comboCount = 0;
@@ -2095,6 +2310,10 @@ class MacaronGame extends FlameGame {
     _playerShots.clear();
     gunTimer = 0;
     vehicleTimer = 0;
+    superTimer = 0;
+    planeTimer = 0;
+    gumTimer = 0;
+    AudioService.instance.stopTheme();
     _clearVehicleDrive();
     shootPressed = false;
     lives--;

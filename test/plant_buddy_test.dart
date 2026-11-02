@@ -268,9 +268,9 @@ void main() {
           ..invincibleTimer = 8;
         walker.simActive = true;
         game.update(1 / 30);
-        final shots = game.world.children
-            .whereType<EnemyCandyShot>()
-            .where((shot) => !shot.spent);
+        final shots = game.world.children.whereType<EnemyCandyShot>().where(
+          (shot) => !shot.spent,
+        );
         if (shots.isNotEmpty) {
           thrown = shots.first;
         }
@@ -278,8 +278,7 @@ void main() {
       expect(thrown, isNotNull);
 
       final muzzle =
-          game.player.position +
-          Vector2(22, -game.player.hitHeight * 0.58);
+          game.player.position + Vector2(22, -game.player.hitHeight * 0.58);
       final travel = GameConstants.enemyProjectileSpeedFor(
         game.level.difficulty,
       );

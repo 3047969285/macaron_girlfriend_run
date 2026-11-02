@@ -12,8 +12,10 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
 
   @override
   void initState() {
@@ -51,7 +53,11 @@ class _SplashPageState extends State<SplashPage>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [MacaronColors.blush, MacaronColors.cream, MacaronColors.mint],
+            colors: [
+              MacaronColors.blush,
+              MacaronColors.cream,
+              MacaronColors.mint,
+            ],
           ),
         ),
         child: FadeTransition(

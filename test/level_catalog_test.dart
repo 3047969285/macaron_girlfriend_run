@@ -449,6 +449,10 @@ void _runWithLiveControls(
 }
 
 void main() {
+  // 路线机器人依赖固定的基础物理；超人/飞机/口香糖道具另有专门测试。
+  setUpAll(() => MacaronGame.spawnBonusPickups = false);
+  tearDownAll(() => MacaronGame.spawnBonusPickups = true);
+
   test('enemy density follows each world ceiling without spikes', () {
     for (var world = 0; world < GameConstants.worldCount; world++) {
       for (var level = 0; level < GameConstants.levelsPerWorld; level++) {

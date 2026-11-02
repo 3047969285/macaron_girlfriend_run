@@ -731,7 +731,10 @@ class _GameHudHeader extends StatelessWidget {
         color: MacaronColors.cocoa,
       );
       final equipment = [
-        if (game.weaponVisible) '🔫${game.gunTimer.ceil()}s',
+        if (game.weaponVisible) '🔫零元购${game.gunTimer.ceil()}s',
+        if (game.superTimer > 0) '🦸${game.superTimer.ceil()}s',
+        if (game.planeTimer > 0) '✈️${game.planeTimer.ceil()}s',
+        if (game.gumTimer > 0) '🫧${game.gumTimer.ceil()}s',
         if (game.plantBuddyTimer > 0) '🌱${game.plantBuddyTimer.ceil()}s',
         if (game.vehicleTimer > 0) '🚙${game.vehicleTimer.ceil()}s',
         if (game.vehicleBoosting) '加速',

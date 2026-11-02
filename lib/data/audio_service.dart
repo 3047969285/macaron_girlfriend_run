@@ -197,6 +197,12 @@ class AudioService {
     }
     _bgmRevision++;
     _bgmOwner = null;
+    if (_marchPlaying) {
+      _marchPlaying = false;
+      try {
+        await _march.stop();
+      } catch (_) {}
+    }
     if (!_bgmPlaying && _bgmWorld < 0) {
       await _bgm.stop();
       _bgmBoss = false;
@@ -209,8 +215,73 @@ class AudioService {
     _bgmSynth = false;
   }
 
+  /// 驾驶「理想」时的进行曲：压住普通 BGM，开车结束后再接回来。
+  final AudioPlayer _march = AudioPlayer();
+  bool _marchPlaying = false;
+  String? _theme;
+  final Map<String, Uint8List> _themeBytes = {};
+  Uint8List? _mambaBytes;
+
+  bool get marchPlaying => _marchPlaying;
+
+  /// 当前道具主题（'march' 驾驶进行曲 / 'gum' 口香糖），没有则为 null。
+  String? get theme => _marchPlaying ? _theme : null;
+
+  Future<void> startTheme(String kind) async {
+    if (_marchPlaying && _theme == kind) {
+      return;
+    }
+    _marchPlaying = true;
+    _theme = kind;
+    await init();
+    if (!musicOn) {
+      return;
+    }
+    try {
+      if (_bgmPlaying) {
+        await _bgm.pause();
+      }
+      await _march.setReleaseMode(ReleaseMode.loop);
+      await _march.setVolume(SaveService.instance.musicVolume);
+      await _march.play(
+        BytesSource(
+          _themeBytes.putIfAbsent(
+            kind,
+            () => kind == 'gum' ? SynthWav.gumLoop() : SynthWav.marchLoop(),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> stopTheme([String? kind]) async {
+    if (!_marchPlaying || (kind != null && kind != _theme)) {
+      return;
+    }
+    _marchPlaying = false;
+    _theme = null;
+    try {
+      await _march.stop();
+    } catch (_) {}
+    if (_bgmPlaying && musicOn) {
+      try {
+        await _bgm.resume();
+      } catch (_) {}
+    }
+  }
+
+  /// 飞机结束的收尾音。
+  Future<void> mambaOut() async {
+    await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
+  }
+
   /// 暂停 BGM
   Future<void> pauseBgm() async {
+    if (_marchPlaying) {
+      try {
+        await _march.pause();
+      } catch (_) {}
+    }
     if (!_bgmPlaying) {
       return;
     }
@@ -220,6 +291,12 @@ class AudioService {
   /// 恢复 BGM
   Future<void> resumeBgm() async {
     if (!musicOn) {
+      return;
+    }
+    if (_marchPlaying) {
+      try {
+        await _march.resume();
+      } catch (_) {}
       return;
     }
     if (!_bgmPlaying && _bgmWorld >= 0) {
