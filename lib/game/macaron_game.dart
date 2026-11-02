@@ -1269,6 +1269,26 @@ class MacaronGame extends FlameGame {
       player.velocity.x = 0;
     }
 
+    if (vehicleTimer > 0 &&
+        (player.onGround || player.coyoteTimer > 0) &&
+        !player.skillDashing &&
+        !ducking &&
+        player.wantsLeft == player.wantsRight) {
+      final dir = _autoRamDirection();
+      if (dir != 0) {
+        // 理想汽车：没人操作时自动朝最近的怪冲撞。
+        _vehicleBoostTimer = math.max(_vehicleBoostTimer, 0.2);
+        player.velocity.x =
+            dir *
+            GameConstants.playerRunSpeedFor(level.difficulty) *
+            GameConstants.playerVehicleSpeedMultiplierFor(level.difficulty) *
+            GameConstants.vehicleBoostMultiplier *
+            trapSlow;
+        player.facingRight = dir > 0;
+        player.vehicleBoosting = true;
+      }
+    }
+
     if (player.onGround) {
       player.coyoteTimer = GameConstants.coyoteTime;
       _airHopUsed = false;
@@ -1336,6 +1356,52 @@ class MacaronGame extends FlameGame {
       _hurtOrKill(forceKill: true);
     }
   }
+
+  /// 最近的、同一高度且中间路面连续（没有坑）的怪所在方向：-1 / 1，没有则 0。
+  /// 先看面朝的方向，再看身后；超过 460 像素的不追。
+  double _autoRamDirection() {
+    final tile = GameConstants.tileSize;
+    final row = ((player.position.y + 4) / tile).floor(); // 脚下一格
+    bool roadClear(double fromX, double toX) {
+      final a = (math.min(fromX, toX) / tile).floor();
+      final b = (math.max(fromX, toX) / tile).floor();
+      for (var x = a; x <= b; x++) {
+        final t = level.tileAt(x, row);
+        if (t != '#' && t != '=' && t != '?') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    double best = 0;
+    var bestDist = 460.0;
+    for (final enemy in enemies) {
+      if (enemy.dead) {
+        continue;
+      }
+      final dx = enemy.position.x - player.position.x;
+      final dy = (enemy.position.y - player.position.y).abs();
+      if (dy > 60 || dx.abs() < 24 || dx.abs() > bestDist) {
+        continue;
+      }
+      final dir = dx > 0 ? 1.0 : -1.0;
+      final facing = player.facingRight ? 1.0 : -1.0;
+      // 面朝方向的怪优先：背后的要近一半才值得掉头。
+      final dist = dx.abs() * (dir == facing ? 1.0 : 2.0);
+      if (dist >= bestDist || !roadClear(player.position.x, enemy.position.x)) {
+        continue;
+      }
+      bestDist = dist;
+      best = dir;
+    }
+    return best;
+  }
+
+  @visibleForTesting
+  double autoRamDirectionForTest() => _autoRamDirection();
+
+  bool _ramStingPlayed = false;
 
   void _moveAxis(double dt, {required bool horizontal}) {
     final delta = horizontal
@@ -1668,6 +1734,7 @@ class MacaronGame extends FlameGame {
       if (box.overlaps(hitbox)) {
         pickup.collected = true;
         pickup.removeFromParent();
+        _ramStingPlayed = false;
         vehicleTimer = math.max(
           vehicleTimer,
           GameConstants.playerVehicleDurationFor(level.difficulty),
@@ -2038,11 +2105,17 @@ class MacaronGame extends FlameGame {
         fx.stompKill(enemy.position.clone());
         continue;
       }
-      if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
+      if (vehicleTimer > 0 &&
+          (player.onGround || player.coyoteTimer > 0) &&
+          player.velocity.x.abs() > 80) {
         final crush =
             vehicleBoosting ||
             (enemy.kind != EnemyKind.bruiser && enemy.kind != EnemyKind.shell);
         if (crush) {
+          if (!_ramStingPlayed) {
+            _ramStingPlayed = true;
+            AudioService.instance.ramSting();
+          }
           while (!enemy.dead) {
             enemy.takeStomp();
           }

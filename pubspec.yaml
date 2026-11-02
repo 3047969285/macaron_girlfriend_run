@@ -66,6 +66,7 @@ flutter:
     - assets/audio/morning.mp3
     - assets/audio/meme_li_march.mp4
     - assets/audio/meme_gum.mp4
+    - assets/audio/meme_orchid.mp4
     - assets/audio/meme_mamba_out.mp4
 
   # 内置中文字体（Noto Sans SC，SIL OFL），只含应用文案用到的字符，

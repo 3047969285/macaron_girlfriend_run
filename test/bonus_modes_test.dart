@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/data/synth_wav.dart';
@@ -65,6 +66,28 @@ void main() {
     game.superTimer = 5;
     game.update(0.02);
     expect(game.enemies.length, before - 1);
+    expect(game.enemies.contains(enemy), isFalse);
+  });
+
+  testWidgets('the Li car drives itself into monsters ahead', (tester) async {
+    final game = await _boot(tester);
+    final p = game.player.position;
+    final enemy = SoftEnemy(
+      position: Vector2(p.x + 170, p.y),
+      leftBound: p.x + 100,
+      rightBound: p.x + 260,
+      difficulty: 1,
+      speed: 0,
+      kind: EnemyKind.walker,
+    );
+    game.enemies
+      ..clear()
+      ..add(enemy);
+    game.world.add(enemy);
+    game.vehicleTimer = 8;
+    for (var i = 0; i < 120 && game.enemies.contains(enemy); i++) {
+      game.update(1 / 60);
+    }
     expect(game.enemies.contains(enemy), isFalse);
   });
 

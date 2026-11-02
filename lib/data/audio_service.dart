@@ -260,7 +260,8 @@ class AudioService {
   }
 
   static const String _marchAsset = 'audio/meme_li_march.mp4';
-  static const String _gumAsset = 'audio/meme_gum.mp4';
+  static const String _gumAsset = 'audio/meme_orchid.mp4';
+  static const String _ramAsset = 'audio/meme_gum.mp4';
   static const String _mambaAsset = 'audio/meme_mamba_out.mp4';
   final AudioPlayer _sting = AudioPlayer();
 
@@ -291,6 +292,17 @@ class AudioService {
     } catch (_) {
       await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
     }
+  }
+
+  /// 理想汽车第一次撞到怪时的“降维打击”。
+  Future<void> ramSting() async {
+    if (!soundOn) {
+      return;
+    }
+    try {
+      await _sting.setVolume(SaveService.instance.soundVolume);
+      await _sting.play(AssetSource(_ramAsset));
+    } catch (_) {}
   }
 
   /// 暂停 BGM
@@ -413,6 +425,18 @@ class AudioService {
   }
 
   Future<void> win() async {
+    // 胜利后自动播放《兰花草》；放不出来时退回原来的合成胜利音。
+    if (soundOn || musicOn) {
+      try {
+        await stopTheme();
+        if (_bgmPlaying) {
+          await _bgm.pause();
+        }
+        await _sting.setVolume(SaveService.instance.musicVolume);
+        await _sting.play(AssetSource(_gumAsset));
+        return;
+      } catch (_) {}
+    }
     await _playFx(() => _wavWin);
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
