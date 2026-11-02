@@ -125,14 +125,37 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         return;
       }
       _lifecyclePaused = true;
+      _backgroundSince = Stopwatch()..start();
       setState(() {
         game.setPaused(true);
       });
     } else if (state == AppLifecycleState.resumed) {
       // ignore: unawaited_futures
-      AudioService.instance.unlockAudio();
+      AudioService.instance.unlockAudio(force: true);
+      final away = _backgroundSince?.elapsedMilliseconds;
+      _backgroundSince = null;
+      if (_lifecyclePaused) {
+        // 只是瞬间离开（浏览器抖动、系统弹层一闪而过）：回来自动继续，
+        // 不让玩家卡在暂停画面里；离开较久则保留暂停画面等玩家准备好。
+        if (away != null && away < _quickReturnMs && mounted && !_busy) {
+          _lifecyclePaused = false;
+          setState(() {
+            game.setPaused(false);
+          });
+          // ignore: unawaited_futures
+          AudioService.instance.resumeBgm();
+        }
+      } else if (!game.userPaused) {
+        // 不是由切后台造成的暂停（教程、结算期间）：回来时只需恢复音乐。
+        // ignore: unawaited_futures
+        AudioService.instance.resumeBgm();
+      }
     }
   }
+
+  /// 离开不超过这个时长就算“瞬间离开”，回来自动继续。
+  static const int _quickReturnMs = 2000;
+  Stopwatch? _backgroundSince;
 
   void _setInputMode(InputMode mode) {
     if (_inputMode != mode) {

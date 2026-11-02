@@ -41,5 +41,36 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
     expect(find.text('切到后台啦'), findsOneWidget);
+
+    // 瞬间离开、马上回来：自动继续，不卡在暂停画面。
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('切到后台啦'), findsNothing);
   });
+
+  testWidgets(
+    'a long absence keeps the pause screen until the player returns',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(800, 400);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        const MaterialApp(home: PlayPage(worldIndex: 0, levelIndex: 0)),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      expect(find.text('切到后台啦'), findsOneWidget);
+
+      // 真实等待超过“瞬间离开”的阈值（Stopwatch 不受测试假时钟控制）。
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 2200)),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.text('切到后台啦'), findsOneWidget);
+    },
+  );
 }

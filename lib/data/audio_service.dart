@@ -183,6 +183,7 @@ class AudioService {
     _bgmWorld = world;
     _bgmBoss = boss;
     _bgmSynth = synth;
+    _unlockPending = true;
     _bgmPlaying = true;
   }
 
@@ -237,8 +238,19 @@ class AudioService {
     await _bgm.resume();
   }
 
-  /// 网页端首次手势解锁音频会话
-  Future<void> unlockAudio() async {
+  /// 每首曲子开始后，等待第一次手势去解锁网页端的自动播放限制。
+  bool _unlockPending = true;
+
+  /// 网页端首次手势解锁音频会话。
+  ///
+  /// 触控按钮每次按下都会调用它；如果每次都 `resume()` 背景音乐，会多一次平台调用，
+  /// 网页上还可能让音频元素重新开始，点跳跃、冲刺时就会“卡一下”。所以每首曲子
+  /// 只在第一次手势时解锁一次，之后的按键直接返回。[force] 用于从后台回来时重新解锁。
+  Future<void> unlockAudio({bool force = false}) async {
+    if (!force && !_unlockPending) {
+      return;
+    }
+    _unlockPending = false;
     await init();
     try {
       if (musicOn && _bgmPlaying) {
