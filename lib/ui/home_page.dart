@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 import 'package:macaron_girlfriend_run/ui/input_mode.dart';
@@ -38,159 +41,333 @@ class _HomePageState extends State<HomePage> {
     _refresh();
   }
 
+  Future<void> _continue() async {
+    await AudioService.instance.click();
+    if (!mounted) {
+      return;
+    }
+    final pos = SaveService.instance.continuePlayTarget();
+    await Navigator.push(
+      context,
+      CupertinoPageRoute<void>(
+        builder: (_) => PlayPage(
+          worldIndex: pos.$1,
+          levelIndex: pos.$2,
+          origin: PlayOrigin.home,
+        ),
+      ),
+    );
+    _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
     final unlockedLevels = unlocked >= GameConstants.totalLevels
         ? GameConstants.totalLevels
         : unlocked + 1;
-    final progress =
-        (unlockedLevels / GameConstants.totalLevels).clamp(0.0, 1.0);
+    final progress = (unlockedLevels / GameConstants.totalLevels).clamp(
+      0.0,
+      1.0,
+    );
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFFFE8F0),
-              MacaronColors.cream,
-              Color(0xFFE8FFF6),
-              Color(0xFFD6F0FF),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  const Text(
-                    '马卡龙女友跑酷',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                      color: MacaronColors.cocoa,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  // 只留一条进度条，统计和说明文字都去掉，保持沉浸。
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 6,
-                      backgroundColor: Colors.white54,
-                      color: MacaronColors.rose,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  _PillButton(
-                    label: '继续冒险',
-                    filled: true,
-                    onTap: () async {
-                      await AudioService.instance.click();
-                      if (!context.mounted) {
-                        return;
-                      }
-                      final pos = SaveService.instance.continuePlayTarget();
-                      await Navigator.push(
-                        context,
-                        CupertinoPageRoute<void>(
-                          builder: (_) => PlayPage(
-                            worldIndex: pos.$1,
-                            levelIndex: pos.$2,
-                            origin: PlayOrigin.home,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final landscape = constraints.maxWidth >= constraints.maxHeight * 1.1;
+          final menu = _HomeMenu(
+            progress: progress,
+            compact: constraints.maxHeight < 420,
+            onContinue: _continue,
+            onMap: () => _open(const WorldMapPage()),
+            onShop: () => _open(const ShopPage()),
+            onHow: () => _open(const HowToPlayPage()),
+            onTasks: () => _open(const AchievementsPage()),
+            onSettings: () => _open(const SettingsPage()),
+          );
+          final hero = _HeroFigure(
+            role: SaveService.instance.playerRole,
+            cosmeticId: SaveService.instance.equippedCosmeticId,
+          );
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const CustomPaint(painter: _HomeScenePainter()),
+              SafeArea(
+                child: landscape
+                    ? Row(
+                        children: [
+                          Expanded(flex: 4, child: hero),
+                          Expanded(
+                            flex: 6,
+                            child: Center(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(8, 8, 28, 8),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 420,
+                                  ),
+                                  child: menu,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      );
-                      _refresh();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _PillButton(
-                    label: '选关地图',
-                    onTap: () => _open(const WorldMapPage()),
-                  ),
-                  const SizedBox(height: 12),
-                  _PillButton(
-                    label: '糖果商店',
-                    onTap: () => _open(const ShopPage()),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PillButton(
-                          label: '玩法',
-                          compact: true,
-                          onTap: () => _open(const HowToPlayPage()),
-                        ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          Expanded(flex: 4, child: hero),
+                          Expanded(
+                            flex: 6,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(28, 4, 28, 20),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 420,
+                                  ),
+                                  child: menu,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _PillButton(
-                          label: '任务',
-                          compact: true,
-                          onTap: () => _open(const AchievementsPage()),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _PillButton(
-                          label: '设置',
-                          compact: true,
-                          onTap: () => _open(const SettingsPage()),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
-            ),
-          ),
-        ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _PillButton extends StatelessWidget {
-  const _PillButton({
+/// 标题、进度条和六个入口：继续冒险最大，选关/商店次之，玩法/任务/设置最小。
+class _HomeMenu extends StatelessWidget {
+  const _HomeMenu({
+    required this.progress,
+    required this.compact,
+    required this.onContinue,
+    required this.onMap,
+    required this.onShop,
+    required this.onHow,
+    required this.onTasks,
+    required this.onSettings,
+  });
+
+  final double progress;
+  final bool compact;
+  final VoidCallback onContinue;
+  final VoidCallback onMap;
+  final VoidCallback onShop;
+  final VoidCallback onHow;
+  final VoidCallback onTasks;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = compact ? 8.0 : 12.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _OutlinedTitle('马卡龙女友跑酷', fontSize: compact ? 30 : 36),
+        SizedBox(height: compact ? 8 : 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: Colors.white.withValues(alpha: 0.7),
+            color: MacaronColors.rose,
+          ),
+        ),
+        SizedBox(height: compact ? 14 : 22),
+        _MenuButton(
+          label: '继续冒险',
+          icon: CupertinoIcons.play_fill,
+          height: compact ? 54 : 62,
+          fontSize: compact ? 20 : 22,
+          primary: true,
+          onTap: onContinue,
+        ),
+        SizedBox(height: gap),
+        Row(
+          children: [
+            Expanded(
+              child: _MenuButton(
+                label: '选关地图',
+                icon: CupertinoIcons.map_fill,
+                height: compact ? 44 : 50,
+                onTap: onMap,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: _MenuButton(
+                label: '糖果商店',
+                icon: CupertinoIcons.bag_fill,
+                height: compact ? 44 : 50,
+                onTap: onShop,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: gap),
+        Row(
+          children: [
+            Expanded(
+              child: _MenuButton(
+                label: '玩法',
+                icon: CupertinoIcons.question_circle_fill,
+                height: compact ? 38 : 42,
+                fontSize: 14,
+                subtle: true,
+                onTap: onHow,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: _MenuButton(
+                label: '任务',
+                icon: CupertinoIcons.star_fill,
+                height: compact ? 38 : 42,
+                fontSize: 14,
+                subtle: true,
+                onTap: onTasks,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: _MenuButton(
+                label: '设置',
+                icon: CupertinoIcons.gear_solid,
+                height: compact ? 38 : 42,
+                fontSize: 14,
+                subtle: true,
+                onTap: onSettings,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// 白色描边加可可色填充的标题字，压在任何背景上都清楚。
+class _OutlinedTitle extends StatelessWidget {
+  const _OutlinedTitle(this.text, {required this.fontSize});
+
+  final String text;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 2,
+    );
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Stack(
+        children: [
+          Text(
+            text,
+            style: base.copyWith(
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 7
+                ..strokeJoin = StrokeJoin.round
+                ..color = Colors.white,
+              shadows: const [
+                Shadow(
+                  color: Color(0x33FF6F9C),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+          ),
+          Text(text, style: base.copyWith(color: const Color(0xFFE0507E))),
+        ],
+      ),
+    );
+  }
+}
+
+/// 首页按钮：主按钮粉色渐变，次级白色玻璃，最小的一排半透明。
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({
     required this.label,
+    required this.icon,
+    required this.height,
     required this.onTap,
-    this.filled = false,
-    this.compact = false,
+    this.fontSize = 17,
+    this.primary = false,
+    this.subtle = false,
   });
 
   final String label;
-  final bool filled;
-  final bool compact;
+  final IconData icon;
+  final double height;
+  final double fontSize;
+  final bool primary;
+  final bool subtle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: compact ? null : double.infinity,
-      height: 48,
-      child: CupertinoButton(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 16),
-        borderRadius: BorderRadius.circular(22),
-        color: filled ? MacaronColors.rose : Colors.white.withValues(alpha: 0.82),
-        onPressed: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final textColor = primary ? Colors.white : MacaronColors.cocoa;
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(height / 2),
+      gradient: primary
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFF9EBD), Color(0xFFFF6F9C)],
+            )
+          : null,
+      color: primary
+          ? null
+          : Colors.white.withValues(alpha: subtle ? 0.55 : 0.88),
+      border: Border.all(
+        color: Colors.white.withValues(alpha: primary ? 0.9 : 0.7),
+        width: 2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: (primary ? const Color(0xFFFF6F9C) : const Color(0xFF8E6A7A))
+              .withValues(alpha: primary ? 0.38 : 0.14),
+          blurRadius: primary ? 18 : 10,
+          offset: Offset(0, primary ? 7 : 4),
+        ),
+      ],
+    );
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onTap,
+      child: Container(
+        height: height,
+        alignment: Alignment.center,
+        decoration: decoration,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(
+              icon,
+              size: fontSize + 1,
+              color: primary ? Colors.white : const Color(0xFFE0507E),
+            ),
+            const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                fontSize: compact ? 14 : 17,
-                fontWeight: FontWeight.w700,
-                color: filled ? Colors.white : MacaronColors.cocoa,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w800,
+                color: textColor,
               ),
             ),
           ],
@@ -198,6 +375,257 @@ class _PillButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 首页主角：站在草地上的静态立绘（只眨眼，不乱动）。
+class _HeroFigure extends StatefulWidget {
+  const _HeroFigure({required this.role, required this.cosmeticId});
+
+  final PlayerRole role;
+  final String cosmeticId;
+
+  @override
+  State<_HeroFigure> createState() => _HeroFigureState();
+}
+
+class _HeroFigureState extends State<_HeroFigure> {
+  late final GirlfriendPlayer _player;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = GirlfriendPlayer(role: widget.role, cosmeticId: widget.cosmeticId)
+      ..onGround = true;
+    // 先走到一个睁眼的时刻；立绘之后不再更新，所以不会乱动。
+    _player.update(0.6);
+  }
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _HeroPainter(_player),
+    child: const SizedBox.expand(),
+  );
+}
+
+class _HeroPainter extends CustomPainter {
+  _HeroPainter(this.player);
+
+  final GirlfriendPlayer player;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 立绘高度占可用高度的 62%，脚踩在草地上沿略下方。
+    final target = size.height * 0.62;
+    final k = target / player.size.y;
+    final feet = Offset(size.width * 0.5, size.height * 0.9);
+    canvas.save();
+    canvas.translate(feet.dx, feet.dy);
+    canvas.scale(k);
+    canvas.translate(-player.size.x / 2, -player.size.y);
+    player.render(canvas);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HeroPainter oldDelegate) => false;
+}
+
+/// 首页背景：粉到奶油到薄荷的天空，云、远山、近丘、草地和漂浮的马卡龙。
+class _HomeScenePainter extends CustomPainter {
+  const _HomeScenePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFC2D9), Color(0xFFFFE9E0), Color(0xFFD3F5E6)],
+          stops: [0.0, 0.55, 1.0],
+        ).createShader(Offset.zero & size),
+    );
+    // 柔和的日光。
+    canvas.drawCircle(
+      Offset(w * 0.82, h * 0.16),
+      h * 0.32,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.75),
+                Colors.white.withValues(alpha: 0),
+              ],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(w * 0.82, h * 0.16),
+                radius: h * 0.32,
+              ),
+            ),
+    );
+
+    void cloud(double cx, double cy, double s) {
+      final paint = Paint()..color = Colors.white.withValues(alpha: 0.82);
+      for (final (dx, dy, r) in const [
+        (-1.0, 0.1, 0.55),
+        (-0.35, -0.2, 0.75),
+        (0.45, -0.05, 0.65),
+        (1.05, 0.12, 0.5),
+      ]) {
+        canvas.drawCircle(Offset(cx + dx * s, cy + dy * s), r * s, paint);
+      }
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(
+            cx - 1.4 * s,
+            cy + 0.1 * s,
+            cx + 1.45 * s,
+            cy + 0.62 * s,
+          ),
+          Radius.circular(0.3 * s),
+        ),
+        paint,
+      );
+    }
+
+    cloud(w * 0.14, h * 0.2, h * 0.075);
+    cloud(w * 0.55, h * 0.12, h * 0.06);
+    cloud(w * 0.9, h * 0.36, h * 0.05);
+
+    Path hills(double base, double amp, double freq, double phase) {
+      final p = Path()..moveTo(0, h);
+      for (var x = 0.0; x <= w; x += 6) {
+        final y =
+            base +
+            amp * math.sin(x / w * freq * math.pi * 2 + phase) +
+            amp * 0.4 * math.sin(x / w * freq * 5.1 + phase * 1.7);
+        p.lineTo(x, y);
+      }
+      return p
+        ..lineTo(w, h)
+        ..close();
+    }
+
+    canvas.drawPath(
+      hills(h * 0.62, h * 0.05, 1.1, 0.4),
+      Paint()..color = const Color(0xFFFFD3E3),
+    );
+    canvas.drawPath(
+      hills(h * 0.7, h * 0.045, 1.6, 2.0),
+      Paint()..color = const Color(0xFFC4EFD9),
+    );
+    canvas.drawPath(
+      hills(h * 0.8, h * 0.03, 1.3, 1.1),
+      Paint()..color = const Color(0xFFA6E6C5),
+    );
+    // 近处草地，上沿是一排圆润的草丛。
+    final ground = Path()
+      ..moveTo(0, h * 0.88)
+      ..lineTo(w, h * 0.88)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(ground, Paint()..color = const Color(0xFF8FDDB3));
+    final tuft = Paint()..color = const Color(0xFF8FDDB3);
+    for (var x = 0.0; x < w; x += h * 0.07) {
+      canvas.drawCircle(Offset(x, h * 0.885), h * 0.04, tuft);
+    }
+    canvas.drawRect(
+      Rect.fromLTWH(0, h * 0.93, w, h * 0.07),
+      Paint()..color = const Color(0xFF7ACFA1),
+    );
+
+    // 漂浮的马卡龙和糖粒，只是装饰，不动。
+    void macaron(double cx, double cy, double r, Color a, Color b) {
+      final top = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, cy - r * 0.32),
+          width: r * 2,
+          height: r * 0.9,
+        ),
+        Radius.circular(r * 0.6),
+      );
+      final bottom = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, cy + r * 0.32),
+          width: r * 2,
+          height: r * 0.9,
+        ),
+        Radius.circular(r * 0.6),
+      );
+      canvas.drawRRect(bottom, Paint()..color = b);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(cx, cy),
+            width: r * 1.8,
+            height: r * 0.36,
+          ),
+          Radius.circular(r * 0.18),
+        ),
+        Paint()..color = const Color(0xFFFFF6E8),
+      );
+      canvas.drawRRect(top, Paint()..color = a);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(cx - r * 0.45, cy - r * 0.5),
+          width: r * 0.5,
+          height: r * 0.2,
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.55),
+      );
+    }
+
+    macaron(
+      w * 0.07,
+      h * 0.52,
+      h * 0.035,
+      const Color(0xFFFFB3CE),
+      const Color(0xFFFF9EBD),
+    );
+    macaron(
+      w * 0.36,
+      h * 0.3,
+      h * 0.03,
+      const Color(0xFFBFEBD8),
+      const Color(0xFFA3DFC4),
+    );
+    macaron(
+      w * 0.93,
+      h * 0.6,
+      h * 0.04,
+      const Color(0xFFD8C8F5),
+      const Color(0xFFC2AEEB),
+    );
+    macaron(
+      w * 0.62,
+      h * 0.07,
+      h * 0.028,
+      const Color(0xFFFFE08A),
+      const Color(0xFFFFD25E),
+    );
+    final sprinkle = [
+      const Color(0xFFFF9EBD),
+      const Color(0xFFBFEBD8),
+      const Color(0xFFD8C8F5),
+      const Color(0xFFFFE08A),
+    ];
+    for (var i = 0; i < 26; i++) {
+      final fx = (math.sin(i * 12.9898) * 43758.5453) % 1;
+      final fy = (math.sin(i * 78.233) * 12345.6789) % 1;
+      canvas.drawCircle(
+        Offset(w * fx.abs(), h * 0.05 + h * 0.55 * fy.abs()),
+        h * 0.006,
+        Paint()..color = sprinkle[i % 4].withValues(alpha: 0.8),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HomeScenePainter oldDelegate) => false;
 }
 
 /// 九大世界选关
@@ -246,7 +674,8 @@ class _WorldMapPageState extends State<WorldMapPage> {
     await showMacaronDialog<void>(
       context: context,
       title: isBoss ? 'Boss 关预览' : '关卡预览',
-      body: '${WorldCatalog.paletteOf(world).name}\n'
+      body:
+          '${WorldCatalog.paletteOf(world).name}\n'
           '$name\n'
           '$starLine\n'
           '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
@@ -264,10 +693,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
             Navigator.push(
               context,
               CupertinoPageRoute<void>(
-                builder: (_) => PlayPage(
-                  worldIndex: world,
-                  levelIndex: level,
-                ),
+                builder: (_) => PlayPage(worldIndex: world, levelIndex: level),
               ),
             ).then((_) {
               if (mounted) {
@@ -296,7 +722,10 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   CupertinoButton(
                     padding: const EdgeInsets.all(8),
                     onPressed: () => Navigator.pop(context),
-                    child: const Icon(CupertinoIcons.back, color: MacaronColors.cocoa),
+                    child: const Icon(
+                      CupertinoIcons.back,
+                      color: MacaronColors.cocoa,
+                    ),
                   ),
                   Expanded(
                     child: Text(
@@ -324,7 +753,10 @@ class _WorldMapPageState extends State<WorldMapPage> {
                     onTap: () => setState(() => world = i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: selected ? MacaronColors.blush : Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -372,7 +804,9 @@ class _WorldMapPageState extends State<WorldMapPage> {
                             ],
                           ),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: palette.accent.withValues(alpha: 0.35)),
+                          border: Border.all(
+                            color: palette.accent.withValues(alpha: 0.35),
+                          ),
                         ),
                         padding: const EdgeInsets.all(8),
                         child: Column(
@@ -401,14 +835,19 @@ class _WorldMapPageState extends State<WorldMapPage> {
                               if (stars > 0)
                                 Text(
                                   List.filled(stars, '★').join(),
-                                  style: const TextStyle(fontSize: 10, color: MacaronColors.rose),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: MacaronColors.rose,
+                                  ),
                                 ),
                               if (best > 0)
                                 Text(
                                   '纪录 $best',
                                   style: TextStyle(
                                     fontSize: 9,
-                                    color: MacaronColors.cocoa.withValues(alpha: 0.45),
+                                    color: MacaronColors.cocoa.withValues(
+                                      alpha: 0.45,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -439,8 +878,7 @@ class HowToPlayPage extends StatelessWidget {
         _TipCard(
           emoji: '🎯',
           title: '本关目标',
-          body:
-              '限时内跑到旗杆通关。第 11 关是 Boss 关，需先踩扁大 Boss 才能摸旗。',
+          body: '限时内跑到旗杆通关。第 11 关是 Boss 关，需先踩扁大 Boss 才能摸旗。',
         ),
         SizedBox(height: 10),
         _TipCard(
@@ -498,10 +936,7 @@ class _TipCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.white,
-            MacaronColors.blush.withValues(alpha: 0.25),
-          ],
+          colors: [Colors.white, MacaronColors.blush.withValues(alpha: 0.25)],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white),
@@ -562,11 +997,7 @@ class AchievementsPage extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFFE8F0),
-              MacaronColors.cream,
-              Color(0xFFE8FFF6),
-            ],
+            colors: [Color(0xFFFFE8F0), MacaronColors.cream, Color(0xFFE8FFF6)],
           ),
         ),
         child: SafeArea(
@@ -643,10 +1074,7 @@ class _AchievementCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: unlocked
-              ? [
-                  Colors.white,
-                  MacaronColors.lemon.withValues(alpha: 0.35),
-                ]
+              ? [Colors.white, MacaronColors.lemon.withValues(alpha: 0.35)]
               : [
                   Colors.white.withValues(alpha: 0.92),
                   MacaronColors.blush.withValues(alpha: 0.12),
@@ -739,7 +1167,9 @@ class _AchievementCard extends StatelessWidget {
                     value: item.ratio,
                     minHeight: 8,
                     color: unlocked ? MacaronColors.mint : MacaronColors.rose,
-                    backgroundColor: MacaronColors.blush.withValues(alpha: 0.28),
+                    backgroundColor: MacaronColors.blush.withValues(
+                      alpha: 0.28,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -772,7 +1202,10 @@ class AboutPage extends StatelessWidget {
     return _SimplePage(
       title: '关于',
       children: const [
-        Text('马卡龙女友跑酷', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        Text(
+          '马卡龙女友跑酷',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+        ),
         Text('版本 1.5.0 · 完全体'),
         SizedBox(height: 10),
         Text(
@@ -798,6 +1231,7 @@ class SettingsPage extends StatefulWidget {
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
+
 /// 音量滑块规则：开关关时显示 0；拖到 0 即关，大于 0 即开。
 class AudioSliderRules {
   AudioSliderRules._();
@@ -810,7 +1244,6 @@ class AudioSliderRules {
   static ({bool enabled, double volume}) apply(double value) =>
       (enabled: value > 0, volume: value);
 }
-
 
 class _SettingsPageState extends State<SettingsPage> {
   late int fpsMode;
@@ -995,8 +1428,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   selectedColor: MacaronColors.blush,
                   onSelected: (_) async {
                     setState(() => role = PlayerRole.girlfriend);
-                    await SaveService.instance
-                        .setPlayerRole(PlayerRole.girlfriend);
+                    await SaveService.instance.setPlayerRole(
+                      PlayerRole.girlfriend,
+                    );
                   },
                 ),
                 ChoiceChip(
@@ -1005,8 +1439,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   selectedColor: MacaronColors.sky,
                   onSelected: (_) async {
                     setState(() => role = PlayerRole.boyfriend);
-                    await SaveService.instance
-                        .setPlayerRole(PlayerRole.boyfriend);
+                    await SaveService.instance.setPlayerRole(
+                      PlayerRole.boyfriend,
+                    );
                   },
                 ),
               ],
@@ -1027,9 +1462,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (!context.mounted) {
                   return;
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已重置教程，下次进关会再出现')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已重置教程，下次进关会再出现')));
               },
             ),
             ListTile(
@@ -1061,9 +1496,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (ok == true) {
                   await SaveService.instance.resetProgress();
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('进度已清除')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('进度已清除')));
                   }
                 }
               },
@@ -1083,15 +1518,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _section(String t) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        child: Text(
-          t,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: MacaronColors.cocoa.withValues(alpha: 0.55),
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 8, bottom: 8),
+    child: Text(
+      t,
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        color: MacaronColors.cocoa.withValues(alpha: 0.55),
+      ),
+    ),
+  );
 }
 
 class _SimplePage extends StatelessWidget {
@@ -1114,7 +1549,11 @@ class _SimplePage extends StatelessWidget {
                 children: [
                   for (final c in children) ...[
                     DefaultTextStyle(
-                      style: const TextStyle(color: MacaronColors.cocoa, height: 1.45, fontSize: 14),
+                      style: const TextStyle(
+                        color: MacaronColors.cocoa,
+                        height: 1.45,
+                        fontSize: 14,
+                      ),
                       child: c,
                     ),
                     const SizedBox(height: 4),
