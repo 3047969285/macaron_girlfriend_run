@@ -68,6 +68,17 @@ class AudioService {
   }
 
   Future<void> _initialize() async {
+    // 默认的安卓音频焦点是独占（gain）：每个跳跃、技能音效都会把背景音乐顶掉。
+    // 改成与其他声音混播，音效和音乐互不打断（iOS 同理使用 mixWithOthers）。
+    try {
+      await AudioPlayer.global.setAudioContext(
+        AudioContextConfig(
+          focus: AudioContextConfigFocus.mixWithOthers,
+        ).build(),
+      );
+    } catch (_) {
+      // 网页端等不支持的平台忽略。
+    }
     if (!_soundsReady) {
       _wavClick = SynthWav.click();
       _wavJump = SynthWav.jump();

@@ -111,10 +111,11 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // inactive 只是瞬时失焦（下拉通知栏、系统弹层、沉浸模式的边缘手势、
+    // 网页失焦），不能当成切后台：否则点技能、跳跃时音乐和移动会被一起暂停。
+    // 真正切到后台一定会继续进入 hidden / paused。
     final background =
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden;
+        state == AppLifecycleState.paused || state == AppLifecycleState.hidden;
     if (background) {
       // 一律停 BGM，避免教程/结算时切后台还响
       // ignore: unawaited_futures
