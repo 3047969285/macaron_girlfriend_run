@@ -885,8 +885,7 @@ class MacaronGame extends FlameGame {
       hit = true;
       var killed = enemy.takeStomp();
       if (!killed &&
-          (enemy.kind == EnemyKind.bruiser ||
-              enemy.kind == EnemyKind.shell)) {
+          (enemy.kind == EnemyKind.bruiser || enemy.kind == EnemyKind.shell)) {
         killed = enemy.takeStomp();
       }
       AudioService.instance.stomp();
@@ -1097,6 +1096,7 @@ class MacaronGame extends FlameGame {
     }
     _tryPlantShot();
     _emitCosmeticTrail(clampedDt);
+    _attractCoins(clampedDt);
     _resolveCollectibles();
     _resolveBlocks();
     _resolvePowers();
@@ -1458,6 +1458,36 @@ class MacaronGame extends FlameGame {
     height: enemy.size.y * 0.8,
   );
 
+  /// 强化状态的磁吸：附近的金币会飞向玩家，越近越快。
+  static const double coinMagnetRadius = 160;
+  static const double coinMagnetSpeed = 520;
+
+  @visibleForTesting
+  void attractCoinsForTest(double dt) => _attractCoins(dt);
+
+  void _attractCoins(double dt) {
+    if (!player.poweredUp || player.dead) {
+      return;
+    }
+    final target = Vector2(
+      player.position.x,
+      player.position.y - player.size.y * 0.5,
+    );
+    for (final coin in coins) {
+      if (coin.collected) {
+        continue;
+      }
+      final delta = target - coin.position;
+      final distance = delta.length;
+      if (distance > coinMagnetRadius || distance < 1) {
+        continue;
+      }
+      final pull = coinMagnetSpeed * (1.4 - distance / coinMagnetRadius);
+      final step = math.min(distance, pull * dt);
+      coin.position += delta / distance * step;
+    }
+  }
+
   void _resolveCollectibles() {
     final box = _playerHitbox();
     for (final coin in coins) {
@@ -1794,8 +1824,7 @@ class MacaronGame extends FlameGame {
       if (vehicleTimer > 0 && player.onGround && player.velocity.x.abs() > 80) {
         final crush =
             vehicleBoosting ||
-            (enemy.kind != EnemyKind.bruiser &&
-                enemy.kind != EnemyKind.shell);
+            (enemy.kind != EnemyKind.bruiser && enemy.kind != EnemyKind.shell);
         if (crush) {
           while (!enemy.dead) {
             enemy.takeStomp();
