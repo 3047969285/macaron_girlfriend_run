@@ -87,220 +87,326 @@ class TouchControls extends StatelessWidget {
   final String skillLabel;
   final double scale;
 
+  /// 左侧轮盘 + 右下角大跳跃键 + 围绕跳跃键的弧形技能键，按拇指自然够得到的位置排布。
+  static const double _wheelSize = 132;
+  static const double _jumpSize = 76;
+  static const double _arcRadius = 108;
+  static const double _arcStepDeg = 33;
+  static const double _baseWidth = 360;
+  static const double _baseHeight = 180;
+
   @override
   Widget build(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final compact = screenWidth < 560;
-    final horizontalPadding = compact ? 12.0 : 28.0;
-    final availableWidth =
-        screenWidth - pad.left - pad.right - horizontalPadding * 2;
-    final hasCycle = onCycleSkill != null && onSkill != null;
-    final wideControlWidth =
-        142.0 +
-        (onDuck == null ? 0 : 74) +
-        64 +
-        (onSkill == null ? 0 : 62) +
-        (hasCycle ? 40 : 0) +
-        (onShoot == null ? 0 : 72) +
-        12 +
-        78;
-    final compactTopWidth =
-        (onShoot == null ? 0.0 : 54 + (onSkill == null ? 0 : 6)) +
-        (onSkill == null ? 0 : 50) +
-        (hasCycle ? 6 + 30 : 0);
-    final compactBottomWidth = (onDuck == null ? 0.0 : 58) + 54 + 6 + 68;
-    final controlWidth = compact
-        ? 132 + math.max(compactTopWidth, compactBottomWidth)
-        : wideControlWidth;
-    final minScale = compact ? 0.65 : 0.85;
-    final maxScale = (availableWidth / controlWidth).clamp(minScale, 1.25);
-    final s = scale.clamp(minScale, maxScale).toDouble();
-    final padding = EdgeInsets.fromLTRB(
-      horizontalPadding + pad.left,
-      0,
-      horizontalPadding + pad.right,
-      (compact ? 10 : 18) + pad.bottom,
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final available = width - pad.left - pad.right - 16;
+    final maxScale = (available / _baseWidth).clamp(0.6, 1.25);
+    final s = scale.clamp(0.6, maxScale).toDouble();
+    final rightPad = 10.0 + pad.right;
+    final bottomPad = 8.0 + pad.bottom;
 
-    if (compact) {
-      return Padding(
-        padding: padding,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Row(
-              children: [
-                _RoundHold(
-                  icon: CupertinoIcons.left_chevron,
-                  onChanged: onLeft,
-                  onInteract: onInteract,
-                  size: 56 * s,
-                ),
-                SizedBox(width: 8 * s),
-                _RoundHold(
-                  icon: CupertinoIcons.right_chevron,
-                  onChanged: onRight,
-                  onInteract: onInteract,
-                  size: 56 * s,
-                ),
-              ],
-            ),
-            const Spacer(),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (compactTopWidth > 0)
-                  Row(
-                    children: [
-                      if (onShoot != null)
-                        _RoundHold(
-                          label: '射击',
-                          onChanged: onShoot!,
-                          onInteract: onInteract,
-                          fill: MacaronColors.rose.withValues(alpha: 0.88),
-                          size: 54 * s,
-                        ),
-                      if (onShoot != null && onSkill != null)
-                        SizedBox(width: 6 * s),
-                      if (onSkill != null)
-                        _SkillButton(
-                          onPressed: onSkill!,
-                          onInteract: onInteract,
-                          cooldown: skillCooldown,
-                          label: skillLabel,
-                          size: 50 * s,
-                        ),
-                      if (hasCycle) ...[
-                        SizedBox(width: 6 * s),
-                        _CycleButton(
-                          onCycle: onCycleSkill!,
-                          onInteract: onInteract,
-                          size: 30 * s,
-                        ),
-                      ],
-                    ],
-                  ),
-                if (compactTopWidth > 0) SizedBox(height: 6 * s),
-                Row(
-                  children: [
-                    if (onDuck != null) ...[
-                      _RoundHold(
-                        label: '蹲',
-                        onChanged: onDuck!,
-                        onInteract: onInteract,
-                        fill: MacaronColors.lilac.withValues(alpha: 0.85),
-                        size: 52 * s,
-                      ),
-                      SizedBox(width: 6 * s),
-                    ],
-                    _RoundHold(
-                      label: '跑',
-                      onChanged: onRun,
-                      onInteract: onInteract,
-                      fill: MacaronColors.mint.withValues(alpha: 0.85),
-                      size: 54 * s,
-                    ),
-                    SizedBox(width: 6 * s),
-                    _RoundHold(
-                      label: '跳',
-                      onChanged: onJumpHeld,
-                      onInteract: onInteract,
-                      fill: MacaronColors.blush.withValues(alpha: 0.9),
-                      size: 68 * s,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+    // 以屏幕右下角为原点量中心点（向左 rx，向上 by），统一放置圆形按钮。
+    Widget place(double rx, double by, double size, Widget child) {
+      return Positioned(
+        right: rightPad + (rx - size / 2) * s,
+        bottom: bottomPad + (by - size / 2) * s,
+        width: size * s,
+        height: size * s,
+        child: child,
+      );
+    }
+
+    final jumpRx = _jumpSize / 2 + 4;
+    final jumpBy = _jumpSize / 2 + 4;
+    final hasCycle = onCycleSkill != null && onSkill != null;
+
+    // 弧上依次是：技能、跑、蹲、射击（没有的跳过），越常用越靠近拇指的自然落点。
+    final arc = <(double size, Widget widget)>[
+      if (onSkill != null)
+        (
+          58.0,
+          _SkillButton(
+            onPressed: onSkill!,
+            onInteract: onInteract,
+            cooldown: skillCooldown,
+            label: skillLabel,
+            size: 58 * s,
+          ),
+        ),
+      (
+        52.0,
+        _RoundHold(
+          label: '跑',
+          onChanged: onRun,
+          onInteract: onInteract,
+          fill: MacaronColors.mint.withValues(alpha: 0.88),
+          size: 52 * s,
+        ),
+      ),
+      if (onDuck != null)
+        (
+          52.0,
+          _RoundHold(
+            label: '蹲',
+            onChanged: onDuck!,
+            onInteract: onInteract,
+            fill: MacaronColors.lilac.withValues(alpha: 0.88),
+            size: 52 * s,
+          ),
+        ),
+      if (onShoot != null)
+        (
+          52.0,
+          _RoundHold(
+            label: '射击',
+            onChanged: onShoot!,
+            onInteract: onInteract,
+            fill: MacaronColors.rose.withValues(alpha: 0.9),
+            size: 52 * s,
+          ),
+        ),
+    ];
+
+    final children = <Widget>[
+      Positioned(
+        left: 10.0 + pad.left,
+        bottom: bottomPad,
+        width: _wheelSize * s,
+        height: _wheelSize * s,
+        child: _MoveWheel(
+          onLeft: onLeft,
+          onRight: onRight,
+          onInteract: onInteract,
+        ),
+      ),
+      place(
+        jumpRx,
+        jumpBy,
+        _jumpSize,
+        _RoundHold(
+          label: '跳',
+          onChanged: onJumpHeld,
+          onInteract: onInteract,
+          fill: MacaronColors.blush.withValues(alpha: 0.95),
+          size: _jumpSize * s,
+        ),
+      ),
+    ];
+    for (var i = 0; i < arc.length; i++) {
+      final angle = i * _arcStepDeg * math.pi / 180;
+      final (size, widget) = arc[i];
+      children.add(
+        place(
+          jumpRx + _arcRadius * math.cos(angle),
+          jumpBy + _arcRadius * math.sin(angle),
+          size,
+          widget,
+        ),
+      );
+    }
+    if (hasCycle) {
+      // 「换」在技能键的左边，同一高度。
+      children.add(
+        place(
+          jumpRx + _arcRadius + 58 / 2 + 8 + 30 / 2,
+          jumpBy,
+          30,
+          _CycleButton(
+            onCycle: onCycleSkill!,
+            onInteract: onInteract,
+            size: 30 * s,
+          ),
         ),
       );
     }
 
-    return Padding(
-      padding: padding,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Row(
+    return SizedBox(
+      width: double.infinity,
+      height: (_baseHeight + 8) * s + bottomPad,
+      child: Stack(children: children),
+    );
+  }
+}
+
+/// 轮盘：按住拖动，向左/向右超过死区即触发对应方向，松开归零。
+class _MoveWheel extends StatefulWidget {
+  const _MoveWheel({
+    required this.onLeft,
+    required this.onRight,
+    this.onInteract,
+  });
+
+  final ValueChanged<bool> onLeft;
+  final ValueChanged<bool> onRight;
+  final VoidCallback? onInteract;
+
+  @override
+  State<_MoveWheel> createState() => _MoveWheelState();
+}
+
+class _MoveWheelState extends State<_MoveWheel> {
+  /// 死区：偏移超过半径的这个比例才算方向，进入后再放宽一点防止抖动。
+  static const double _engage = 0.28;
+  static const double _release = 0.18;
+
+  int? _pointer;
+  int _dir = 0;
+  Offset _knob = Offset.zero;
+
+  void _update(Offset local, Size size) {
+    final radius = size.width / 2;
+    final delta = local - Offset(radius, radius);
+    final limit = radius * 0.55;
+    final clamped = delta.distance > limit
+        ? delta / delta.distance * limit
+        : delta;
+    final ratio = clamped.dx / radius;
+    var dir = _dir;
+    if (dir == 0) {
+      if (ratio > _engage) {
+        dir = 1;
+      } else if (ratio < -_engage) {
+        dir = -1;
+      }
+    } else if (dir == 1 && ratio < _release) {
+      dir = ratio < -_engage ? -1 : 0;
+    } else if (dir == -1 && ratio > -_release) {
+      dir = ratio > _engage ? 1 : 0;
+    }
+    _setDir(dir);
+    setState(() => _knob = clamped);
+  }
+
+  void _setDir(int dir) {
+    if (dir == _dir) {
+      return;
+    }
+    if (_dir == -1) {
+      widget.onLeft(false);
+    } else if (_dir == 1) {
+      widget.onRight(false);
+    }
+    _dir = dir;
+    if (dir == -1) {
+      widget.onLeft(true);
+    } else if (dir == 1) {
+      widget.onRight(true);
+    }
+  }
+
+  void _end() {
+    _pointer = null;
+    _setDir(0);
+    setState(() => _knob = Offset.zero);
+  }
+
+  @override
+  void dispose() {
+    if (_dir != 0) {
+      _setDir(0);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final knobSize = size.width * 0.42;
+        return Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) {
+            if (_pointer != null) {
+              return;
+            }
+            _pointer = event.pointer;
+            widget.onInteract?.call();
+            _update(event.localPosition, size);
+          },
+          onPointerMove: (event) {
+            if (event.pointer == _pointer) {
+              _update(event.localPosition, size);
+            }
+          },
+          onPointerUp: (event) {
+            if (event.pointer == _pointer) {
+              _end();
+            }
+          },
+          onPointerCancel: (event) {
+            if (event.pointer == _pointer) {
+              _end();
+            }
+          },
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              _RoundHold(
-                icon: CupertinoIcons.left_chevron,
-                onChanged: onLeft,
-                onInteract: onInteract,
-                size: 64 * s,
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(
+                    alpha: _pointer == null ? 0.38 : 0.52,
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 2,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1A000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 5),
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(width: 14 * s),
-              _RoundHold(
-                icon: CupertinoIcons.right_chevron,
-                onChanged: onRight,
-                onInteract: onInteract,
-                size: 64 * s,
+              Positioned(
+                left: size.width * 0.1,
+                child: Icon(
+                  CupertinoIcons.left_chevron,
+                  size: size.width * 0.14,
+                  color: MacaronColors.cocoa.withValues(
+                    alpha: _dir == -1 ? 0.8 : 0.3,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: size.width * 0.1,
+                child: Icon(
+                  CupertinoIcons.right_chevron,
+                  size: size.width * 0.14,
+                  color: MacaronColors.cocoa.withValues(
+                    alpha: _dir == 1 ? 0.8 : 0.3,
+                  ),
+                ),
+              ),
+              Transform.translate(
+                offset: _knob,
+                child: Container(
+                  width: knobSize,
+                  height: knobSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      center: Alignment(-0.3, -0.4),
+                      colors: [Color(0xFFFFFFFF), Color(0xFFFFD6E4)],
+                    ),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x26000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const Spacer(),
-          Row(
-            children: [
-              if (onDuck != null) ...[
-                _RoundHold(
-                  label: '蹲',
-                  onChanged: onDuck!,
-                  onInteract: onInteract,
-                  fill: MacaronColors.lilac.withValues(alpha: 0.85),
-                  size: 62 * s,
-                ),
-                SizedBox(width: 12 * s),
-              ],
-              _RoundHold(
-                label: '跑',
-                onChanged: onRun,
-                onInteract: onInteract,
-                fill: MacaronColors.mint.withValues(alpha: 0.85),
-                size: 64 * s,
-              ),
-              if (onShoot != null) ...[
-                SizedBox(width: 8 * s),
-                _RoundHold(
-                  label: '射击',
-                  onChanged: onShoot!,
-                  onInteract: onInteract,
-                  fill: MacaronColors.rose.withValues(alpha: 0.88),
-                  size: 62 * s,
-                ),
-              ],
-              if (onSkill != null) ...[
-                SizedBox(width: 8 * s),
-                _SkillButton(
-                  onPressed: onSkill!,
-                  onInteract: onInteract,
-                  cooldown: skillCooldown,
-                  label: skillLabel,
-                  size: 54 * s,
-                ),
-              ],
-              if (hasCycle) ...[
-                SizedBox(width: 8 * s),
-                _CycleButton(
-                  onCycle: onCycleSkill!,
-                  onInteract: onInteract,
-                  size: 32 * s,
-                ),
-              ],
-              SizedBox(width: 12 * s),
-              _RoundHold(
-                label: '跳',
-                onChanged: onJumpHeld,
-                onInteract: onInteract,
-                fill: MacaronColors.blush.withValues(alpha: 0.9),
-                size: 78 * s,
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -449,7 +555,6 @@ class _RoundHold extends StatefulWidget {
   const _RoundHold({
     required this.onChanged,
     this.onInteract,
-    this.icon,
     this.label,
     this.fill,
     this.size = 64,
@@ -457,7 +562,6 @@ class _RoundHold extends StatefulWidget {
 
   final ValueChanged<bool> onChanged;
   final VoidCallback? onInteract;
-  final IconData? icon;
   final String? label;
   final Color? fill;
   final double size;
@@ -513,16 +617,14 @@ class _RoundHoldState extends State<_RoundHold> {
             ],
           ),
           alignment: Alignment.center,
-          child: widget.icon != null
-              ? Icon(widget.icon, color: MacaronColors.cocoa, size: 22)
-              : Text(
-                  widget.label ?? '',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: MacaronColors.cocoa,
-                  ),
-                ),
+          child: Text(
+            widget.label ?? '',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: MacaronColors.cocoa,
+            ),
+          ),
         ),
       ),
     );

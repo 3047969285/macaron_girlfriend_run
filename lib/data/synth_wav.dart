@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 /// 运行时合成短 WAV，避免外置音频文件
 class SynthWav {
   SynthWav._();
@@ -364,6 +366,29 @@ class SynthWav {
     );
   }
 
+  /// 只规划旋律不合成音频，返回每个八分位的 MIDI 音高（null 表示不起音）。
+  @visibleForTesting
+  static List<int?> melodyPlanForWorld(int worldIndex, {bool alt = false}) {
+    final world = worldIndex.clamp(0, 8).toInt();
+    final motif = _worldMotifs[world];
+    final shift = alt ? 4 : 0;
+    final plan = <int?>[];
+    _composeLoop(
+      motif: [
+        for (var i = 0; i < motif.length; i++)
+          motif[(i + shift) % motif.length],
+      ],
+      rootsA: alt ? _worldRootsB[world] : _worldRootsA[world],
+      rootsB: alt ? _worldRootsA[world] : _worldRootsB[world],
+      scale: _worldScales[world],
+      bars: 16,
+      bpm: 92 + (world % 3) * 6,
+      melodyOut: plan,
+      planOnly: true,
+    );
+    return plan;
+  }
+
   /// Boss 专用四小节主题，保留世界音阶但使用另一段旋律与和弦。
   static Uint8List bossLoopForWorld(int worldIndex) {
     final world = worldIndex.clamp(0, 8).toInt();
@@ -378,6 +403,30 @@ class SynthWav {
     );
   }
 
+  /// 每小节 8 个八分音符位，1 表示在这一位起一个新音，0 表示延音。
+  static const List<List<int>> _rhythms = [
+    [1, 0, 1, 0, 1, 1, 0, 1],
+    [1, 0, 0, 1, 1, 0, 1, 0],
+    [1, 0, 1, 1, 0, 1, 0, 0],
+    [1, 1, 0, 1, 0, 1, 1, 0],
+    [1, 0, 0, 0, 1, 0, 1, 1],
+    [1, 0, 1, 0, 0, 1, 0, 0],
+  ];
+
+  /// 乐句收尾的小节：长音加一个弱起。
+  static const List<List<int>> _cadences = [
+    [1, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  /// 吉他分解和弦型：数字是和弦音序号，-1 表示休止。
+  static const List<List<int>> _guitarPatterns = [
+    [0, 1, 2, 1, 0, 1, 2, 1],
+    [0, 2, 1, 2, 0, 2, 1, 2],
+    [0, 1, 2, 3, 2, 1, 2, 1],
+    [0, -1, 1, 2, -1, 2, 1, -1],
+  ];
+
   static Uint8List _composeLoop({
     required List<int> motif,
     required List<int> rootsA,
@@ -386,8 +435,16 @@ class SynthWav {
     required int bars,
     required int bpm,
     bool boss = false,
+    List<int?>? melodyOut,
+    bool planOnly = false,
   }) {
     final eighth = 60 / bpm / 2;
+    final steps = bars * 8;
+    final out = List<double>.filled(
+      planOnly ? 0 : (_sampleRate * eighth * steps).round(),
+      0,
+    );
+
     // 曲子里大量音符重复出现：同一音高、时长、音量只合成一次。
     final noteCache = <String, List<double>>{};
     List<double> piano(double freq, double dur, {double vol = 0.15}) =>
@@ -400,78 +457,142 @@ class SynthWav {
           'g$freq|$dur|$vol',
           () => _guitar(freq, dur, vol: vol),
         );
-    final steps = bars * 8;
-    final out = List<double>.filled((_sampleRate * eighth * steps).round(), 0);
     final thump = _thump(0.4, vol: boss ? 0.14 : 0.09);
     final brush = _brush(0.14, vol: boss ? 0.026 : 0.016);
+
+    // 旋律和节奏都由世界自己的动机和和弦确定地生成，同一世界每次听都一样。
+    final seed =
+        (motif.fold<int>(17, (a, b) => a * 31 + b + 2) ^
+            rootsA.fold<int>(7, (a, b) => a * 37 + b)) &
+        0x7fffffff;
+    final phraseBars = math.max(2, math.min(4, bars));
+    final phrases = math.max(1, bars ~/ phraseBars);
+
+    // 乐句结构 A A' B A''：A' 只在后半句变化，B 换新的走向且音区更高。
+    int phraseSeed(int phrase, int pos) {
+      final kind = phrases >= 4 ? const [0, 0, 1, 0][phrase % 4] : phrase % 2;
+      final varies =
+          phrases >= 4 &&
+          ((phrase == 1 && pos >= 2) || (phrase == 3 && pos == 3));
+      return seed + kind * 1009 + pos * 13 + (varies ? 7919 : 0);
+    }
+
+    // 逐小节生成旋律（每个八分位的音高，null 表示这一位不起音）。
+    final melodyMidi = List<int?>.filled(steps, null);
+    final melodyLen = List<int>.filled(steps, 0);
+    var degree = (motif[0] < 0 ? 0 : motif[0]) % 7 + 7;
+    var previousRhythm = -1;
+    for (var bar = 0; bar < bars; bar++) {
+      final phrase = bar ~/ phraseBars;
+      final pos = bar % phraseBars;
+      final secondHalf = bars > 4 && bar >= bars ~/ 2;
+      final chordRoot = (secondHalf ? rootsB : rootsA)[bar % rootsA.length];
+      final rnd = math.Random(phraseSeed(phrase, pos));
+      final isCadence = pos == phraseBars - 1;
+      var rhythmIndex = rnd.nextInt(_rhythms.length);
+      // 相邻小节不用同一种节奏，听起来才有起伏。
+      if (rhythmIndex == previousRhythm) {
+        rhythmIndex = (rhythmIndex + 1 + rnd.nextInt(2)) % _rhythms.length;
+      }
+      final template = isCadence
+          ? _cadences[(seed + phrase) % _cadences.length]
+          : _rhythms[rhythmIndex];
+      previousRhythm = isCadence ? -1 : rhythmIndex;
+      final bSection = phrases >= 4 && phrase == 2;
+
+      final hits = [
+        for (var i = 0; i < 8; i++)
+          if (template[i] == 1) i,
+      ];
+      for (var h = 0; h < hits.length; h++) {
+        final slot = hits[h];
+        final step = bar * 8 + slot;
+        // 强拍（第 1、5 个八分位）落在和弦音上，其余位置级进或小跳。
+        final strong = slot == 0 || slot == 4;
+        if (strong) {
+          final target = motif[(bar * 3 + slot) % motif.length];
+          final base =
+              (target < 0 ? degree : target) % 7 +
+              (bSection ? 7 : (rnd.nextBool() ? 7 : 0));
+          const chordTones = [0, 2, 4, 7, 9, 11];
+          degree = chordTones.reduce(
+            (a, b) => (a - base).abs() <= (b - base).abs() ? a : b,
+          );
+        } else {
+          const moves = [-2, -1, -1, 1, 1, 2, 3, -3, 0];
+          degree += moves[rnd.nextInt(moves.length)];
+        }
+        degree = degree.clamp(2, bSection ? 13 : 11);
+        var midi = chordRoot + scale[degree % 7] + 12 * (degree ~/ 7);
+        while (midi > 81) {
+          midi -= 12;
+        }
+        while (midi < 55) {
+          midi += 12;
+        }
+        melodyMidi[step] = midi;
+        final next = h + 1 < hits.length ? hits[h + 1] : 8;
+        melodyLen[step] = next - slot;
+      }
+    }
+
+    melodyOut?.addAll(melodyMidi);
+    if (planOnly) {
+      return Uint8List(0);
+    }
 
     for (var step = 0; step < steps; step++) {
       final at = (_sampleRate * eighth * step).round();
       final bar = step ~/ 8;
-      final section = (step ~/ motif.length) % 4;
+      final slot = step % 8;
+      final phrase = bar ~/ phraseBars;
+      final pos = bar % phraseBars;
       final secondHalf = bars > 4 && bar >= bars ~/ 2;
-      final roots = secondHalf ? rootsB : rootsA;
-      final chordRoot = roots[bar % roots.length];
-      final index = step % motif.length;
-      final raw = motif[index];
-      final baseDegree = switch (section) {
-        0 => raw,
-        1 => raw < 0 ? -1 : (raw + 4) % 9,
-        2 => raw < 0 ? (index % 4 == 0 ? 2 : -1) : (raw + 5) % 8,
-        _ => raw < 0 ? -1 : (raw + 7) % 9,
-      };
-      final degree = baseDegree < 0
-          ? baseDegree
-          : secondHalf
-          ? (baseDegree + 2 + (index % 3 == 0 ? 1 : 0)) % scale.length
-          : baseDegree;
+      final chordRoot = (secondHalf ? rootsB : rootsA)[bar % rootsA.length];
+      final bSection = phrases >= 4 && phrase == 2;
 
-      // 钢琴旋律：音区压在 C6 以下，避免尖细的高音。
-      if (degree >= 0) {
-        final pc = scale[degree.clamp(0, scale.length - 1)];
-        var midi = chordRoot + pc + (section >= 2 ? 12 : 0);
-        while (midi > 81) {
-          midi -= 12;
-        }
+      // 钢琴旋律：重音落在强拍，弱拍轻一点；音区压在 C6 以下。
+      final midi = melodyMidi[step];
+      if (midi != null) {
+        final accent = slot == 0 ? 1.25 : (slot == 4 ? 1.05 : 0.85);
+        final base = boss ? 0.1 : (bSection ? 0.14 : 0.12);
+        final len = melodyLen[step].clamp(1, 6);
         _mixAt(
           out,
           at,
-          piano(
-            _midi(midi),
-            eighth * 2.6,
-            vol: boss
-                ? 0.1
-                : secondHalf
-                ? 0.11
-                : 0.13,
-          ),
+          piano(_midi(midi), eighth * (len + 1.2), vol: base * accent),
         );
       }
 
-      // 吉他分解和弦：根音、五度、三度循环，低音区，轻拨。
+      // 吉他分解和弦：每小节一种指法，乐句最后一小节用稀疏的那种。
+      final pattern = pos == phraseBars - 1
+          ? _guitarPatterns[3]
+          : _guitarPatterns[(bar + seed) % 3];
       final tones = [
         chordRoot,
         chordRoot + scale[4],
         chordRoot + scale[2] + 12,
-        chordRoot + scale[4],
+        chordRoot + 12,
       ];
-      if (!boss || step % 2 == 0) {
-        var gm = tones[(step % 4)] + (step % 8 >= 4 ? 0 : 0);
+      final tone = pattern[slot];
+      if (tone >= 0 && (!boss || slot.isEven)) {
+        var gm = tones[tone];
         while (gm > 72) {
           gm -= 12;
         }
         while (gm < 50) {
           gm += 12;
         }
+        final accent = slot == 0 ? 1.3 : (slot == 4 ? 1.1 : 0.8);
         _mixAt(
           out,
           at,
-          guitar(_midi(gm), eighth * 3.2, vol: boss ? 0.075 : 0.07),
+          guitar(_midi(gm), eighth * 3.2, vol: (boss ? 0.075 : 0.07) * accent),
         );
       }
 
-      // 每小节开头：钢琴低音和柔和的和弦铺底。
-      if (step % 8 == 0) {
+      // 钢琴左手：每小节开头的低音和和弦；奇数小节在第 7 个八分位切分重击。
+      if (slot == 0) {
         _mixAt(out, at, piano(_midi(chordRoot - 12), eighth * 7.5, vol: 0.12));
         for (final add in [0, scale[2], scale[4]]) {
           _mixAt(
@@ -481,10 +602,36 @@ class SynthWav {
           );
         }
         _mixAt(out, at, thump);
-      } else if (step % 8 == 4 && !boss) {
+      } else if (slot == 4) {
+        if (bar.isEven) {
+          // 低音走到五度，增加律动。
+          _mixAt(
+            out,
+            at,
+            piano(_midi(chordRoot + scale[4] - 12), eighth * 3.5, vol: 0.07),
+          );
+        }
+        if (!boss && bar.isOdd) {
+          _mixAt(out, at, thump);
+        }
+      } else if (slot == 6 && bar.isOdd) {
+        for (final add in [scale[2], scale[4]]) {
+          _mixAt(
+            out,
+            at,
+            piano(_midi(chordRoot + add + 12), eighth * 1.6, vol: 0.035),
+          );
+        }
+      }
+      if (bSection && slot == 0) {
+        // B 段把低音叠上一个八度，听感更饱满。
+        _mixAt(out, at, piano(_midi(chordRoot), eighth * 7, vol: 0.06));
+      }
+      // 乐句转句的小填充：最后一小节的第 7 位轻敲一下。
+      if (pos == phraseBars - 1 && slot == 6) {
         _mixAt(out, at, thump);
       }
-      if (step % 2 == 1) {
+      if (slot == 3 || slot == 7 || (slot == 5 && bar % 3 == 1)) {
         _mixAt(out, at, brush);
       }
     }
