@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -94,9 +96,16 @@ class TouchControls extends StatefulWidget {
 
 class _TouchControlsState extends State<TouchControls> {
   static const double _wheelSize = 104;
-  static const double _jumpSize = 76;
-  static const double _baseWidth = 340;
-  static const double _baseHeight = 150;
+
+  /// 最大的“跑”键：中心距右下角的横向 / 纵向距离和直径。
+  static const double _runRx = 52;
+  static const double _runBy = 52;
+  static const double _runSize = 88;
+
+  /// 其余按钮围着“跑”的弧线半径。
+  static const double _arcRadius = 114;
+  static const double _baseWidth = 385;
+  static const double _baseHeight = 200;
 
   /// 点“跑”切换常驻奔跑；轮盘推到底也会奔跑，两者任一为真就在跑。
   bool _runToggled = false;
@@ -140,6 +149,17 @@ class _TouchControlsState extends State<TouchControls> {
       );
     }
 
+    // 在以“跑”为圆心的弧线上放按钮：角度从正左（0°）逆时针往正上方（90°）数。
+    Widget arc(double degrees, double size, Widget child) {
+      final a = degrees * math.pi / 180;
+      return place(
+        _runRx + _arcRadius * math.cos(a),
+        _runBy + _arcRadius * math.sin(a),
+        size,
+        child,
+      );
+    }
+
     final hasCycle = widget.onCycleSkill != null && widget.onSkill != null;
     final children = <Widget>[
       Positioned(
@@ -157,24 +177,27 @@ class _TouchControlsState extends State<TouchControls> {
           onInteract: widget.onInteract,
         ),
       ),
-      // 跳在上面。
+      // 王者荣耀式排布：最大的“跑”在右下角正中，其余按钮沿弧线围着它——
+      // 蹲在左边靠下，闪冲在斜上方，跳在最上面。
       place(
-        44,
-        38 + 54 / 2 + 8 + _jumpSize / 2 - 6,
-        _jumpSize,
-        _RoundHold(
-          label: '跳',
-          onChanged: widget.onJumpHeld,
+        _runRx,
+        _runBy,
+        _runSize,
+        _ToggleButton(
+          label: '跑',
+          on: _runToggled,
+          fill: MacaronColors.mint,
+          fontSize: 24,
           onInteract: widget.onInteract,
-          fill: MacaronColors.blush.withValues(alpha: 0.95),
-          size: _jumpSize * s,
+          onToggle: () {
+            setState(() => _runToggled = !_runToggled);
+            _syncRun();
+          },
         ),
       ),
-      // 蹲在下面。
       if (widget.onDuck != null)
-        place(
-          44,
-          38,
+        arc(
+          5,
           54,
           _RoundHold(
             label: '蹲',
@@ -185,9 +208,8 @@ class _TouchControlsState extends State<TouchControls> {
           ),
         ),
       if (widget.onSkill != null)
-        place(
-          122,
-          78,
+        arc(
+          40,
           58,
           _SkillButton(
             onPressed: widget.onSkill!,
@@ -197,23 +219,35 @@ class _TouchControlsState extends State<TouchControls> {
             size: 58 * s,
           ),
         ),
+      arc(
+        78,
+        66,
+        _RoundHold(
+          label: '跳',
+          onChanged: widget.onJumpHeld,
+          onInteract: widget.onInteract,
+          fill: MacaronColors.blush.withValues(alpha: 0.95),
+          size: 66 * s,
+        ),
+      ),
+      // 射击和“换”放在外圈，不挤占拇指最常用的那一圈。
       if (widget.onShoot != null)
         place(
-          118,
-          140,
-          50,
+          224,
+          58,
+          48,
           _RoundHold(
             label: '射击',
             onChanged: widget.onShoot!,
             onInteract: widget.onInteract,
             fill: MacaronColors.rose.withValues(alpha: 0.9),
-            size: 50 * s,
+            size: 48 * s,
           ),
         ),
       if (hasCycle)
         place(
-          178,
-          70,
+          214,
+          122,
           30,
           _CycleButton(
             onCycle: widget.onCycleSkill!,
@@ -221,28 +255,6 @@ class _TouchControlsState extends State<TouchControls> {
             size: 30 * s,
           ),
         ),
-      // 跑：开关，底部中间。
-      Positioned(
-        left: 0,
-        right: 0,
-        bottom: bottomPad,
-        child: Center(
-          child: SizedBox(
-            width: 52 * s,
-            height: 52 * s,
-            child: _ToggleButton(
-              label: '跑',
-              on: _runToggled,
-              fill: MacaronColors.mint,
-              onInteract: widget.onInteract,
-              onToggle: () {
-                setState(() => _runToggled = !_runToggled);
-                _syncRun();
-              },
-            ),
-          ),
-        ),
-      ),
     ];
 
     return SizedBox(
@@ -260,11 +272,13 @@ class _ToggleButton extends StatelessWidget {
     required this.on,
     required this.fill,
     required this.onToggle,
+    this.fontSize = 18,
     this.onInteract,
   });
 
   final String label;
   final bool on;
+  final double fontSize;
   final Color fill;
   final VoidCallback onToggle;
   final VoidCallback? onInteract;
@@ -300,7 +314,7 @@ class _ToggleButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: fontSize,
             fontWeight: on ? FontWeight.w900 : FontWeight.w600,
             color: MacaronColors.cocoa,
           ),

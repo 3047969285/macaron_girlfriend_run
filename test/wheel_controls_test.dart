@@ -85,7 +85,7 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('the run button is a toggle in the bottom middle', (
+  testWidgets('the run button is a big toggle in the bottom-right corner', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -96,8 +96,21 @@ void main() {
     await tester.pumpWidget(_controls(onRun: runs.add));
 
     final run = tester.getRect(find.text('跑'));
-    expect(run.center.dx, closeTo(812 / 2, 12), reason: 'bottom middle');
+    expect(run.center.dx, greaterThan(812 * 0.88), reason: 'right edge');
+    expect(run.center.dy, greaterThan(375 * 0.72), reason: 'bottom corner');
     expect(run.bottom, lessThanOrEqualTo(375));
+
+    // 它是最大的按钮：外框比跳、蹲都大。
+    Size box(String label) => tester.getSize(
+      find
+          .ancestor(
+            of: find.text(label),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+    expect(box('跑').width, greaterThan(box('跳').width));
+    expect(box('跑').width, greaterThan(box('蹲').width));
 
     await tester.tap(find.text('跑'));
     await tester.pump();
@@ -141,17 +154,25 @@ void main() {
         lessThan(duck.center.dy),
         reason: 'jump above duck ($size)',
       );
-      expect(
-        (jump.center.dx - duck.center.dx).abs(),
-        lessThan(14),
-        reason: 'jump and duck share a column ($size)',
-      );
-
+      // 闪冲在蹲和跳之间的斜上方；跑在右下角，是其他键围绕的中心。
+      final skill = rects['闪冲']!;
+      expect(skill.center.dy, lessThan(duck.center.dy), reason: '$size');
+      expect(skill.center.dy, greaterThan(jump.center.dy), reason: '$size');
       final run = rects['跑']!;
-      expect(run.center.dx, greaterThan(size.width * 0.35), reason: '$size');
-      expect(run.center.dx, lessThan(size.width * 0.65), reason: '$size');
+      for (final label in ['蹲', '闪冲', '跳']) {
+        expect(
+          run.center.dy,
+          greaterThan(rects[label]!.center.dy),
+          reason: 'run is the lowest of the cluster ($label $size)',
+        );
+        expect(
+          (rects[label]!.center - run.center).distance,
+          closeTo(114 * (size.width / 812).clamp(0.6, 1.0), 40),
+          reason: '$label sits on the arc around run ($size)',
+        );
+      }
 
-      for (final label in ['射击', '闪冲', '蹲', '跳', '换']) {
+      for (final label in ['射击', '闪冲', '蹲', '跳', '跑', '换']) {
         expect(
           rects[label]!.center.dx,
           greaterThan(size.width * 0.5),
