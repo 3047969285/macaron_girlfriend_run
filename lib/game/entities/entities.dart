@@ -582,6 +582,17 @@ class SoftEnemy extends PositionComponent {
     final squash = 1 + math.sin(_wobble) * 0.06;
     canvas.save();
     canvas.translate(size.x / 2, size.y);
+    // 落地阴影：飞行、弹跳时留在地面上，和人物的阴影一致。
+    final groundGap = (_baseY - position.y).clamp(0.0, 90.0);
+    final shadowScale = 1 - groundGap / 160;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(0, groundGap + 1),
+        width: size.x * 0.9 * shadowScale,
+        height: 7 * shadowScale,
+      ),
+      Paint()..color = Colors.black.withValues(alpha: 0.18 * shadowScale),
+    );
     canvas.scale(dir * squash, 1 / squash);
     if (isGuarding) {
       canvas.drawOval(
@@ -743,7 +754,13 @@ class SoftEnemy extends PositionComponent {
   }
 
   void _drawSilhouette(Canvas canvas) {
-    final body = Paint()..color = _bodyColor;
+    // 身体由上到下从提亮到本色，带出立体感。
+    final body = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color.lerp(_bodyColor, Colors.white, 0.38)!, _bodyColor],
+      ).createShader(Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y));
     final cream = Paint()..color = MacaronColors.cream;
     switch (kind) {
       case EnemyKind.walker:

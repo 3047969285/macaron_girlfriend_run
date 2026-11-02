@@ -126,10 +126,10 @@ class LevelCatalog {
     6.8,
     8.0,
     7.5,
-    9.5,
-    9.0,
+    7.8,
+    8.6,
     7.5,
-    10.0,
+    9.0,
     7.0,
   ];
   static const densityRampPerLevel = 0.1;
