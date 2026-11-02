@@ -41,7 +41,7 @@ class AudioService {
   late final Uint8List _wavShoot;
   late final Uint8List _wavVehicle;
   late final Uint8List _wavEnemySkill;
-  final Map<(int, bool), Uint8List> _bgmCache = {};
+  final Map<(int, bool, bool), Uint8List> _bgmCache = {};
 
   bool get soundOn => SaveService.instance.soundEnabled;
   bool get musicOn => SaveService.instance.musicEnabled;
@@ -119,17 +119,18 @@ class AudioService {
     }
   }
 
-  Uint8List _bgmBytes(int worldIndex, {required bool boss}) {
+  Uint8List _bgmBytes(int worldIndex, {required bool boss, bool alt = false}) {
     final world = worldIndex.clamp(0, 8).toInt();
     return _bgmCache.putIfAbsent(
-      (world, boss),
+      (world, boss, alt),
       () => boss
           ? SynthWav.bossLoopForWorld(world)
-          : SynthWav.bgmLoopForWorld(world),
+          : SynthWav.bgmLoopForWorld(world, alt: alt),
     );
   }
 
-  /// 普通关按世界轮换授权曲，Boss 关播放世界专属短主题。
+  /// 所有关卡播放柔和的钢琴加吉他原创曲：普通关每个世界两种编排（相邻关交替），
+  /// Boss 关用世界专属短主题；授权曲只在合成失败时作为后备。
   Future<void> startBgm({
     int worldIndex = 0,
     int levelIndex = 0,
@@ -147,7 +148,6 @@ class AudioService {
       return;
     }
     final world = worldIndex.clamp(0, 8).toInt();
-    // 同一世界的普通关在授权曲和该世界原创合成曲之间交替，Boss 关用专属短曲。
     final synth = !boss && levelIndex.isOdd;
     if (_bgmPlaying &&
         _bgmWorld == world &&
@@ -170,22 +170,12 @@ class AudioService {
     }
     final asset = _bgmAssets[(world + (boss ? 1 : 0)) % _bgmAssets.length];
     try {
-      if (boss) {
-        await _bgm.play(BytesSource(_bgmBytes(world, boss: true)));
-      } else if (synth) {
-        await _bgm.play(BytesSource(_bgmBytes(world, boss: false)));
-      } else {
-        await _bgm.play(AssetSource(_bgmAssets[world % _bgmAssets.length]));
-      }
+      await _bgm.play(BytesSource(_bgmBytes(world, boss: boss, alt: synth)));
     } catch (_) {
       if (!_isBgmRequestCurrent(revision, owner)) {
         return;
       }
-      if (boss || synth) {
-        await _bgm.play(AssetSource(asset));
-      } else {
-        await _bgm.play(BytesSource(_bgmBytes(world, boss: false)));
-      }
+      await _bgm.play(AssetSource(asset));
     }
     if (!_isBgmRequestCurrent(revision, owner)) {
       return;

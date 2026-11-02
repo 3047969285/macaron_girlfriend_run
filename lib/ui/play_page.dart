@@ -63,7 +63,8 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _hudTick = ValueNotifier(0);
-    _showTutorial = !SaveService.instance.tutorialDone;
+    // 进关直接开玩，不再弹教程；想看玩法可以从主菜单的“玩法”进入。
+    _showTutorial = false;
     SaveService.instance.setLastPlayed(widget.worldIndex, widget.levelIndex);
     game = MacaronGame(
       worldIndex: widget.worldIndex,
@@ -584,7 +585,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                           alignment: Alignment.centerRight,
                           child: _HudChip(
                             child: Text(
-                              '✨ 连击 ×${game.comboCount} · 下个 +${GameConstants.enemyComboBonusFor(game.comboCount + 1)}',
+                              '✨ ×${game.comboCount}',
                               style: _hudText,
                             ),
                           ),

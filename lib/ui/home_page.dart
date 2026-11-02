@@ -41,7 +41,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
-    final cont = SaveService.instance.continuePlayTarget();
     final unlockedLevels = unlocked >= GameConstants.totalLevels
         ? GameConstants.totalLevels
         : unlocked + 1;
@@ -78,45 +77,20 @@ class _HomePageState extends State<HomePage> {
                       color: MacaronColors.cocoa,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '累计 ${SaveService.instance.totalStars} 星 · '
-                    '${SaveService.instance.clearCount} 通关 · '
-                    '最高分 ${SaveService.instance.bestScoreOverall} · '
-                    '钱包 🍬${SaveService.instance.walletCoins}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: MacaronColors.cocoa.withValues(alpha: 0.45),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 18),
+                  // 只留一条进度条，统计和说明文字都去掉，保持沉浸。
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: 8,
+                      minHeight: 6,
                       backgroundColor: Colors.white54,
                       color: MacaronColors.rose,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    unlocked >= GameConstants.totalLevels
-                        ? '全部 ${GameConstants.totalLevels} 关已解锁'
-                        : '已解锁 ${unlocked + 1}/'
-                            '${GameConstants.totalLevels} 关',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: MacaronColors.cocoa.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 30),
                   _PillButton(
                     label: '继续冒险',
-                    subtitle: unlocked == 0
-                        ? '从第 1 关开始'
-                        : '${WorldCatalog.paletteOf(cont.$1).name} · '
-                            '${LevelNames.of(cont.$1, cont.$2)}',
                     filled: true,
                     onTap: () async {
                       await AudioService.instance.click();
@@ -189,13 +163,11 @@ class _PillButton extends StatelessWidget {
   const _PillButton({
     required this.label,
     required this.onTap,
-    this.subtitle,
     this.filled = false,
     this.compact = false,
   });
 
   final String label;
-  final String? subtitle;
   final bool filled;
   final bool compact;
   final VoidCallback onTap;
@@ -204,7 +176,7 @@ class _PillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: compact ? null : double.infinity,
-      height: subtitle == null ? 48 : 64,
+      height: 48,
       child: CupertinoButton(
         padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 16),
         borderRadius: BorderRadius.circular(22),
@@ -221,18 +193,6 @@ class _PillButton extends StatelessWidget {
                 color: filled ? Colors.white : MacaronColors.cocoa,
               ),
             ),
-            if (subtitle != null)
-              Text(
-                subtitle!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: filled
-                      ? Colors.white.withValues(alpha: 0.85)
-                      : MacaronColors.cocoa.withValues(alpha: 0.55),
-                ),
-              ),
           ],
         ),
       ),

@@ -260,50 +260,104 @@ class SynthWav {
     }
   }
 
-  /// 双正弦加一点三次谐波，比单音更厚，也不会变成方波的刺耳感。
-  static List<double> _softNote(double freq, double dur, {double vol = 0.16}) {
+  /// 钢琴音色：基音加少量逐渐衰减的泛音，起音柔和，高音衰减更快。
+  /// 谐波只有 4 阶，听感圆润，没有尖锐的高频。
+  static List<double> _piano(double freq, double dur, {double vol = 0.15}) {
     final n = (_sampleRate * dur).round();
     final out = List<double>.filled(n, 0);
+    final tau = (1.5 * math.sqrt(261.6 / freq)).clamp(0.35, 1.8).toDouble();
+    const amps = [1.0, 0.38, 0.16, 0.06];
+    final harmonics = freq < 220 ? 4 : (freq < 700 ? 3 : 2);
+    final release = math.min(0.06, dur * 0.3);
     for (var i = 0; i < n; i++) {
       final t = i / _sampleRate;
-      final env = _env(t, 0.02, dur * 0.85, dur);
-      final fundamental = math.sin(2 * math.pi * freq * t);
-      final octave = math.sin(2 * math.pi * freq * 2.003 * t);
-      final fifth = math.sin(2 * math.pi * freq * 3 * t);
-      out[i] = vol * env * (fundamental * 0.72 + octave * 0.22 + fifth * 0.06);
+      final attack = math.min(1.0, t / 0.006);
+      var s = 0.0;
+      for (var k = 1; k <= harmonics; k++) {
+        final decay = math.exp(-t / (tau / math.pow(k, 0.55)));
+        // 轻微失谐让琴弦更有温度。
+        final detune = k == 1 ? 1.0015 : 1.0;
+        s +=
+            amps[k - 1] * decay * math.sin(2 * math.pi * freq * k * t * detune);
+      }
+      final tail = t > dur - release ? (dur - t) / release : 1.0;
+      out[i] = vol * attack * tail * s;
     }
     return out;
   }
 
-  static List<double> _kick(double dur) {
+  /// 尼龙弦吉他：Karplus-Strong 拨弦，衰减时高频先消失，声音温暖。
+  static List<double> _guitar(double freq, double dur, {double vol = 0.1}) {
     final n = (_sampleRate * dur).round();
     final out = List<double>.filled(n, 0);
+    final period = math.max(2, (_sampleRate / freq).round());
+    final rnd = math.Random(freq.round());
+    final buf = List<double>.generate(period, (_) => rnd.nextDouble() * 2 - 1);
+    // 先把初始噪声平滑一遍，拨弦更软。
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 0; i < period; i++) {
+        buf[i] = 0.5 * (buf[i] + buf[(i + 1) % period]);
+      }
+    }
+    var idx = 0;
+    var lp = 0.0;
+    final release = math.min(0.08, dur * 0.3);
     for (var i = 0; i < n; i++) {
+      final cur = buf[idx];
+      final next = buf[(idx + 1) % period];
+      buf[idx] = 0.5 * (cur + next) * 0.9965;
+      idx = (idx + 1) % period;
+      lp += 0.5 * (cur - lp);
       final t = i / _sampleRate;
-      final f = 150 - 110 * (t / dur).clamp(0.0, 1.0);
-      out[i] = 0.34 * math.sin(2 * math.pi * f * t) * math.exp(-t * 18);
+      final tail = t > dur - release ? (dur - t) / release : 1.0;
+      out[i] = vol * 2.2 * lp * tail * math.min(1.0, t / 0.004);
     }
     return out;
   }
 
-  static List<double> _hat(double dur) {
-    final rnd = math.Random(3);
+  /// 很轻的低频心跳，代替原来的底鼓。
+  static List<double> _thump(double dur, {double vol = 0.1}) {
     final n = (_sampleRate * dur).round();
     final out = List<double>.filled(n, 0);
     for (var i = 0; i < n; i++) {
       final t = i / _sampleRate;
-      out[i] = (rnd.nextDouble() * 2 - 1) * 0.05 * math.exp(-t * 48);
+      final f = 78 - 26 * (t / dur).clamp(0.0, 1.0);
+      out[i] =
+          vol *
+          math.sin(2 * math.pi * f * t) *
+          math.min(1.0, t / 0.012) *
+          math.exp(-t * 9);
+    }
+    return out;
+  }
+
+  /// 极轻的刷弦沙沙声（低通噪声），代替踩镲。
+  static List<double> _brush(double dur, {double vol = 0.018}) {
+    final rnd = math.Random(5);
+    final n = (_sampleRate * dur).round();
+    final out = List<double>.filled(n, 0);
+    var lp = 0.0;
+    for (var i = 0; i < n; i++) {
+      final t = i / _sampleRate;
+      lp += 0.18 * ((rnd.nextDouble() * 2 - 1) - lp);
+      out[i] = vol * lp * math.exp(-t * 22) * math.min(1.0, t / 0.01);
     }
     return out;
   }
 
   /// 每个世界 16 小节原创循环，后半更换和弦走向并变奏旋律。
-  static Uint8List bgmLoopForWorld(int worldIndex) {
+  /// [alt] 为 true 时换一种和弦走向与旋律起点，同一世界的相邻关卡不重复。
+  static Uint8List bgmLoopForWorld(int worldIndex, {bool alt = false}) {
     final world = worldIndex.clamp(0, 8).toInt();
+    final motif = _worldMotifs[world];
+    final shift = alt ? 4 : 0;
     return _composeLoop(
-      motif: _worldMotifs[world],
-      rootsA: _worldRootsA[world],
-      rootsB: _worldRootsB[world],
+      motif: [
+        for (var i = 0; i < motif.length; i++)
+          motif[(i + shift) % motif.length],
+      ],
+      rootsA: alt ? _worldRootsB[world] : _worldRootsA[world],
+      rootsB: alt ? _worldRootsA[world] : _worldRootsB[world],
       scale: _worldScales[world],
       bars: 16,
       bpm: 92 + (world % 3) * 6,
@@ -334,11 +388,22 @@ class SynthWav {
     bool boss = false,
   }) {
     final eighth = 60 / bpm / 2;
+    // 曲子里大量音符重复出现：同一音高、时长、音量只合成一次。
+    final noteCache = <String, List<double>>{};
+    List<double> piano(double freq, double dur, {double vol = 0.15}) =>
+        noteCache.putIfAbsent(
+          'p$freq|$dur|$vol',
+          () => _piano(freq, dur, vol: vol),
+        );
+    List<double> guitar(double freq, double dur, {double vol = 0.1}) =>
+        noteCache.putIfAbsent(
+          'g$freq|$dur|$vol',
+          () => _guitar(freq, dur, vol: vol),
+        );
     final steps = bars * 8;
-    final out = Float32List((_sampleRate * eighth * steps).round());
-    final kick = _kick(boss ? 0.2 : 0.16);
-    final hat = _hat(0.05);
-    final snare = _hat(boss ? 0.07 : 0.09);
+    final out = List<double>.filled((_sampleRate * eighth * steps).round(), 0);
+    final thump = _thump(0.4, vol: boss ? 0.14 : 0.09);
+    final brush = _brush(0.14, vol: boss ? 0.026 : 0.016);
 
     for (var step = 0; step < steps; step++) {
       final at = (_sampleRate * eighth * step).round();
@@ -361,72 +426,75 @@ class SynthWav {
           ? (baseDegree + 2 + (index % 3 == 0 ? 1 : 0)) % scale.length
           : baseDegree;
 
+      // 钢琴旋律：音区压在 C6 以下，避免尖细的高音。
       if (degree >= 0) {
         final pc = scale[degree.clamp(0, scale.length - 1)];
-        final midi = chordRoot + pc + (section >= 2 ? 12 : 0);
+        var midi = chordRoot + pc + (section >= 2 ? 12 : 0);
+        while (midi > 81) {
+          midi -= 12;
+        }
         _mixAt(
           out,
           at,
-          _softNote(
+          piano(
             _midi(midi),
-            eighth * 0.92,
+            eighth * 2.6,
             vol: boss
                 ? 0.1
                 : secondHalf
                 ? 0.11
-                : 0.15,
+                : 0.13,
           ),
         );
-        if (step % 2 == 0) {
-          final counter = scale[(degree + 2) % scale.length];
-          _mixAt(
-            out,
-            at,
-            _softNote(_midi(chordRoot + counter - 12), eighth * 1.5, vol: 0.06),
-          );
-        }
       }
 
-      if (step % 2 == 0) {
-        _mixAt(out, at, hat);
-      } else if (!boss && section > 0) {
+      // 吉他分解和弦：根音、五度、三度循环，低音区，轻拨。
+      final tones = [
+        chordRoot,
+        chordRoot + scale[4],
+        chordRoot + scale[2] + 12,
+        chordRoot + scale[4],
+      ];
+      if (!boss || step % 2 == 0) {
+        var gm = tones[(step % 4)] + (step % 8 >= 4 ? 0 : 0);
+        while (gm > 72) {
+          gm -= 12;
+        }
+        while (gm < 50) {
+          gm += 12;
+        }
         _mixAt(
           out,
           at,
-          _softNote(_midi(chordRoot + 12), eighth * 0.42, vol: 0.05),
+          guitar(_midi(gm), eighth * 3.2, vol: boss ? 0.075 : 0.07),
         );
       }
-      if (boss && step % 8 == 4 || !boss && section >= 2 && step % 4 == 2) {
-        _mixAt(out, at, snare);
-      }
-      if (step % (boss ? 8 : 4) == 0) {
-        _mixAt(out, at, kick);
-        _mixAt(
-          out,
-          at,
-          _softNote(_midi(chordRoot - 12), eighth * 1.8, vol: 0.2),
-        );
-      }
-      if (step >= steps - 4 && degree >= 0) {
-        final fill = scale[index % scale.length];
-        _mixAt(
-          out,
-          at,
-          _softNote(_midi(chordRoot + fill + 12), eighth * 0.35, vol: 0.08),
-        );
-      }
+
+      // 每小节开头：钢琴低音和柔和的和弦铺底。
       if (step % 8 == 0) {
-        for (final add in [0, scale[2], scale[4], scale[6]]) {
+        _mixAt(out, at, piano(_midi(chordRoot - 12), eighth * 7.5, vol: 0.12));
+        for (final add in [0, scale[2], scale[4]]) {
           _mixAt(
             out,
             at,
-            _softNote(
-              _midi(chordRoot + add),
-              eighth * (boss ? 4.8 : 3.6),
-              vol: boss ? 0.035 : 0.04,
-            ),
+            piano(_midi(chordRoot + add), eighth * 7, vol: boss ? 0.045 : 0.04),
           );
         }
+        _mixAt(out, at, thump);
+      } else if (step % 8 == 4 && !boss) {
+        _mixAt(out, at, thump);
+      }
+      if (step % 2 == 1) {
+        _mixAt(out, at, brush);
+      }
+    }
+
+    // 整体低通（两级一阶），削掉刺耳的高频，再统一音量。
+    for (var pass = 0; pass < 2; pass++) {
+      var y = 0.0;
+      for (var i = 0; i < out.length; i++) {
+        y += 0.36 * (out[i] - y);
+        out[i] = y;
       }
     }
     var peak = 0.0;
@@ -436,7 +504,7 @@ class SynthWav {
         peak = a;
       }
     }
-    final gain = peak > 0.9 ? 0.9 / peak : 1.0;
+    final gain = peak > 0 ? 0.72 / peak : 1.0;
     for (var i = 0; i < out.length; i++) {
       out[i] *= gain;
     }
