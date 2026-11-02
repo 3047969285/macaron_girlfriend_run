@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
@@ -328,15 +330,25 @@ class AudioService {
       return;
     }
     final now = DateTime.now();
-    if (now.difference(_killStingAt) < const Duration(seconds: 8)) {
+    if (now.difference(_killStingAt) < _killClipLength + _killGap) {
       return;
     }
     _killStingAt = now;
     try {
       await _killPlayer.setVolume(SaveService.instance.soundVolume);
-      await _killPlayer.play(AssetSource(_ramAsset));
+      await _killPlayer.setSource(AssetSource(_ramAsset));
+      await _killPlayer.seek(_killClipStart);
+      await _killPlayer.resume();
+      Timer(_killClipLength, () {
+        _killPlayer.stop().catchError((Object _) {});
+      });
     } catch (_) {}
   }
+
+  /// 只播原片里能量最高的一段（整段约 8 秒，2.75 秒起到 5.5 秒的那句最响）。
+  static const Duration _killClipStart = Duration(milliseconds: 2750);
+  static const Duration _killClipLength = Duration(milliseconds: 2750);
+  static const Duration _killGap = Duration(milliseconds: 600);
 
   /// 暂停 BGM
   Future<void> pauseBgm() async {

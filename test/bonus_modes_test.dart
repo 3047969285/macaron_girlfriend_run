@@ -69,6 +69,27 @@ void main() {
     expect(game.enemies.contains(enemy), isFalse);
   });
 
+  testWidgets('the plane takes off by itself and flies forward', (
+    tester,
+  ) async {
+    final game = await _boot(tester);
+    game.update(1 / 60);
+    final plane = game.bonusPickups.firstWhere(
+      (p) => p.kind == BonusKind.plane,
+    );
+    game.player.position.setFrom(plane.position + Vector2(0, 40));
+    final startX = game.player.position.x;
+    final startY = game.player.position.y;
+    game.update(1 / 60);
+    expect(game.planeTimer, greaterThan(0));
+    for (var i = 0; i < 90; i++) {
+      game.update(1 / 60);
+    }
+    expect(game.player.position.y, lessThan(startY - 40));
+    expect(game.player.position.x, greaterThan(startX + 100));
+    expect(game.player.onGround, isFalse);
+  });
+
   testWidgets('the Li car drives itself into monsters ahead', (tester) async {
     final game = await _boot(tester);
     final p = game.player.position;

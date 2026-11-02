@@ -115,6 +115,7 @@ class MacaronGame extends FlameGame {
   double planeTimer = 0;
   double gumTimer = 0;
   double _beamCooldown = 0;
+  double _planeCruiseY = 0;
   static const double superDuration = 10;
   static const double planeDuration = 9;
   static const double gumDuration = 10;
@@ -1321,7 +1322,19 @@ class MacaronGame extends FlameGame {
     final flying = planeTimer > 0;
     if (flying) {
       // 飞机：跳 = 上升，蹲 = 下降，什么都不按就悬停；自动向前飞。
-      final target = jumpHeld ? -240.0 : (duckPressed ? 240.0 : 0.0);
+      // 起飞后自己爬到巡航高度并悬停；按住跳抬高巡航线，按住蹲压低。
+      final tile = GameConstants.tileSize;
+      final floorY = (level.height - 2) * tile - tile * 0.6;
+      if (jumpHeld) {
+        _planeCruiseY -= 240 * dt;
+      } else if (duckPressed) {
+        _planeCruiseY += 240 * dt;
+      }
+      _planeCruiseY = _planeCruiseY.clamp(tile * 1.5, floorY).toDouble();
+      final target = ((_planeCruiseY - player.position.y) * 4)
+          .clamp(-260.0, 260.0)
+          .toDouble();
+      player.onGround = false;
       player.velocity.y += (target - player.velocity.y) * math.min(1.0, dt * 8);
       if (!(player.wantsLeft && !player.wantsRight)) {
         player.velocity.x =
@@ -1400,8 +1413,6 @@ class MacaronGame extends FlameGame {
 
   @visibleForTesting
   double autoRamDirectionForTest() => _autoRamDirection();
-
-  bool _ramStingPlayed = false;
 
   void _moveAxis(double dt, {required bool horizontal}) {
     final delta = horizontal
@@ -1734,7 +1745,6 @@ class MacaronGame extends FlameGame {
       if (box.overlaps(hitbox)) {
         pickup.collected = true;
         pickup.removeFromParent();
-        _ramStingPlayed = false;
         vehicleTimer = math.max(
           vehicleTimer,
           GameConstants.playerVehicleDurationFor(level.difficulty),
@@ -1776,6 +1786,10 @@ class MacaronGame extends FlameGame {
           planeTimer = planeDuration;
           player.onGround = false;
           player.velocity.y = -220;
+          _planeCruiseY = math.max(
+            GameConstants.tileSize * 1.5,
+            player.position.y - GameConstants.tileSize * 3.2,
+          );
           fx.heroCallout('起飞！跳上升 蹲下降', at);
         case BonusKind.gum:
           gumTimer = gumDuration;
@@ -2112,10 +2126,6 @@ class MacaronGame extends FlameGame {
             vehicleBoosting ||
             (enemy.kind != EnemyKind.bruiser && enemy.kind != EnemyKind.shell);
         if (crush) {
-          if (!_ramStingPlayed) {
-            _ramStingPlayed = true;
-            AudioService.instance.ramSting();
-          }
           while (!enemy.dead) {
             enemy.takeStomp();
           }
@@ -2173,6 +2183,7 @@ class MacaronGame extends FlameGame {
     final baseScore =
         GameConstants.enemyScore * (enemy.kind == EnemyKind.bruiser ? 2 : 1);
     kills++;
+    AudioService.instance.killSting();
     score += baseScore + comboBonus;
     if (comboCount > 1 && comboCount > previousCombo) {
       fx.heroCallout('连击 x$comboCount +$comboBonus', enemy.position);
