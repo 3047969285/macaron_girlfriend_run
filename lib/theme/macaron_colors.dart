@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart'
+    show CupertinoTextThemeData, CupertinoThemeData;
 import 'package:flutter/material.dart';
 
 /// 马卡龙色板与主题
@@ -14,6 +16,10 @@ class MacaronColors {
   static const Color rose = Color(0xFFFF8FB5);
   static const Color softWhite = Color(0xFFFFFBFE);
 
+  /// 内置的中文字体族，见 pubspec.yaml。
+  static const String fontFamily = 'NotoSansSC';
+  static const List<String> fontFallback = ['NotoColorEmoji'];
+
   static ThemeData get theme {
     final base = ColorScheme.fromSeed(
       seedColor: blush,
@@ -24,8 +30,25 @@ class MacaronColors {
       surface: cream,
     );
     return ThemeData(
+      fontFamily: fontFamily,
+      fontFamilyFallback: fontFallback,
       colorScheme: base,
       useMaterial3: true,
+      // Cupertino 按钮默认用系统字体，也统一成内置字体。
+      cupertinoOverrideTheme: const CupertinoThemeData(
+        textTheme: CupertinoTextThemeData(
+          textStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFallback,
+            color: cocoa,
+          ),
+          actionTextStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontFamilyFallback: fontFallback,
+            color: rose,
+          ),
+        ),
+      ),
       scaffoldBackgroundColor: cream,
       appBarTheme: const AppBarTheme(
         backgroundColor: blush,

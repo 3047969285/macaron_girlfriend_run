@@ -31,7 +31,14 @@ Future<void> main() async {
 /// 整个应用统一按横屏布局：竖屏手机上菜单、选关、商店也会旋转成横屏画面，
 /// 不再把标题和按钮挤成一列。游戏页内部已有的 GameViewport 在横屏约束下不会二次旋转。
 Widget macaronAppShell(BuildContext context, Widget? child) =>
-    GameViewport(child: child ?? const SizedBox.shrink());
+    // 游戏界面的文字不在 Material 组件里，不会继承主题字体，这里统一指定内置字体。
+    DefaultTextStyle.merge(
+      style: const TextStyle(
+        fontFamily: MacaronColors.fontFamily,
+        fontFamilyFallback: MacaronColors.fontFallback,
+      ),
+      child: GameViewport(child: child ?? const SizedBox.shrink()),
+    );
 
 /// 应用根
 class MacaronApp extends StatelessWidget {

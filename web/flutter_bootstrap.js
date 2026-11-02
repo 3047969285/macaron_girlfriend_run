@@ -29,5 +29,10 @@
       build.mainJsPath = entrypoint.href;
     }
   }
-  _flutter.loader.load();
+  // 字体回退地址指向本站（web/fonts），不再访问 fonts.gstatic.com。
+  _flutter.loader.load({
+    config: {
+      fontFallbackBaseUrl: new URL('fonts/', document.baseURI).href,
+    },
+  });
 })();

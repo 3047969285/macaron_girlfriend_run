@@ -65,6 +65,19 @@ flutter:
     - assets/audio/smooth_lovin.mp3
     - assets/audio/morning.mp3
 
+  # 内置中文字体（Noto Sans SC，SIL OFL），只含应用文案用到的字符，
+  # 这样手机端不用再从 Google 的字体服务器补载中文。
+  fonts:
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.ttf
+        - asset: assets/fonts/NotoSansSC-Bold.ttf
+          weight: 700
+    # 彩色 emoji（Noto Color Emoji，SIL OFL），只含应用用到的 23 个符号。
+    - family: NotoColorEmoji
+      fonts:
+        - asset: assets/fonts/NotoColorEmoji-Subset.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
