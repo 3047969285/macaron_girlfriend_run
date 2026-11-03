@@ -263,14 +263,18 @@ class MacaronGame extends FlameGame {
     spawnPoint = Vector2(tile * 2, tile * 8);
     final groundY = (level.height - 1) * tile;
 
+    // 远景山和云是按 14 行高的地图画的；有天空层的关卡整体下移，贴着地面，
+    // 上面留给渐变天空。
+    final skyShift = (level.height - 14) * tile;
     parallax = ParallaxLayer(
       mapWidth: mapWidth,
       farColor: palette.parallaxFar,
       midColor: palette.parallaxMid,
-    );
+    )..position.y = skyShift;
     world.add(parallax!);
     world.add(
-      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed),
+      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
+        ..position.y = skyShift,
     );
     world.add(AmbientSparkles(mapWidth: mapWidth, tint: palette.accent));
     fx = FxLayer();

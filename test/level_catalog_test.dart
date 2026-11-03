@@ -1702,9 +1702,15 @@ void main() {
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
-        final highest = (level.height - 8).clamp(4, level.height - 5);
-        final lowest = (level.height - 4).clamp(highest, level.height - 3);
-        for (var y = 0; y < level.height; y++) {
+        // 天空层（最上面 skyRows 行）不受地面可达带限制。
+        final off = level.height > 14 ? LevelCatalog.skyRows : 0;
+        final base = level.height - off;
+        final highest = (base - 8).clamp(4, base - 5) + off;
+        final lowest = (base - 4).clamp(highest - off, base - 3) + off;
+        for (var y = off; y < level.height; y++) {
+          if (off > 0 && y < highest) {
+            continue; // 上升路线的平台在天空层里
+          }
           final row = level.rows[y];
           if (!row.contains('=') && !row.contains('?')) {
             continue;

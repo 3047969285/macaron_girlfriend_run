@@ -10,7 +10,7 @@ class LevelCatalog {
   static LevelData load(int worldIndex, int levelIndex) {
     final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
     final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
-    final rows = _buildRows(w, l);
+    final rows = _addSkyLayer(_buildRows(w, l), w, l);
     return LevelData(
       worldIndex: w,
       levelIndex: l,
@@ -18,6 +18,127 @@ class LevelCatalog {
       rows: rows,
       difficulty: _difficulty(w, l),
     );
+  }
+
+  /// 天空层行数：地面关卡上方再加的高度，角色可以沿弹簧路线飞上去。
+  static const int skyRows = 14;
+
+  /// 不局限于一个平面：普通关卡在原地图上方加一层“歌曲天空”。
+  /// 找一段上方完全空的地面，造「弹簧 → 平台 → 弹簧 → 平台 → 弹簧」的上升路线，
+  /// 通向一座空中岛屿（糖果弧线、生命心、能量马卡龙，岛上形状随世界不同）。
+  /// 地面关卡本身一格都不动，只是整体下移 [skyRows] 行；找不到空地时不加。
+  static List<String> _addSkyLayer(List<String> rows, int world, int level) {
+    if (level == GameConstants.levelsPerWorld - 1) {
+      return rows; // Boss 关保持原样
+    }
+    final height = rows.length;
+    final width = rows.first.length;
+    final surface = height - 3;
+    bool free(int x, int fromRow, int toRow) {
+      for (var y = fromRow; y <= toRow; y++) {
+        final t = rows[y][x];
+        if (t != ' ' && t != 'C') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 只检查路线真正要用到的格子：起跳弹簧的竖直通道，
+    // 以及第一块平台和它上方的通道。别的地方有浮空平台也没关系。
+    bool windowFree(int x0) {
+      // 地面上的怪、弹簧离出发点要留出 8 格以上的空档。
+      for (var x = x0 - 8; x < x0 + 14; x++) {
+        if (x >= 0 && x < width && 'AEGRTLYJBSW'.contains(rows[surface][x])) {
+          return false;
+        }
+      }
+      // 前后各留 6 格实心地面，别和坑的起跳 / 落地区重叠。
+      for (var x = x0 - 6; x < x0 + 14; x++) {
+        if (x < 0 || x >= width || rows[height - 2][x] != '#') {
+          return false;
+        }
+      }
+      // 起跳平台在地面上方两格（下面照常能走过去），弹簧在它上面。
+      for (var x = x0; x <= x0 + 5; x++) {
+        if (!free(x, 0, 8)) {
+          return false;
+        }
+      }
+      for (var x = x0; x <= x0 + 2; x++) {
+        if (!free(x, 9, surface)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    final start = ((width * (0.38 + 0.04 * (world % 4))).round()).clamp(
+      14,
+      width - 40,
+    );
+    int? x0;
+    for (var d = 0; d < width && x0 == null; d++) {
+      for (final x in [start + d, start - d]) {
+        if (x >= 14 && x <= width - 40 && windowFree(x)) {
+          x0 = x;
+          break;
+        }
+      }
+    }
+    if (x0 == null) {
+      return rows;
+    }
+
+    final grid = [
+      for (var i = 0; i < skyRows; i++) List.filled(width, ' '),
+      for (final r in rows) r.split(''),
+    ];
+    final s = skyRows + surface; // 新坐标里的地面站立行
+    void put(int x, int y, String c) {
+      if (x >= 1 && x < width - 1 && y >= 0 && y < grid.length) {
+        grid[y][x] = c;
+      }
+    }
+
+    void bar(int xa, int xb, int y) {
+      for (var x = xa; x <= xb; x++) {
+        put(x, y, '=');
+      }
+    }
+
+    final x = x0;
+    // 上升路线：每个弹簧约弹 7 格高。起跳弹簧在离地两格的小平台上，
+    // 地面路线从它下面走过，不会被意外弹飞。
+    bar(x, x + 2, s - 2);
+    put(x + 1, s - 3, 'S');
+    bar(x + 3, x + 5, s - 8);
+    put(x + 4, s - 9, 'S');
+    bar(x + 6, x + 8, s - 14);
+    put(x + 7, s - 15, 'S'); // 空中岛屿。
+    const islandLen = 18;
+    final islandRow = s - 20;
+    bar(x + 9, x + 8 + islandLen, islandRow);
+    // 岛上奖励：每个世界摆法不同，数量很少（糖果总数有上限）。
+    switch (world % 3) {
+      case 0: // 一条弧线
+        for (var i = 0; i < 5; i++) {
+          final dy = (i - 2).abs();
+          put(x + 12 + i * 2, islandRow - 2 - (2 - dy), 'C');
+        }
+      case 1: // 两排
+        for (var i = 0; i < 3; i++) {
+          put(x + 12 + i * 3, islandRow - 1, 'C');
+          put(x + 13 + i * 3, islandRow - 3, 'C');
+        }
+      default: // 阶梯
+        for (var i = 0; i < 5; i++) {
+          put(x + 12 + i * 2, islandRow - 1 - i ~/ 2, 'C');
+        }
+    }
+    put(x + 8 + islandLen - 2, islandRow - 1, 'H');
+    put(x + 8 + islandLen - 5, islandRow - 1, 'M');
+    return [for (final r in grid) r.join()];
   }
 
   static int _difficulty(int w, int l) {
