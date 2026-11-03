@@ -29,12 +29,43 @@ class LevelCatalog {
     );
   }
 
-  /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着左右交错的平台
-  /// 一层层往下，每层都有糖果，中途有检查点；最底下一条长地面，旗杆在右端。
-  /// 平台每层相隔 5 行（一次跳跃的高度以内），两层在边缘处重叠 4 格，
+  /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着平台一层层往下，
+  /// 每层都有糖果，中途有检查点；最底下一条长地面，旗杆在右端。
+  /// 每个世界的下探路线形状不同（见 [depthLayers]）。平台每层相隔 5 行
+  /// （一次跳跃的高度以内），相邻两层在边缘处重叠，
   /// 从边缘走下去必定落在下一层上。
   static const int depthWidth = 72;
   static const int depthHeight = 48;
+  static const int depthFirstRow = 6;
+  static const int depthRowGap = 5;
+  static const int depthLayerCount = 8;
+
+  /// 某个世界下探关每一层平台的 (起始列, 长度, 中间留空的格数, 方向：1 向右走 / -1 向左走)。
+  static List<(int, int, int, int)> depthLayers(int world) {
+    final layers = <(int, int, int, int)>[];
+    for (var k = 0; k < depthLayerCount; k++) {
+      final even = k.isEven;
+      switch (world) {
+        case 1: // 白马：一路向右的阶梯
+          layers.add((4 + k * 6, 16, 0, 1));
+        case 7: // 追风：更长更缓的阶梯
+          layers.add((4 + k * 5, 22, 0, 1));
+        case 8: // 素颜彩虹：更宽的左右交错
+          layers.add((even ? 4 : 32, 36, 0, even ? 1 : -1));
+        case 2: // 谁在云端：平台中间断开，要跳过缺口（也可以直接掉下去）
+          layers.add((even ? 6 : 34, 30, 4, even ? 1 : -1));
+        case 3: // 静悄悄：窄窄的竖井
+          layers.add((even ? 26 : 40, 20, 0, even ? 1 : -1));
+        case 4: // 五点二十：宽大的平台
+          layers.add((even ? 4 : 28, 40, 0, even ? 1 : -1));
+        case 6: // 迷途蓝谷：中等长度
+          layers.add((even ? 4 : 32, 28, 0, even ? 1 : -1));
+        default: // 素颜晨光 / 迷失玫瑰 / 素颜彩虹：左右交错
+          layers.add((even ? 4 : 34, 34, 0, even ? 1 : -1));
+      }
+    }
+    return layers;
+  }
 
   static List<String> _buildDepthRows(int world) {
     const width = depthWidth;
@@ -50,33 +81,49 @@ class LevelCatalog {
       grid[height - 1][x] = '#';
       grid[height - 2][x] = '#';
     }
-    const layers = 8;
-    const platformLen = 34;
-    final firstRow = 6;
-    for (var k = 0; k < layers; k++) {
-      final row = firstRow + k * 5;
-      final x0 = k.isEven ? 4 : 34;
-      for (var x = x0; x < x0 + platformLen; x++) {
+    final layers = depthLayers(world);
+    for (var k = 0; k < layers.length; k++) {
+      final row = depthFirstRow + k * depthRowGap;
+      final (x0, len, gap, dir) = layers[k];
+      final mid = x0 + len ~/ 2;
+      for (var x = x0; x < x0 + len; x++) {
+        if (gap > 0 && x >= mid - gap ~/ 2 && x < mid + (gap + 1) ~/ 2) {
+          continue;
+        }
         grid[row][x] = '=';
       }
-      // 糖果沿平台摆开，方向跟着走向（偶数层向右，奇数层向左）。
-      for (var i = 0; i < 8; i++) {
-        final cx = k.isEven ? x0 + 4 + i * 3 : x0 + platformLen - 5 - i * 3;
-        grid[row - 1][cx] = 'C';
+      // 糖果沿平台摆开，方向跟着走向。
+      final count = (len ~/ 3).clamp(4, 8);
+      for (var i = 0; i < count; i++) {
+        final cx = dir > 0 ? x0 + 3 + i * 3 : x0 + len - 4 - i * 3;
+        if (cx > x0 && cx < x0 + len && grid[row][cx] == '=') {
+          grid[row - 1][cx] = 'C';
+        }
       }
-      // 每隔一层在平台中段放检查点；第 4 层放一颗心，第 6 层放能量马卡龙。
       if (k == 3 || k == 5) {
-        grid[row - 1][x0 + platformLen ~/ 2] = 'K';
+        grid[row - 1][x0 + 2] = 'K';
       }
       if (k == 2) {
-        grid[row - 1][x0 + platformLen ~/ 2] = 'H';
+        grid[row - 1][x0 + len - 3] = 'H';
       }
       if (k == 6) {
-        grid[row - 1][x0 + platformLen ~/ 2] = 'M';
+        grid[row - 1][x0 + len - 3] = 'M';
+      }
+      // 迷失玫瑰：岔路上的诱饵小平台，挂着一串糖果，是死路。
+      if (world == 5 && k.isOdd && k < layers.length - 1) {
+        final bx = dir > 0 ? 58 : 6;
+        for (var x = bx; x < bx + 6; x++) {
+          if (grid[row + 2][x] == ' ') {
+            grid[row + 2][x] = '=';
+          }
+        }
+        grid[row + 1][bx + 2] = 'C';
+        grid[row + 1][bx + 3] = 'C';
       }
     }
     // 出生点：最高平台的左端。
-    grid[firstRow - 1][6] = 'P';
+    final (firstX, _, _, _) = layers.first;
+    grid[depthFirstRow - 1][firstX + 2] = 'P';
     // 底部：几只慢走怪，旗杆在右端。
     final surface = height - 3;
     for (final x in [24, 36, 48]) {
