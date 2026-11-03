@@ -526,7 +526,10 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   Widget _buildPlayView(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     final levelTitle = LevelNames.of(widget.worldIndex, widget.levelIndex);
-    final worldName = WorldCatalog.paletteOf(widget.worldIndex).name;
+    final isBossLevel = widget.levelIndex == GameConstants.levelsPerWorld - 1;
+    final worldName =
+        '${WorldCatalog.paletteOf(widget.worldIndex).name}'
+        '${isBossLevel ? '' : ' ♪ ${AudioService.songTitleFor(widget.worldIndex)}'}';
     final sky = WorldCatalog.paletteOf(widget.worldIndex).skyBottom;
 
     return Focus(
