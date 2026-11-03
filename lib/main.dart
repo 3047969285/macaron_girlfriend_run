@@ -47,7 +47,7 @@ class MacaronApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '马卡龙女友跑酷',
+      title: '马卡龙跑酷',
       debugShowCheckedModeBanner: false,
       builder: macaronAppShell,
       theme: MacaronColors.theme.copyWith(

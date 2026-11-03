@@ -1,4 +1,4 @@
-# 马卡龙女友跑酷
+# 马卡龙跑酷
 
 Flutter + Flame 手机横屏单机平台跳跃。马卡龙配色、低多边形角色、9×11=99 关，无服务器。
 
@@ -36,7 +36,7 @@ flutter run
 
 ## Android
 
-桌面 `马卡龙女友跑酷-debug.apk` 或：
+桌面 `马卡龙跑酷-debug.apk` 或：
 
 ```bash
 flutter build apk --debug

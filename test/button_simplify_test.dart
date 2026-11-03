@@ -41,7 +41,7 @@ void main() {
 
       expect(find.text('iPhone 版'), findsNothing);
       expect(find.text('关于与上架说明'), findsNothing);
-      for (final label in ['继续冒险', '选关地图', '糖果商店', '玩法', '任务', '设置']) {
+      for (final label in ['开始摸鱼', '选关地图', '糖果商店', '玩法', '任务', '设置']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
     });

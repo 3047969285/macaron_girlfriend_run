@@ -68,7 +68,7 @@ class _SplashPageState extends State<SplashPage>
               Text('🍬', style: TextStyle(fontSize: 56)),
               SizedBox(height: 12),
               Text(
-                '马卡龙女友跑酷',
+                '马卡龙跑酷',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,

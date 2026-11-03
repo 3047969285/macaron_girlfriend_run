@@ -169,7 +169,7 @@ class _HomeMenu extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '马卡龙女友跑酷',
+          '马卡龙跑酷',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: compact ? 28 : 34,
@@ -206,7 +206,7 @@ class _HomeMenu extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
-              '继续冒险',
+              '开始摸鱼',
               style: TextStyle(
                 fontSize: compact ? 18 : 20,
                 fontWeight: FontWeight.w700,
@@ -985,7 +985,7 @@ class AboutPage extends StatelessWidget {
       title: '关于',
       children: const [
         Text(
-          '马卡龙女友跑酷',
+          '马卡龙跑酷',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
         Text('版本 1.5.0 · 完全体'),
