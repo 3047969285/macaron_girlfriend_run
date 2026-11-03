@@ -83,6 +83,7 @@ class MacaronColors {
 class WorldPalette {
   const WorldPalette({
     required this.name,
+    this.title,
     required this.skyTop,
     required this.skyBottom,
     required this.ground,
@@ -92,7 +93,12 @@ class WorldPalette {
     required this.parallaxMid,
   });
 
+  /// 渲染器按它认主题（不能改）。
   final String name;
+
+  /// 玩家看到的世界名，缺省同 name。
+  final String? title;
+  String get displayName => title ?? name;
   final Color skyTop;
   final Color skyBottom;
   final Color ground;

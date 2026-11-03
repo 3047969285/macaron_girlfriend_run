@@ -208,14 +208,16 @@ void main() {
     testWidgets('地图可指定初始世界，越界夹紧', (tester) async {
       await _initSave();
       await _useTallView(tester);
-      final third = WorldCatalog.paletteOf(3).name;
+      final third = WorldCatalog.paletteOf(3).displayName;
       await tester.pumpWidget(
         const MaterialApp(home: WorldMapPage(initialWorld: 3)),
       );
       await tester.pump();
       expect(find.textContaining('$third · 选关'), findsOneWidget);
 
-      final last = WorldCatalog.paletteOf(GameConstants.worldCount - 1).name;
+      final last = WorldCatalog.paletteOf(
+        GameConstants.worldCount - 1,
+      ).displayName;
       await tester.pumpWidget(
         const MaterialApp(home: WorldMapPage(initialWorld: 99)),
       );

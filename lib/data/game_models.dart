@@ -363,8 +363,9 @@ class WorldCatalog {
   static const List<WorldPalette> palettes = [
     WorldPalette(
       name: '奶油草地',
-      skyTop: Color(0xFFFFE8F0),
-      skyBottom: Color(0xFFB8E0FF),
+      title: '素颜晨光',
+      skyTop: Color(0xFFFFF4EC),
+      skyBottom: Color(0xFFDCEBFF),
       ground: Color(0xFF9FE8C0),
       groundDark: Color(0xFF6FCB9A),
       accent: MacaronColors.blush,
@@ -373,6 +374,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '草莓甜点',
+      title: '白马长街',
       skyTop: Color(0xFFFFD6E5),
       skyBottom: Color(0xFFFFF0F5),
       ground: Color(0xFFFF9EBB),
@@ -383,6 +385,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '薄荷汽水',
+      title: '谁在云端',
       skyTop: Color(0xFFD8FFF2),
       skyBottom: Color(0xFFB8E0FF),
       ground: Color(0xFF7ED9C2),
@@ -393,6 +396,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '香芋星空',
+      title: '静悄悄的夜',
       skyTop: Color(0xFF2A1F4D),
       skyBottom: Color(0xFF6B5B95),
       ground: Color(0xFFB39DDB),
@@ -403,8 +407,9 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '柠檬沙滩',
-      skyTop: Color(0xFFFFF3C4),
-      skyBottom: Color(0xFFB8E0FF),
+      title: '五点二十',
+      skyTop: Color(0xFFFFC9A8),
+      skyBottom: Color(0xFFFFF0C8),
       ground: Color(0xFFFFE082),
       groundDark: Color(0xFFE6C35C),
       accent: MacaronColors.mint,
@@ -413,8 +418,9 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '玫瑰城堡',
-      skyTop: Color(0xFFFFE0EC),
-      skyBottom: Color(0xFFD4C4F5),
+      title: '迷失玫瑰',
+      skyTop: Color(0xFFE9C9E8),
+      skyBottom: Color(0xFFC9B8E8),
       ground: Color(0xFFE89AB5),
       groundDark: Color(0xFFC46F8E),
       accent: MacaronColors.lilac,
@@ -423,6 +429,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '蓝莓峡谷',
+      title: '迷途蓝谷',
       skyTop: Color(0xFFB3D4FF),
       skyBottom: Color(0xFFE8F4FF),
       ground: Color(0xFF7E9FE0),
@@ -433,6 +440,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '焦糖矿山',
+      title: '追风矿道',
       skyTop: Color(0xFFFFE8D6),
       skyBottom: Color(0xFFFFF6F0),
       ground: Color(0xFFD4A574),
@@ -443,6 +451,7 @@ class WorldCatalog {
     ),
     WorldPalette(
       name: '蜜月彩虹',
+      title: '素颜彩虹',
       skyTop: Color(0xFFFFD6F0),
       skyBottom: Color(0xFFD6F5FF),
       ground: Color(0xFFFFB4C8),

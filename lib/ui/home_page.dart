@@ -384,7 +384,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
       context: context,
       title: isBoss ? 'Boss 关预览' : '关卡预览',
       body:
-          '${WorldCatalog.paletteOf(world).name}\n'
+          '${WorldCatalog.paletteOf(world).displayName}\n'
           '$name\n'
           '$starLine\n'
           '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
@@ -438,7 +438,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   ),
                   Expanded(
                     child: Text(
-                      '${palette.name} · 选关',
+                      '${palette.displayName} · 选关',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -471,7 +471,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        WorldCatalog.paletteOf(i).name,
+                        WorldCatalog.paletteOf(i).displayName,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

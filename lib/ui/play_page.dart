@@ -322,7 +322,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         landscape: true,
         title: '🌍 世界通关！',
         body:
-            '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
+            '${WorldCatalog.paletteOf(widget.worldIndex).displayName} 已收官\n'
             '${List.filled(result.stars, '★').join()} · 分数 ${result.score}\n'
             '世界通关糖果已进钱包\n'
             '${game.starTips()}',
@@ -528,7 +528,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     final levelTitle = LevelNames.of(widget.worldIndex, widget.levelIndex);
     final isBossLevel = widget.levelIndex == GameConstants.levelsPerWorld - 1;
     final worldName =
-        '${WorldCatalog.paletteOf(widget.worldIndex).name}'
+        '${WorldCatalog.paletteOf(widget.worldIndex).displayName}'
         '${isBossLevel ? '' : ' ♪ ${AudioService.songTitleFor(widget.worldIndex)}'}';
     final sky = WorldCatalog.paletteOf(widget.worldIndex).skyBottom;
 
