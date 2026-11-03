@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 
-final _wheelFinder = find.byWidgetPredicate(
-  (w) => w.runtimeType.toString() == '_MoveWheel',
-);
+final _wheelFinder = find.byKey(moveWheelKey);
 
 Widget _controls({
   void Function(bool)? onLeft,
@@ -36,6 +34,37 @@ Widget _controls({
 );
 
 void main() {
+  testWidgets('the stick floats: any touch on the left half is the centre', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(812, 375);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final log = <String>[];
+    await tester.pumpWidget(
+      _controls(onLeft: (v) => log.add('L$v'), onRight: (v) => log.add('R$v')),
+    );
+    final home = tester.getRect(_wheelFinder).center;
+
+    // 离小圆很远（上方 90、右边 120）的地方落指，也算起点；圆跟到手指下面。
+    final start = home + const Offset(120, -90);
+    final gesture = await tester.startGesture(start);
+    await tester.pump();
+    expect(log, isEmpty);
+    expect(
+      (tester.getRect(_wheelFinder).center - start).distance,
+      lessThan(2),
+      reason: 'the wheel follows the finger',
+    );
+    await gesture.moveTo(start + const Offset(-18, 0));
+    expect(log, ['Ltrue']);
+    await gesture.up();
+    await tester.pump();
+    expect(log.last, 'Lfalse');
+    expect(tester.getRect(_wheelFinder).center, home, reason: 'back home');
+  });
+
   testWidgets('the wheel moves left and right and releases on lift', (
     tester,
   ) async {
