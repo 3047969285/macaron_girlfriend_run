@@ -283,13 +283,17 @@ class GirlfriendPlayer extends PositionComponent {
         rising: rising,
       );
       if (holdingCandyGun) {
+        // 枪举在胸前：跟着站姿高度放，贴着身体前方。
+        canvas.save();
+        canvas.translate(10, -_spriteHeight * 0.5 + size.y * 0.48);
         _drawCandyGun(canvas);
+        canvas.restore();
       }
       if (superMode) {
         // 眼睛发红光（头部在站立高度的约 92% 处）。
         for (final dx in const [-1.0, 4.0]) {
           canvas.drawCircle(
-            Offset(dx + 3, -_spriteHeight * 0.915),
+            Offset(dx + 3, -_spriteHeight * 0.925),
             3.0,
             Paint()
               ..color = const Color(0xFFFF4040).withValues(alpha: 0.75)
@@ -385,7 +389,7 @@ class GirlfriendPlayer extends PositionComponent {
   }
 
   /// 立绘里站立的人物在屏幕上的高度（含头发）。
-  double get _spriteHeight => size.y * 1.62;
+  double get _spriteHeight => size.y * 1.85;
 
   void _drawHeroSprite(
     Canvas canvas, {
