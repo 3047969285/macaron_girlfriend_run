@@ -35,7 +35,7 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull, reason: 'viewport width $width');
-      for (final label in ['射击', '闪冲', '蹲', '跑', '跳']) {
+      for (final label in ['射击', '闪冲', '蹲', '跳']) {
         expect(
           find.text(label),
           findsOneWidget,

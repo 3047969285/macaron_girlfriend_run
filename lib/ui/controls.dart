@@ -56,8 +56,7 @@ class FpsBootstrap {
 
 /// 虚拟轮盘与跳跃、技能键。
 ///
-/// 布局按拇指够得到的位置排：左下角是小轮盘（推到底自动奔跑）；右下角竖排，跳在上、
-/// 蹲在下；技能和射击在它们左边；“跑”是开关，放在底部中间，两根拇指都够得着。
+/// 左下角摇杆推到底自动奔跑，右下角是跳跃键，其他操作沿弧线排列。
 class TouchControls extends StatefulWidget {
   const TouchControls({
     super.key,
@@ -97,23 +96,22 @@ class TouchControls extends StatefulWidget {
 class _TouchControlsState extends State<TouchControls> {
   static const double _wheelSize = 104;
 
-  /// 最大的“跑”键：中心距右下角的横向 / 纵向距离和直径。
+  /// 最大的跳跃键：中心距右下角的横向 / 纵向距离和直径。
   static const double _runRx = 52;
   static const double _runBy = 52;
   static const double _runSize = 88;
 
-  /// 其余按钮围着“跑”的弧线半径。
+  /// 其余按钮围着跳跃键的弧线半径。
   static const double _arcRadius = 114;
   static const double _baseWidth = 385;
   static const double _baseHeight = 200;
 
-  /// 点“跑”切换常驻奔跑；轮盘推到底也会奔跑，两者任一为真就在跑。
-  bool _runToggled = false;
+  /// 轮盘推到底时奔跑。
   bool _wheelRun = false;
   bool _runSent = false;
 
   void _syncRun() {
-    final run = _runToggled || _wheelRun;
+    final run = _wheelRun;
     if (run != _runSent) {
       _runSent = run;
       widget.onRun(run);
@@ -149,7 +147,7 @@ class _TouchControlsState extends State<TouchControls> {
       );
     }
 
-    // 在以“跑”为圆心的弧线上放按钮：角度从正左（0°）逆时针往正上方（90°）数。
+    // 在以跳跃键为圆心的弧线上放按钮：角度从正左（0°）逆时针往正上方（90°）数。
     Widget arc(double degrees, double size, Widget child) {
       final a = degrees * math.pi / 180;
       return place(
@@ -177,22 +175,18 @@ class _TouchControlsState extends State<TouchControls> {
           onInteract: widget.onInteract,
         ),
       ),
-      // 王者荣耀式排布：最大的“跑”在右下角正中，其余按钮沿弧线围着它——
-      // 蹲在左边靠下，闪冲在斜上方，跳在最上面。
+      // 王者荣耀式排布：跳跃键在右下角正中，其余按钮沿弧线围着它——
+      // 蹲在左边靠下，闪冲在斜上方。
       place(
         _runRx,
         _runBy,
         _runSize,
-        _ToggleButton(
-          label: '跑',
-          on: _runToggled,
-          fill: MacaronColors.mint,
-          fontSize: 24,
+        _RoundHold(
+          label: '跳',
+          onChanged: widget.onJumpHeld,
           onInteract: widget.onInteract,
-          onToggle: () {
-            setState(() => _runToggled = !_runToggled);
-            _syncRun();
-          },
+          fill: MacaronColors.blush.withValues(alpha: 0.95),
+          size: _runSize * s,
         ),
       ),
       if (widget.onDuck != null)
@@ -219,17 +213,6 @@ class _TouchControlsState extends State<TouchControls> {
             size: 58 * s,
           ),
         ),
-      arc(
-        78,
-        66,
-        _RoundHold(
-          label: '跳',
-          onChanged: widget.onJumpHeld,
-          onInteract: widget.onInteract,
-          fill: MacaronColors.blush.withValues(alpha: 0.95),
-          size: 66 * s,
-        ),
-      ),
       // 射击和“换”放在外圈，不挤占拇指最常用的那一圈。
       if (widget.onShoot != null)
         place(
@@ -265,66 +248,6 @@ class _TouchControlsState extends State<TouchControls> {
   }
 }
 
-/// 点一下切换的圆形按钮（开着时变实心加粗描边）。
-class _ToggleButton extends StatelessWidget {
-  const _ToggleButton({
-    required this.label,
-    required this.on,
-    required this.fill,
-    required this.onToggle,
-    this.fontSize = 18,
-    this.onInteract,
-  });
-
-  final String label;
-  final bool on;
-  final double fontSize;
-  final Color fill;
-  final VoidCallback onToggle;
-  final VoidCallback? onInteract;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) {
-        onInteract?.call();
-        onToggle();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: fill.withValues(alpha: on ? 1.0 : 0.6),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: on ? 1.0 : 0.65),
-            width: on ? 3 : 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: on
-                  ? fill.withValues(alpha: 0.55)
-                  : const Color(0x18000000),
-              blurRadius: on ? 14 : 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: on ? FontWeight.w900 : FontWeight.w600,
-            color: MacaronColors.cocoa,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 轮盘：按住拖动，向左/向右超过死区即触发对应方向，松开归零。
 class _MoveWheel extends StatefulWidget {
   const _MoveWheel({
     required this.onLeft,

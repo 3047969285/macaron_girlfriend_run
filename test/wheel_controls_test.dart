@@ -85,42 +85,7 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('the run button is a big toggle in the bottom-right corner', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(812, 375);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final runs = <bool>[];
-    await tester.pumpWidget(_controls(onRun: runs.add));
-
-    final run = tester.getRect(find.text('跑'));
-    expect(run.center.dx, greaterThan(812 * 0.88), reason: 'right edge');
-    expect(run.center.dy, greaterThan(375 * 0.72), reason: 'bottom corner');
-    expect(run.bottom, lessThanOrEqualTo(375));
-
-    // 它是最大的按钮：外框比跳、蹲都大。
-    Size box(String label) => tester.getSize(
-      find
-          .ancestor(
-            of: find.text(label),
-            matching: find.byType(AnimatedContainer),
-          )
-          .first,
-    );
-    expect(box('跑').width, greaterThan(box('跳').width));
-    expect(box('跑').width, greaterThan(box('蹲').width));
-
-    await tester.tap(find.text('跑'));
-    await tester.pump();
-    expect(runs, [true]);
-    await tester.tap(find.text('跑'));
-    await tester.pump();
-    expect(runs, [true, false], reason: 'a second tap switches it off');
-  });
-
-  testWidgets('jump sits above duck, run in the middle, nothing overlaps', (
+  testWidgets('jump sits in the bottom-right corner and nothing overlaps', (
     tester,
   ) async {
     for (final size in [
@@ -134,7 +99,7 @@ void main() {
       expect(tester.takeException(), isNull, reason: '$size');
 
       final rects = <String, Rect>{
-        for (final label in ['射击', '闪冲', '蹲', '跑', '跳', '换'])
+        for (final label in ['射击', '闪冲', '蹲', '跳', '换'])
           label: tester.getRect(find.text(label)),
       };
       final wheel = tester.getRect(_wheelFinder);
@@ -148,31 +113,12 @@ void main() {
       );
 
       final jump = rects['跳']!;
-      final duck = rects['蹲']!;
-      expect(
-        jump.center.dy,
-        lessThan(duck.center.dy),
-        reason: 'jump above duck ($size)',
-      );
-      // 闪冲在蹲和跳之间的斜上方；跑在右下角，是其他键围绕的中心。
-      final skill = rects['闪冲']!;
-      expect(skill.center.dy, lessThan(duck.center.dy), reason: '$size');
-      expect(skill.center.dy, greaterThan(jump.center.dy), reason: '$size');
-      final run = rects['跑']!;
-      for (final label in ['蹲', '闪冲', '跳']) {
-        expect(
-          run.center.dy,
-          greaterThan(rects[label]!.center.dy),
-          reason: 'run is the lowest of the cluster ($label $size)',
-        );
-        expect(
-          (rects[label]!.center - run.center).distance,
-          closeTo(114 * (size.width / 812).clamp(0.6, 1.0), 40),
-          reason: '$label sits on the arc around run ($size)',
-        );
-      }
+      expect(find.text('跑'), findsNothing);
+      expect(jump.center.dx, greaterThan(size.width * 0.8));
+      expect(jump.center.dy, greaterThan(rects['蹲']!.center.dy));
+      expect(jump.center.dy, greaterThan(rects['闪冲']!.center.dy));
 
-      for (final label in ['射击', '闪冲', '蹲', '跳', '跑', '换']) {
+      for (final label in ['射击', '闪冲', '蹲', '跳', '换']) {
         expect(
           rects[label]!.center.dx,
           greaterThan(size.width * 0.5),

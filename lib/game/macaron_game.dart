@@ -1042,7 +1042,7 @@ class MacaronGame extends FlameGame {
         ? GameConstants.cameraLookAhead * 0.55
         : -GameConstants.cameraLookAhead * 0.55;
     var cx = player.position.x + look + size.x * cameraLeadBias;
-    var cy = player.position.y - 80;
+    var cy = player.position.y + 30;
     final minX = size.x / 2;
     final maxX = mathMax(minX, mapW - size.x / 2);
     final minY = size.y / 2;
@@ -2475,7 +2475,7 @@ class MacaronGame extends FlameGame {
         (player.wantsRun ? 1.0 : 0.55);
     _lookAhead += (wantLook - _lookAhead) * (6 * dt).clamp(0.0, 1.0);
     var cx = player.position.x + _lookAhead + size.x * cameraLeadBias;
-    var cy = player.position.y - 80;
+    var cy = player.position.y + 30;
     if (_shakeTimer > 0) {
       final s = _shakeMag * (_shakeTimer / 0.18);
       final amp = GameConstants.cameraShakeMax * s;

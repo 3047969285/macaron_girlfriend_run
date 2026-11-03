@@ -1,6 +1,8 @@
 import Flutter
 import UIKit
 
+class SceneDelegate: FlutterSceneDelegate {}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   override func application(
