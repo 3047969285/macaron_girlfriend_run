@@ -212,18 +212,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return KeyEventResult.handled;
     }
     if (down) {
-      final skill = switch (key) {
-        LogicalKeyboardKey.keyJ => HeroSkill.dash,
-        LogicalKeyboardKey.keyK => HeroSkill.shield,
-        LogicalKeyboardKey.keyQ => HeroSkill.petalVolley,
-        LogicalKeyboardKey.digit1 ||
-        LogicalKeyboardKey.numpad1 => HeroSkill.pound,
-        LogicalKeyboardKey.digit2 ||
-        LogicalKeyboardKey.numpad2 => HeroSkill.airHop,
-        LogicalKeyboardKey.digit3 ||
-        LogicalKeyboardKey.numpad3 => HeroSkill.grapple,
-        _ => null,
-      };
+      final skill = key == LogicalKeyboardKey.keyJ ? HeroSkill.dash : null;
       if (skill != null) {
         game.activateSkill(skill);
         return KeyEventResult.handled;
@@ -599,11 +588,6 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                         levelTitle: levelTitle,
                         onPause: (_showTutorial || _busy) ? null : _togglePause,
                       ),
-                      if (game.levelReady &&
-                          _inputMode == InputMode.keyboard) ...[
-                        const SizedBox(height: 6),
-                        _SkillStrip(game: game, onCast: game.activateSkill),
-                      ],
                       if (game.comboCount > 1) ...[
                         const SizedBox(height: 6),
                         Align(
@@ -668,11 +652,10 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                     onRun: (v) => game.runPressed = v,
                     onDuck: game.setDuckPressed,
                     onJumpHeld: game.setJumpHeld,
-                    onSkill: game.activateSkill,
-                    onCycleSkill: game.cycleSelectedSkill,
+                    onSkill: () => game.activateSkill(HeroSkill.dash),
                     onShoot: game.weaponVisible ? game.setShootPressed : null,
-                    skillCooldown: game.skillCooldownRatio,
-                    skillLabel: game.skillButtonLabel,
+                    skillCooldown: game.cooldownRatioOf(HeroSkill.dash),
+                    skillLabel: '撞击',
                   ),
                 ),
               ),
@@ -833,75 +816,6 @@ class _GameHudHeader extends StatelessWidget {
       );
     },
   );
-}
-
-class _SkillStrip extends StatelessWidget {
-  const _SkillStrip({required this.game, required this.onCast});
-
-  final MacaronGame game;
-  final void Function(HeroSkill skill) onCast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      alignment: WrapAlignment.end,
-      children: [
-        for (final skill in HeroSkill.values)
-          _SkillCastChip(
-            keyLabel: skill.keyLabel,
-            name: skill.shortLabel,
-            cooldown: game.cooldownRatioOf(skill),
-            onTap: () => onCast(skill),
-          ),
-      ],
-    );
-  }
-}
-
-class _SkillCastChip extends StatelessWidget {
-  const _SkillCastChip({
-    required this.keyLabel,
-    required this.name,
-    required this.cooldown,
-    required this.onTap,
-  });
-
-  final String keyLabel;
-  final String name;
-  final double cooldown;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = cooldown <= 0;
-    return Material(
-      color: ready
-          ? Colors.white.withValues(alpha: 0.88)
-          : Colors.white.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: ready ? onTap : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Text(
-            ready
-                ? '$keyLabel $name'
-                : '$keyLabel ${(cooldown * 100).round()}%',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: ready
-                  ? MacaronColors.cocoa
-                  : MacaronColors.cocoa.withValues(alpha: 0.45),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _HudChip extends StatelessWidget {

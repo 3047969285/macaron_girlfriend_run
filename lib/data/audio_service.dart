@@ -289,12 +289,29 @@ class AudioService {
       return;
     }
     try {
-      await _sting.setVolume(SaveService.instance.soundVolume);
-      await _sting.play(AssetSource(_mambaAsset));
+      final volume = SaveService.instance.soundVolume;
+      await _sting.setVolume(volume);
+      await _sting.setSource(AssetSource(_mambaAsset));
+      await _sting.seek(_mambaStart);
+      await _sting.resume();
+      // 只播一小段，结尾淡出两步再停，免得突然截断。
+      Timer(_mambaLength - const Duration(milliseconds: 600), () {
+        _sting.setVolume(volume * 0.5).catchError((Object _) {});
+      });
+      Timer(_mambaLength - const Duration(milliseconds: 250), () {
+        _sting.setVolume(volume * 0.2).catchError((Object _) {});
+      });
+      Timer(_mambaLength, () {
+        _sting.stop().catchError((Object _) {});
+      });
     } catch (_) {
       await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
     }
   }
+
+  /// 原片 15 秒音量几乎不变，只能取低频最强的开头 4 秒；要换段改这两个常量。
+  static const Duration _mambaStart = Duration.zero;
+  static const Duration _mambaLength = Duration(seconds: 4);
 
   int _openingRevision = 0;
 

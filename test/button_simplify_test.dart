@@ -314,8 +314,8 @@ void main() {
   });
 
   group('R9 说明文字', () {
-    test('触屏说明提到「换」，键盘说明含 F 和 Esc', () {
-      expect(InputModeRules.touchLines.any((l) => l.contains('换')), isTrue);
+    test('触屏说明不再提技能切换，键盘说明含 F 和 Esc', () {
+      expect(InputModeRules.touchLines.any((l) => l.contains('换')), isFalse);
       final keys = InputModeRules.keyboardLines.join(' ');
       expect(keys, contains('F'));
       expect(keys, contains('Esc'));
