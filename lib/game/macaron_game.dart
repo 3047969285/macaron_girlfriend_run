@@ -279,7 +279,19 @@ class MacaronGame extends FlameGame {
       WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
         ..position.y = skyShift,
     );
-    world.add(AmbientSparkles(mapWidth: mapWidth, tint: palette.accent));
+    world.add(
+      AmbientSparkles(
+        mapWidth: mapWidth,
+        tint: palette.accent,
+        groundY: groundY,
+        kind: switch (palette.name) {
+          '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
+          '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
+          '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
+          _ => AmbientKind.sparkle,
+        },
+      ),
+    );
     fx = FxLayer();
     world.add(fx);
 
