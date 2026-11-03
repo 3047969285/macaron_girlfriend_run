@@ -685,6 +685,10 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                     onRun: (v) => game.runPressed = v,
                     onDuck: game.setDuckPressed,
                     onJumpHeld: game.setJumpHeld,
+                    onVertical: (v) {
+                      game.upPressed = v < 0;
+                      game.downPressed = v > 0;
+                    },
                     onSkill: () => game.activateSkill(HeroSkill.dash),
                     onShoot: game.weaponVisible ? game.setShootPressed : null,
                     skillCooldown: game.cooldownRatioOf(HeroSkill.dash),

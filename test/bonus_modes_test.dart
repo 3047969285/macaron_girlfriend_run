@@ -69,27 +69,55 @@ void main() {
     expect(game.enemies.contains(enemy), isFalse);
   });
 
-  testWidgets('the plane takes off by itself and flies forward', (
-    tester,
-  ) async {
+  testWidgets('the plane flies freely in all four directions', (tester) async {
     final game = await _boot(tester);
     game.update(1 / 60);
     final plane = game.bonusPickups.firstWhere(
       (p) => p.kind == BonusKind.plane,
     );
     game.player.position.setFrom(plane.position + Vector2(0, 40));
-    final startX = game.player.position.x;
-    final startY = game.player.position.y;
     game.update(1 / 60);
     expect(game.planeTimer, greaterThan(0));
-    for (var i = 0; i < 90; i++) {
-      game.update(1 / 60);
-    }
-    expect(game.player.position.y, lessThan(startY - 40));
-    expect(game.player.position.x, greaterThan(startX + 100));
-    expect(game.player.onGround, isFalse);
-  });
+    game.rightPressed = false;
+    game.leftPressed = false;
 
+    Future<(double, double)> fly({
+      bool right = false,
+      bool left = false,
+      bool up = false,
+      bool down = false,
+    }) async {
+      game.rightPressed = right;
+      game.leftPressed = left;
+      game.upPressed = up;
+      game.downPressed = down;
+      final start = game.player.position.clone();
+      for (var i = 0; i < 40; i++) {
+        game.update(1 / 60);
+      }
+      game.rightPressed = game.leftPressed = false;
+      game.upPressed = game.downPressed = false;
+      return (
+        game.player.position.x - start.x,
+        game.player.position.y - start.y,
+      );
+    }
+
+    final hover = await fly();
+    expect(hover.$1.abs(), lessThan(8), reason: 'no input hovers');
+    expect(hover.$2.abs(), lessThan(40));
+
+    // 先放到一块开阔的空地（天空层以下、地面以上），再依次试四个方向。
+    game.player.position.setFrom(plane.position + Vector2(0, -20));
+    final u = await fly(up: true);
+    expect(u.$2, lessThan(-20), reason: 'up climbs');
+    final d = await fly(down: true);
+    expect(d.$2, greaterThan(20), reason: 'down descends');
+    final r = await fly(right: true);
+    expect(r.$1, greaterThan(100), reason: 'right flies right');
+    final l = await fly(left: true);
+    expect(l.$1, lessThan(-100), reason: 'left flies left');
+  });
   testWidgets('the Li car drives itself into monsters ahead', (tester) async {
     final game = await _boot(tester);
     final p = game.player.position;

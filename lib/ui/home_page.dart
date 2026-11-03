@@ -203,7 +203,7 @@ class _HomeMenu extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: MacaronColors.rose,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
               '继续冒险',
@@ -323,13 +323,13 @@ class _HomeScenePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFAF6), Color(0xFFFFF0F4)],
+          colors: [Color(0xFFF8F5F7), Color(0xFFEFE6EB)],
         ).createShader(Offset.zero & size),
     );
     canvas.drawCircle(
       Offset(size.width * 0.18, size.height * 0.62),
       size.shortestSide * 0.52,
-      Paint()..color = const Color(0xFFFFE3EC).withValues(alpha: 0.7),
+      Paint()..color = const Color(0xFFE6D3DB).withValues(alpha: 0.7),
     );
   }
 
@@ -779,7 +779,7 @@ class AchievementsPage extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFE8F0), MacaronColors.cream, Color(0xFFE8FFF6)],
+            colors: [Color(0xFFF1E4EA), MacaronColors.cream, Color(0xFFE4EEEC)],
           ),
         ),
         child: SafeArea(
@@ -862,7 +862,7 @@ class _AchievementCard extends StatelessWidget {
                   MacaronColors.blush.withValues(alpha: 0.12),
                 ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: unlocked
               ? MacaronColors.rose.withValues(alpha: 0.55)

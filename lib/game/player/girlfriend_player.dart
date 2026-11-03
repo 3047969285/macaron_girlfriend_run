@@ -181,13 +181,13 @@ class GirlfriendPlayer extends PositionComponent {
       return;
     }
     final dress = role == PlayerRole.girlfriend
-        ? (poweredUp ? MacaronColors.lilac : MacaronColors.blush)
+        ? (poweredUp ? MacaronColors.lilac : const Color(0xFFBBD7F0))
         : MacaronColors.sky;
     final accent = role == PlayerRole.girlfriend
-        ? MacaronColors.rose
+        ? const Color(0xFFD77A96)
         : const Color(0xFF5B8DEF);
     final hairColor = role == PlayerRole.girlfriend
-        ? MacaronColors.rose
+        ? const Color(0xFF7B2536)
         : const Color(0xFF75536D);
 
     final grounded = visuallyGrounded;
@@ -477,93 +477,7 @@ class GirlfriendPlayer extends PositionComponent {
       }
       return;
     }
-    final sway = velocity.x.abs() > 10 ? math.sin(_anim * 0.42) * 4.2 : 0.0;
-    final hair = Path()
-      ..moveTo(faceCenter.dx - 11, faceCenter.dy - 2)
-      ..cubicTo(
-        faceCenter.dx - 22,
-        faceCenter.dy + 1,
-        faceCenter.dx - 20 + sway,
-        faceCenter.dy + 13,
-        faceCenter.dx - 11 + sway,
-        faceCenter.dy + 16,
-      )
-      ..cubicTo(
-        faceCenter.dx - 5 + sway,
-        faceCenter.dy + 10,
-        faceCenter.dx - 8,
-        faceCenter.dy + 5,
-        faceCenter.dx - 3,
-        faceCenter.dy + 1,
-      )
-      ..close();
-    canvas.drawPath(
-      hair,
-      Paint()
-        ..shader =
-            LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(accent, Colors.white, 0.16)!,
-                accent,
-                Color.lerp(accent, MacaronColors.cocoa, 0.28)!,
-              ],
-            ).createShader(
-              Rect.fromLTWH(faceCenter.dx - 23, faceCenter.dy - 2, 22, 20),
-            ),
-    );
-    canvas.drawLine(
-      Offset(faceCenter.dx - 16, faceCenter.dy + 3),
-      Offset(faceCenter.dx - 12 + sway, faceCenter.dy + 12),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.3)
-        ..strokeWidth = 1.2
-        ..strokeCap = StrokeCap.round,
-    );
-    final sideLock = Path()
-      ..moveTo(faceCenter.dx + 10, faceCenter.dy - 3)
-      ..cubicTo(
-        faceCenter.dx + 21,
-        faceCenter.dy - 1,
-        faceCenter.dx + 20 + sway,
-        faceCenter.dy + 12,
-        faceCenter.dx + 11 + sway,
-        faceCenter.dy + 17,
-      )
-      ..cubicTo(
-        faceCenter.dx + 6,
-        faceCenter.dy + 12,
-        faceCenter.dx + 8,
-        faceCenter.dy + 5,
-        faceCenter.dx + 10,
-        faceCenter.dy - 3,
-      )
-      ..close();
-    canvas.drawPath(
-      sideLock,
-      Paint()
-        ..shader =
-            LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [
-                Color.lerp(accent, Colors.white, 0.2)!,
-                accent,
-                Color.lerp(accent, MacaronColors.cocoa, 0.25)!,
-              ],
-            ).createShader(
-              Rect.fromLTWH(faceCenter.dx + 7, faceCenter.dy - 3, 16, 21),
-            ),
-    );
-    canvas.drawLine(
-      Offset(faceCenter.dx + 16, faceCenter.dy + 3),
-      Offset(faceCenter.dx + 13 + sway, faceCenter.dy + 12),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.34)
-        ..strokeWidth = 1.4
-        ..strokeCap = StrokeCap.round,
-    );
+    _drawLongHairBack(canvas, faceCenter, accent);
   }
 
   /// 腿部骨架：髋 → 膝 → 踝两段，按姿态/跑步相位摆动，脚随小腿转。
@@ -802,6 +716,10 @@ class GirlfriendPlayer extends PositionComponent {
       )
       ..cubicTo(-9, waistY - 3, -9, shoulderY + 2, -4.5, shoulderY)
       ..close();
+    // 裙子用深色（和浅蓝吊带分开）：冷静、利落。强化状态下仍跟着上衣色。
+    final skirtBase = outfit == const Color(0xFFBBD7F0)
+        ? const Color(0xFF3B3A52)
+        : outfit;
     final bounds = Rect.fromLTRB(-17, shoulderY - 3, 17, hemY + 4);
     canvas.drawPath(
       skirt.shift(const Offset(0, 2)),
@@ -814,9 +732,9 @@ class GirlfriendPlayer extends PositionComponent {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(Colors.white, outfit, 0.18)!,
-            outfit,
-            Color.lerp(outfit, accent, 0.42)!,
+            Color.lerp(Colors.white, skirtBase, 0.18)!,
+            skirtBase,
+            Color.lerp(skirtBase, accent, 0.3)!,
           ],
         ).createShader(bounds),
     );
@@ -841,66 +759,91 @@ class GirlfriendPlayer extends PositionComponent {
           ..strokeCap = StrokeCap.round,
       );
     }
-    final bodice = RRect.fromRectAndRadius(
-      Rect.fromLTRB(-8, shoulderY + 1, 8, waistY + 4),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      bodice,
+    // 浅蓝细肩带吊带：露出肩膀和锁骨，V 领，领口一条细项链。
+    final camisole = Path()
+      ..moveTo(-7.8, shoulderY + 5)
+      ..lineTo(-4.6, shoulderY + 5)
+      ..lineTo(0, shoulderY + 12.5)
+      ..lineTo(4.6, shoulderY + 5)
+      ..lineTo(7.8, shoulderY + 5)
+      ..lineTo(8.4, waistY + 4)
+      ..lineTo(-8.4, waistY + 4)
+      ..close();
+    canvas.drawPath(
+      camisole,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.9),
-            Color.lerp(outfit, Colors.white, 0.48)!,
+            Color.lerp(outfit, Colors.white, 0.55)!,
+            outfit,
+            Color.lerp(outfit, accent, 0.18)!,
           ],
-        ).createShader(bodice.outerRect),
+        ).createShader(Rect.fromLTRB(-9, shoulderY, 9, waistY + 5)),
     );
-    canvas.drawRRect(
-      bodice,
+    canvas.drawPath(
+      camisole,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.8)
+        ..color = Colors.white.withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1,
+        ..strokeWidth = 0.9
+        ..strokeJoin = StrokeJoin.round,
     );
+    // 胸口的 V 形肌肤和锁骨。
+    final chest = Path()
+      ..moveTo(-4.6, shoulderY + 4.6)
+      ..lineTo(0, shoulderY + 12.2)
+      ..lineTo(4.6, shoulderY + 4.6)
+      ..close();
+    canvas.drawPath(chest, Paint()..color = const Color(0xFFFFE4D6));
+    canvas.drawLine(
+      Offset(-4.2, shoulderY + 3.2),
+      Offset(-0.8, shoulderY + 4.2),
+      Paint()
+        ..color = const Color(0xFFD9A094).withValues(alpha: 0.6)
+        ..strokeWidth = 0.7
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      Offset(4.2, shoulderY + 3.2),
+      Offset(0.8, shoulderY + 4.2),
+      Paint()
+        ..color = const Color(0xFFD9A094).withValues(alpha: 0.6)
+        ..strokeWidth = 0.7
+        ..strokeCap = StrokeCap.round,
+    );
+    // 肩带。
     for (final side in [-1.0, 1.0]) {
-      final sleeve = Rect.fromCenter(
-        center: Offset(side * 9, shoulderY + 4),
-        width: 7.5,
-        height: 6.5,
-      );
-      canvas.drawOval(
-        sleeve.shift(const Offset(0.8, 1.2)),
-        Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.12),
-      );
-      canvas.drawOval(
-        sleeve,
+      canvas.drawLine(
+        Offset(side * 5.2, shoulderY + 0.2),
+        Offset(side * 6.2, shoulderY + 5.2),
         Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF4F8), Color(0xFFFFD3E2)],
-          ).createShader(sleeve),
-      );
-      canvas.drawOval(
-        sleeve,
-        Paint()
-          ..color = accent.withValues(alpha: 0.62)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.05,
+          ..color = Color.lerp(outfit, Colors.white, 0.4)!
+          ..strokeWidth = 1.5
+          ..strokeCap = StrokeCap.round,
       );
     }
-    final neckline = Path()
-      ..moveTo(-5, shoulderY + 3)
-      ..quadraticBezierTo(0, shoulderY + 12, 5, shoulderY + 3);
+    // 项链：细金链加一颗小坠子。
+    final chain = Path()
+      ..moveTo(-3.6, shoulderY + 1.6)
+      ..quadraticBezierTo(0, shoulderY + 10, 3.6, shoulderY + 1.6);
     canvas.drawPath(
-      neckline,
+      chain,
       Paint()
-        ..color = Colors.white
+        ..color = const Color(0xFFE6C27A)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round,
+        ..strokeWidth = 0.7,
+    );
+    canvas.drawCircle(
+      Offset(0, shoulderY + 8.2),
+      1.15,
+      Paint()..color = const Color(0xFFF3D78F),
+    );
+    canvas.drawCircle(
+      Offset(-0.3, shoulderY + 7.9),
+      0.4,
+      Paint()..color = Colors.white.withValues(alpha: 0.9),
     );
     for (final side in [-1.0, 1.0]) {
       canvas.drawLine(
@@ -919,25 +862,16 @@ class GirlfriendPlayer extends PositionComponent {
       ),
       Paint()..color = Color.lerp(accent, Colors.white, 0.42)!,
     );
-    final bow = Path()
-      ..moveTo(-1, waistY + 2)
-      ..lineTo(-7, waistY - 2)
-      ..lineTo(-6, waistY + 5)
-      ..close();
-    canvas.drawPath(bow, Paint()..color = accent);
-    final otherBow = Path()
-      ..moveTo(1, waistY + 2)
-      ..lineTo(7, waistY - 2)
-      ..lineTo(6, waistY + 5)
-      ..close();
-    canvas.drawPath(
-      otherBow,
-      Paint()..color = Color.lerp(accent, Colors.white, 0.24)!,
-    );
+    // 腰扣：一小颗金色圆扣。
     canvas.drawCircle(
       Offset(0, waistY + 2),
-      2.5,
-      Paint()..color = MacaronColors.lemon,
+      2.1,
+      Paint()..color = const Color(0xFFE6C27A),
+    );
+    canvas.drawCircle(
+      Offset(-0.5, waistY + 1.5),
+      0.7,
+      Paint()..color = Colors.white.withValues(alpha: 0.85),
     );
     canvas.drawLine(
       Offset(-12, hemY - 1.3),
@@ -1051,6 +985,10 @@ class GirlfriendPlayer extends PositionComponent {
   }
 
   void _drawFace(Canvas canvas, Offset center) {
+    if (role == PlayerRole.girlfriend) {
+      _drawGirlFace(canvas, center);
+      return;
+    }
     const skin = Color(0xFFFFE4D6);
     final irisTop = role == PlayerRole.girlfriend
         ? (poweredUp ? const Color(0xFFFF82A8) : const Color(0xFFBD7895))
@@ -1252,86 +1190,469 @@ class GirlfriendPlayer extends PositionComponent {
       );
       return;
     }
-    final cap = Path()
-      ..moveTo(center.dx - 14, center.dy - 1)
+    _drawLongHairFront(canvas, center, accent);
+  }
+
+  // ───────── 女主：长发、刘海、更细腻的五官（原创形象） ─────────
+
+  Color _hairShade(Color base, double t) => t < 0
+      ? Color.lerp(base, Colors.black, -t)!
+      : Color.lerp(base, Colors.white, t)!;
+
+  /// 身后的长发：披过肩膀垂到腰际，跑动时发梢摆动。
+  void _drawLongHairBack(Canvas canvas, Offset c, Color base) {
+    final sway = velocity.x.abs() > 10 ? math.sin(_anim * 0.42) * 5.0 : 0.0;
+    final len = 50.0;
+    final hair = Path()
+      ..moveTo(c.dx - 16, c.dy - 5)
       ..cubicTo(
-        center.dx - 16,
-        center.dy - 13,
-        center.dx - 9,
-        center.dy - 17,
-        center.dx,
-        center.dy - 16,
+        c.dx - 22,
+        c.dy + 8,
+        c.dx - 21,
+        c.dy + len * 0.6,
+        c.dx - 15 + sway,
+        c.dy + len,
+      )
+      ..quadraticBezierTo(
+        c.dx + sway * 1.3,
+        c.dy + len + 4,
+        c.dx + 15 + sway,
+        c.dy + len,
       )
       ..cubicTo(
-        center.dx + 10,
-        center.dy - 17,
-        center.dx + 16,
-        center.dy - 10,
-        center.dx + 14,
-        center.dy - 2,
-      )
-      ..quadraticBezierTo(
-        center.dx + 8,
-        center.dy - 7,
-        center.dx + 4,
-        center.dy - 8,
-      )
-      ..quadraticBezierTo(
-        center.dx,
-        center.dy - 3,
-        center.dx - 4,
-        center.dy - 8,
-      )
-      ..quadraticBezierTo(
-        center.dx - 9,
-        center.dy - 4,
-        center.dx - 14,
-        center.dy - 1,
+        c.dx + 21,
+        c.dy + len * 0.6,
+        c.dx + 22,
+        c.dy + 8,
+        c.dx + 16,
+        c.dy - 5,
       )
       ..close();
+    final bounds = Rect.fromLTWH(c.dx - 24, c.dy - 8, 48, len + 12);
     canvas.drawPath(
-      cap,
+      hair,
       Paint()
         ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(Colors.white, accent, 0.24)!,
-            accent,
-            Color.lerp(accent, MacaronColors.cocoa, 0.24)!,
-          ],
-        ).createShader(Rect.fromLTWH(center.dx - 16, center.dy - 18, 32, 18)),
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_hairShade(base, -0.08), base, _hairShade(base, -0.3)],
+        ).createShader(bounds),
     );
+    // 发丝高光：几道细长的亮线，顺着发流方向。
+    for (final (dx, w) in [
+      (-12.0, 1.3),
+      (-6.0, 0.9),
+      (7.0, 0.9),
+      (13.0, 1.3),
+    ]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx + dx, c.dy + 2)
+          ..quadraticBezierTo(
+            c.dx + dx * 1.15,
+            c.dy + len * 0.5,
+            c.dx + dx * 0.95 + sway * 0.8,
+            c.dy + len - 5,
+          ),
+        Paint()
+          ..color = _hairShade(base, 0.38).withValues(alpha: 0.38)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  /// 头顶和刘海：略偏分的空气刘海，鬓边两缕垂在肩前。
+  void _drawLongHairFront(Canvas canvas, Offset c, Color base) {
+    final sway = velocity.x.abs() > 10 ? math.sin(_anim * 0.42) * 3.5 : 0.0;
+    final shade = _hairShade(base, -0.2);
+    final light = _hairShade(base, 0.22);
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [light, base, shade],
+      ).createShader(Rect.fromLTWH(c.dx - 20, c.dy - 22, 40, 30));
+    // 头顶的发盖。
+    final crown = Path()
+      ..moveTo(c.dx - 17.5, c.dy + 3)
+      ..cubicTo(c.dx - 21, c.dy - 14, c.dx - 9, c.dy - 22, c.dx + 1, c.dy - 21)
+      ..cubicTo(
+        c.dx + 12,
+        c.dy - 22,
+        c.dx + 21,
+        c.dy - 13,
+        c.dx + 17.5,
+        c.dy + 3,
+      )
+      ..lineTo(c.dx + 14, c.dy - 3)
+      ..quadraticBezierTo(c.dx + 9, c.dy - 12, c.dx + 2, c.dy - 13)
+      ..quadraticBezierTo(c.dx - 8, c.dy - 13, c.dx - 14, c.dy - 3)
+      ..close();
+    canvas.drawPath(crown, paint);
+    // 空气刘海：从右偏分处向左下扫开，边缘稀疏，露出一点额头。
+    final bangs = Path()
+      ..moveTo(c.dx + 4, c.dy - 18)
+      ..cubicTo(c.dx - 4, c.dy - 17, c.dx - 14, c.dy - 10, c.dx - 17, c.dy + 4)
+      ..quadraticBezierTo(c.dx - 11, c.dy - 2, c.dx - 7, c.dy - 6)
+      ..quadraticBezierTo(c.dx - 2, c.dy - 9, c.dx + 4, c.dy - 18)
+      ..close();
+    canvas.drawPath(bangs, paint);
+    final rightBangs = Path()
+      ..moveTo(c.dx + 4, c.dy - 18)
+      ..cubicTo(
+        c.dx + 12,
+        c.dy - 17,
+        c.dx + 18,
+        c.dy - 8,
+        c.dx + 17.5,
+        c.dy + 4,
+      )
+      ..quadraticBezierTo(c.dx + 12, c.dy - 3, c.dx + 8, c.dy - 7)
+      ..quadraticBezierTo(c.dx + 5, c.dy - 10, c.dx + 4, c.dy - 18)
+      ..close();
+    canvas.drawPath(rightBangs, paint);
+    // 刘海上的几根发丝和头顶的亮光。
+    for (final (x1, y1, x2, y2) in [
+      (2.0, -16.0, -9.0, -6.0),
+      (1.0, -17.0, -13.0, -2.0),
+      (5.0, -17.0, 13.0, -5.0),
+    ]) {
+      canvas.drawLine(
+        c.translate(x1, y1),
+        c.translate(x2, y2),
+        Paint()
+          ..color = shade.withValues(alpha: 0.55)
+          ..strokeWidth = 0.7
+          ..strokeCap = StrokeCap.round,
+      );
+    }
     canvas.drawPath(
-      cap,
+      Path()
+        ..moveTo(c.dx - 9, c.dy - 17)
+        ..quadraticBezierTo(c.dx - 2, c.dy - 20, c.dx + 7, c.dy - 18),
       Paint()
-        ..color = MacaronColors.cocoa.withValues(alpha: 0.2)
+        ..color = Colors.white.withValues(alpha: 0.4)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.9,
-    );
-    canvas.drawLine(
-      center.translate(-8, -13),
-      center.translate(-3, -15),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.48)
-        ..strokeWidth = 1.2
+        ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round,
     );
-    final clip = Path()
-      ..moveTo(center.dx + 7, center.dy - 15)
-      ..lineTo(center.dx + 9, center.dy - 12)
-      ..lineTo(center.dx + 12, center.dy - 13)
-      ..lineTo(center.dx + 10, center.dy - 10)
-      ..lineTo(center.dx + 12, center.dy - 8)
-      ..lineTo(center.dx + 8, center.dy - 9)
-      ..lineTo(center.dx + 6, center.dy - 12)
+    // 鬓边的两缕：垂在脸颊两侧，落到肩前。
+    for (final side in [-1.0, 1.0]) {
+      final end = side < 0 ? 36.0 : 31.0;
+      final lock = Path()
+        ..moveTo(c.dx + side * 15, c.dy - 4)
+        ..cubicTo(
+          c.dx + side * 19,
+          c.dy + 6,
+          c.dx + side * 17,
+          c.dy + end * 0.6,
+          c.dx + side * 14 + sway * side * 0.4,
+          c.dy + end,
+        )
+        ..quadraticBezierTo(
+          c.dx + side * 11.5,
+          c.dy + end * 0.55,
+          c.dx + side * 12.5,
+          c.dy + 3,
+        )
+        ..quadraticBezierTo(
+          c.dx + side * 12.5,
+          c.dy - 1,
+          c.dx + side * 15,
+          c.dy - 4,
+        )
+        ..close();
+      canvas.drawPath(
+        lock,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [base, shade],
+          ).createShader(Rect.fromLTWH(c.dx - 22, c.dy - 4, 44, end + 4)),
+      );
+    }
+  }
+
+  /// 更细腻的脸：窄下巴、杏仁眼（眼线、双眼皮、睫毛）、细眉、鼻影、有光泽的唇。
+  void _drawGirlFace(Canvas canvas, Offset c) {
+    const skin = Color(0xFFFFE6DA);
+    final iris1 = poweredUp ? const Color(0xFFD86A92) : const Color(0xFFB0705A);
+    const iris2 = Color(0xFF4A2230);
+    final face = Path()
+      ..moveTo(c.dx - 14.6, c.dy - 3)
+      ..cubicTo(
+        c.dx - 14.6,
+        c.dy - 14,
+        c.dx - 7,
+        c.dy - 17.5,
+        c.dx,
+        c.dy - 17.5,
+      )
+      ..cubicTo(
+        c.dx + 7,
+        c.dy - 17.5,
+        c.dx + 14.6,
+        c.dy - 14,
+        c.dx + 14.6,
+        c.dy - 3,
+      )
+      ..cubicTo(c.dx + 14.2, c.dy + 8, c.dx + 7.5, c.dy + 16, c.dx, c.dy + 17.6)
+      ..cubicTo(
+        c.dx - 7.5,
+        c.dy + 16,
+        c.dx - 14.2,
+        c.dy + 8,
+        c.dx - 14.6,
+        c.dy - 3,
+      )
       ..close();
-    canvas.drawPath(clip, Paint()..color = MacaronColors.lemon);
-    canvas.drawCircle(
-      center.translate(8.8, -12.2),
-      1.1,
-      Paint()..color = Colors.white.withValues(alpha: 0.9),
+    final bounds = Rect.fromCenter(center: c, width: 30, height: 36);
+    // 耳朵（被头发遮住大半）。
+    for (final side in [-1.0, 1.0]) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: c.translate(side * 14.6, 1.5),
+          width: 4.2,
+          height: 6.4,
+        ),
+        Paint()..color = const Color(0xFFF7CFC0),
+      );
+    }
+    canvas.drawPath(
+      face.shift(const Offset(0.8, 1.5)),
+      Paint()..color = const Color(0xFFB77C74).withValues(alpha: 0.18),
     );
+    canvas.drawPath(
+      face,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF3EA), skin, Color(0xFFF6C9BC)],
+        ).createShader(bounds),
+    );
+    // 脸侧的淡阴影，让脸更立体。
+    canvas.drawPath(
+      face,
+      Paint()
+        ..color = const Color(0xFFC4857B).withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+    for (final side in [-1.0, 1.0]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx + side * 13.6, c.dy + 1)
+          ..quadraticBezierTo(
+            c.dx + side * 11.5,
+            c.dy + 12,
+            c.dx + side * 3.5,
+            c.dy + 16.4,
+          ),
+        Paint()
+          ..color = const Color(0xFFD99C92).withValues(alpha: 0.28)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    final hairDark = const Color(0xFF4A1620);
+    for (final side in [-1.0, 1.0]) {
+      final e = c.translate(side * 6.4, 1.6);
+      final inner = e.translate(-side * 3.7, 0.7);
+      final outer = e.translate(side * 4.2, -0.5);
+      final upper = Path()
+        ..moveTo(inner.dx, inner.dy)
+        ..quadraticBezierTo(e.dx - side * 0.4, e.dy - 5.2, outer.dx, outer.dy);
+      final lower = Path()
+        ..moveTo(outer.dx, outer.dy)
+        ..quadraticBezierTo(e.dx + side * 0.2, e.dy + 3.4, inner.dx, inner.dy);
+      final eyePath = Path()
+        ..addPath(upper, Offset.zero)
+        ..addPath(lower, Offset.zero)
+        ..close();
+      if (_eyesClosed) {
+        canvas.drawPath(
+          Path()
+            ..moveTo(inner.dx, inner.dy)
+            ..quadraticBezierTo(e.dx, e.dy + 2.2, outer.dx, outer.dy),
+          Paint()
+            ..color = hairDark
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..strokeCap = StrokeCap.round,
+        );
+      } else {
+        canvas.drawPath(eyePath, Paint()..color = const Color(0xFFFFFAF6));
+        canvas.save();
+        canvas.clipPath(eyePath);
+        final iris = Rect.fromCenter(
+          center: e.translate(side * 0.3, 0.2),
+          width: 5.6,
+          height: 6.4,
+        );
+        canvas.drawOval(
+          iris,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [iris1, iris2],
+            ).createShader(iris),
+        );
+        canvas.drawCircle(
+          e.translate(side * 0.3, 0.3),
+          1.45,
+          Paint()..color = const Color(0xFF1C0C12),
+        );
+        // 上眼睑的投影压在眼球上方。
+        canvas.drawPath(
+          upper,
+          Paint()
+            ..color = Colors.black.withValues(alpha: 0.35)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.8,
+        );
+        canvas.restore();
+        canvas.drawCircle(
+          e.translate(-0.7, -0.9),
+          1.0,
+          Paint()..color = Colors.white,
+        );
+        canvas.drawCircle(
+          e.translate(1.1, 1.3),
+          0.5,
+          Paint()..color = Colors.white.withValues(alpha: 0.75),
+        );
+      }
+      // 上眼线（粗）、眼尾上挑、下眼线（细）。
+      canvas.drawPath(
+        upper,
+        Paint()
+          ..color = hairDark
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        outer,
+        outer.translate(side * 2.0, -1.4),
+        Paint()
+          ..color = hairDark
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round,
+      );
+      for (var i = 0; i < 2; i++) {
+        final f = 0.62 + i * 0.2;
+        final base = Offset.lerp(
+          inner,
+          outer,
+          f,
+        )!.translate(0, -2.9 - (1 - (f - 0.7).abs()) * 1.4);
+        canvas.drawLine(
+          base,
+          base.translate(side * 0.9, -1.5),
+          Paint()
+            ..color = hairDark.withValues(alpha: 0.7)
+            ..strokeWidth = 0.55
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+      canvas.drawPath(
+        lower,
+        Paint()
+          ..color = const Color(0xFF8A4F55).withValues(alpha: 0.4)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.6,
+      );
+      // 双眼皮的折线。
+      canvas.drawPath(
+        Path()
+          ..moveTo(inner.dx + side * 1.2, inner.dy - 2.2)
+          ..quadraticBezierTo(
+            e.dx - side * 0.2,
+            e.dy - 6.4,
+            outer.dx + side * 0.6,
+            outer.dy - 2.3,
+          ),
+        Paint()
+          ..color = const Color(0xFFB57A78).withValues(alpha: 0.55)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.6
+          ..strokeCap = StrokeCap.round,
+      );
+      // 细而微挑的眉。
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx + side * 3.2, c.dy - 6.4)
+          ..quadraticBezierTo(
+            c.dx + side * 7.2,
+            c.dy - 9.4,
+            c.dx + side * 11.2,
+            c.dy - 7.2,
+          ),
+        Paint()
+          ..color = hairDark.withValues(alpha: 0.78)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.1
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    // 鼻：鼻梁的一道淡影和鼻翼。
+    canvas.drawPath(
+      Path()
+        ..moveTo(c.dx + 0.5, c.dy)
+        ..quadraticBezierTo(c.dx + 1.3, c.dy + 3, c.dx + 0.7, c.dy + 5.2),
+      Paint()
+        ..color = const Color(0xFFD59B90).withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      c.translate(-0.7, 5.5),
+      0.55,
+      Paint()..color = const Color(0xFFC98278).withValues(alpha: 0.8),
+    );
+    canvas.drawCircle(
+      c.translate(1.9, 5.4),
+      0.5,
+      Paint()..color = const Color(0xFFC98278).withValues(alpha: 0.7),
+    );
+    // 唇：上唇有唇峰，下唇饱满带高光，嘴角微微上扬（跑动时更明显）。
+    final lift = velocity.x.abs() > 10 ? 1.4 : 0.6;
+    final m = c.translate(0, 10);
+    final upperLip = Path()
+      ..moveTo(m.dx - 4.2, m.dy - lift * 0.2)
+      ..quadraticBezierTo(m.dx - 2, m.dy - 2.4, m.dx, m.dy - 1.2)
+      ..quadraticBezierTo(m.dx + 2, m.dy - 2.4, m.dx + 4.2, m.dy - lift * 0.2)
+      ..quadraticBezierTo(m.dx, m.dy + 0.9, m.dx - 4.2, m.dy - lift * 0.2)
+      ..close();
+    final lowerLip = Path()
+      ..moveTo(m.dx - 4, m.dy - lift * 0.1)
+      ..quadraticBezierTo(m.dx, m.dy + 4.2, m.dx + 4, m.dy - lift * 0.1)
+      ..quadraticBezierTo(m.dx, m.dy + 0.8, m.dx - 4, m.dy - lift * 0.1)
+      ..close();
+    canvas.drawPath(lowerLip, Paint()..color = const Color(0xFFD9606F));
+    canvas.drawPath(upperLip, Paint()..color = const Color(0xFFB8404F));
+    canvas.drawOval(
+      Rect.fromCenter(center: m.translate(0.4, 1.7), width: 2.6, height: 0.9),
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+    // 淡淡的腮红。
+    for (final side in [-1.0, 1.0]) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: c.translate(side * 9.6, 6.2),
+          width: 6.5,
+          height: 3.6,
+        ),
+        Paint()..color = const Color(0xFFF08A98).withValues(alpha: 0.2),
+      );
+    }
   }
 
   void _drawVehicle(Canvas canvas) {

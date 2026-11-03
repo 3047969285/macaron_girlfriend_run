@@ -338,9 +338,10 @@ class AudioService {
     }
   }
 
-  /// 原片 15 秒音量几乎不变，只能取低频最强的开头 4 秒；要换段改这两个常量。
-  static const Duration _mambaStart = Duration.zero;
-  static const Duration _mambaLength = Duration(seconds: 4);
+  /// 原片 15 秒音量几乎不变；按「高频冲击最强」挑出结尾那一段（约 11–14.5 秒，
+  /// 12.5 秒处有明显的瞬态）。要换段改这两个常量。
+  static const Duration _mambaStart = Duration(milliseconds: 11000);
+  static const Duration _mambaLength = Duration(milliseconds: 3500);
 
   final AudioPlayer _killPlayer = AudioPlayer();
   DateTime _killStingAt = DateTime.fromMillisecondsSinceEpoch(0);

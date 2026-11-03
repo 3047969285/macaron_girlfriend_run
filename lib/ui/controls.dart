@@ -68,6 +68,7 @@ class TouchControls extends StatefulWidget {
     this.onInteract,
     this.onSkill,
     this.onCycleSkill,
+    this.onVertical,
     this.onShoot,
     this.skillCooldown = 0,
     this.skillLabel = '冲刺',
@@ -84,6 +85,9 @@ class TouchControls extends StatefulWidget {
 
   /// 非空时，在技能键旁显示文字为「换」的小按钮，点按调用它。
   final VoidCallback? onCycleSkill;
+
+  /// 摇杆上推 / 下拉：-1 / 1 / 0。飞机飞行时控制升降。
+  final ValueChanged<int>? onVertical;
   final ValueChanged<bool>? onShoot;
   final double skillCooldown;
   final String skillLabel;
@@ -181,6 +185,7 @@ class _TouchControlsState extends State<TouchControls> {
             _wheelRun = full;
             _syncRun();
           },
+          onVertical: widget.onVertical ?? (_) {},
           onInteract: widget.onInteract,
         ),
       ),
@@ -266,6 +271,7 @@ class _MoveWheel extends StatefulWidget {
     required this.onLeft,
     required this.onRight,
     required this.onFull,
+    required this.onVertical,
     required this.diameter,
     required this.homeLeft,
     required this.homeBottom,
@@ -281,6 +287,9 @@ class _MoveWheel extends StatefulWidget {
 
   /// 轮盘被推到底（接近最大行程）时为 true，用来触发奔跑。
   final ValueChanged<bool> onFull;
+
+  /// 竖直方向：-1 上推、1 下拉、0 回中（飞行时用来控制升降）。
+  final ValueChanged<int> onVertical;
   final VoidCallback? onInteract;
 
   @override
@@ -320,8 +329,27 @@ class _MoveWheelState extends State<_MoveWheel> {
       dir = ratio > _engage ? 1 : 0;
     }
     _setDir(dir);
+    final vratio = clamped.dy / radius;
+    var vdir = _vdir;
+    if (vdir == 0) {
+      vdir = vratio > _engage ? 1 : (vratio < -_engage ? -1 : 0);
+    } else if (vdir == 1 && vratio < _release) {
+      vdir = 0;
+    } else if (vdir == -1 && vratio > -_release) {
+      vdir = 0;
+    }
+    _setVDir(vdir);
     _setFull(clamped.dx.abs() >= limit * 0.9);
     setState(() => _knob = clamped);
+  }
+
+  int _vdir = 0;
+
+  void _setVDir(int v) {
+    if (v != _vdir) {
+      _vdir = v;
+      widget.onVertical(v);
+    }
   }
 
   bool _full = false;
@@ -354,6 +382,7 @@ class _MoveWheelState extends State<_MoveWheel> {
     _pointer = null;
     _origin = null;
     _setDir(0);
+    _setVDir(0);
     _setFull(false);
     setState(() => _knob = Offset.zero);
   }
@@ -362,6 +391,9 @@ class _MoveWheelState extends State<_MoveWheel> {
   void dispose() {
     if (_dir != 0) {
       _setDir(0);
+    }
+    if (_vdir != 0) {
+      widget.onVertical(0);
     }
     if (_full) {
       widget.onFull(false);
