@@ -87,14 +87,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       game.setPaused(true);
     }
     // ignore: unawaited_futures
-    AudioService.instance
-        .startBgm(
-          worldIndex: widget.worldIndex,
-          levelIndex: widget.levelIndex,
-          boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
-          owner: this,
-        )
-        .then((_) => AudioService.instance.levelOpening());
+    AudioService.instance.startBgm(
+      worldIndex: widget.worldIndex,
+      levelIndex: widget.levelIndex,
+      boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
+      owner: this,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focus.requestFocus();

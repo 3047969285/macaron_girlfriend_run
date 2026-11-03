@@ -342,30 +342,6 @@ class AudioService {
   static const Duration _mambaStart = Duration.zero;
   static const Duration _mambaLength = Duration(seconds: 4);
 
-  int _openingRevision = 0;
-
-  /// 每局刚开始播放《兰花草》：先压住背景乐，放完再接回来。
-  Future<void> levelOpening() async {
-    if (!musicOn) {
-      return;
-    }
-    final revision = ++_openingRevision;
-    try {
-      await init();
-      if (_bgmPlaying) {
-        await _bgm.pause();
-      }
-      await _sting.setVolume(SaveService.instance.musicVolume);
-      await _sting.play(AssetSource(_gumAsset));
-      await _sting.onPlayerComplete.first;
-    } catch (_) {}
-    if (revision == _openingRevision && !_marchPlaying && _bgmPlaying) {
-      try {
-        await _bgm.resume();
-      } catch (_) {}
-    }
-  }
-
   final AudioPlayer _killPlayer = AudioPlayer();
   DateTime _killStingAt = DateTime.fromMillisecondsSinceEpoch(0);
 
