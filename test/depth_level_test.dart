@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/game/entities/entities.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -76,6 +77,9 @@ void main() {
     testWidgets('world $world: walking off the ledges reaches the flag', (
       tester,
     ) async {
+      // 路线机器人只验证平台布局，道具另测。
+      MacaronGame.spawnBonusPickups = false;
+      addTearDown(() => MacaronGame.spawnBonusPickups = true);
       LevelResult? result;
       final game = MacaronGame(
         worldIndex: world,
@@ -106,6 +110,11 @@ void main() {
                     .clamp(0, layers.length - 1);
             final (x0, len, _, d) = layers[k];
             dir = d;
+            // 平台上的立柱：提前一格跳。
+            final pillarAhead = (col + dir * 1.3).floor();
+            if (game.level.tileAt(pillarAhead, row.round() - 1) == '#') {
+              jump = true;
+            }
             // 平台中间的缺口：跳过去。
             final ahead = (col + dir * 1.4).floor();
             if (ahead >= x0 &&
@@ -140,4 +149,25 @@ void main() {
       expect(result!.cleared, isTrue);
     });
   }
+
+  testWidgets('the descent stage hides a gum, a plane and a superman pickup', (
+    tester,
+  ) async {
+    final game = MacaronGame(
+      worldIndex: 3,
+      levelIndex: GameConstants.depthLevelIndex,
+      role: PlayerRole.girlfriend,
+    );
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.pump(const Duration(milliseconds: 100));
+    game.pauseEngine();
+    expect(
+      game.bonusPickups.map((p) => p.kind).toSet(),
+      BonusKind.values.toSet(),
+    );
+    // 都在平台上方，而不是埋进地里。
+    for (final p in game.bonusPickups) {
+      expect(p.position.y, lessThan(36 * GameConstants.tileSize));
+    }
+  });
 }

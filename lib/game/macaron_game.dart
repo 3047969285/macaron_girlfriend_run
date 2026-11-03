@@ -449,6 +449,32 @@ class MacaronGame extends FlameGame {
   /// 超人 / 飞机 / 口香糖三种道具不在关卡字符里：按关卡长度的固定比例，
   /// 在附近第一块有地面且上方留空的列上方两格放置，避开敌人出生点。
   void _placeBonusPickups(double tile) {
+    if (spawnBonusPickups &&
+        level.levelIndex == GameConstants.depthLevelIndex) {
+      // 歌曲深处：口香糖护盾放在第 2 层，超人放在第 5 层（下面的怪交给眼睛射线），
+      // 中间第 4 层放一架飞机，可以飞着换层。
+      final layers = LevelCatalog.depthLayers(worldIndex);
+      final plan = <(BonusKind, int)>[
+        (BonusKind.gum, 1),
+        (BonusKind.plane, 3),
+        (BonusKind.superman, 5),
+      ];
+      for (final (kind, k) in plan) {
+        final (x0, len, _, _) = layers[k];
+        final row =
+            LevelCatalog.depthFirstRow + k * LevelCatalog.depthRowGap - 2;
+        bonusPickups.add(
+          BonusPickup(
+            kind: kind,
+            position: Vector2(
+              (x0 + len ~/ 2) * tile + tile / 2,
+              row * tile + tile / 2,
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (!spawnBonusPickups ||
         level.levelIndex >= GameConstants.levelsPerWorld - 1) {
       return; // Boss 关保持原有节奏。
