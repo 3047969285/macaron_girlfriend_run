@@ -84,18 +84,34 @@ void main() {
     );
     game.player.velocity.setZero();
     var minY = game.player.position.y;
-    for (var i = 0; i < 60 * 14; i++) {
-      // 上升时往右带一点，落到下一块平台上。
+    // 路线上的弹簧（从下往上依次是起跳、第一块、第二块平台上的）。
+    final springs = <(int, int)>[
+      for (var y = level.height - 4; y >= 0; y--)
+        for (var x = spring.$1; x <= spring.$1 + 8; x++)
+          if (level.tileAt(x, y) == 'S' && y <= spring.$2) (x, y),
+    ];
+    for (var i = 0; i < 60 * 20; i++) {
+      final feet = game.player.position;
+      // 下一颗要踩的弹簧：比脚下高的里面最低的一颗。
+      (int, int)? next;
+      for (final sp in springs) {
+        if (sp.$2 * tile < feet.y - 6 && (next == null || sp.$2 > next.$2)) {
+          next = sp;
+        }
+      }
+      final targetX = next == null ? feet.x : next.$1 * tile + tile / 2;
+      final rising = game.player.velocity.y < -50;
+      // 上升时往目标方向带一点；站着时走到弹簧上面。
       game.rightPressed =
-          game.player.velocity.y < -50 &&
-          game.player.position.x < (spring.$1 + 18) * tile;
+          targetX > feet.x + 6 && (rising || game.player.onGround);
+      game.leftPressed =
+          targetX < feet.x - 6 && (rising || game.player.onGround);
       game.jumpPressedEdge = false;
       game.update(1 / 60);
       if (game.player.position.y < minY) {
         minY = game.player.position.y;
       }
-    }
-    // 岛在天空层里（前 skyRows 行以内），角色至少要升到那一带。
+    } // 岛在天空层里（前 skyRows 行以内），角色至少要升到那一带。
     expect(
       minY,
       lessThan(LevelCatalog.skyRows * tile),

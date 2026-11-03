@@ -562,6 +562,75 @@ class TerrainRenderer extends PositionComponent {
       final jitter = (_sceneValue(sceneSeed, x.round(), 9) % 61) - 30.0;
       set.$2(canvas, x + jitter);
     }
+    if (groundY > 700) {
+      _drawSkySong(canvas);
+    }
+  }
+
+  /// 有天空层的关卡：高处再挂一些这首歌的意象（飘在云层里，不参与碰撞）。
+  void _drawSkySong(Canvas canvas) {
+    // 下面的装饰函数都以 groundY 为基准，把它们整体抬到天空层中部。
+    canvas.save();
+    canvas.translate(0, -(groundY - 430));
+    for (var x = 340.0; x < mapWidth - 100; x += 520) {
+      final jitter = (_sceneValue(sceneSeed, x.round(), 11) % 101) - 50.0;
+      final px = x + jitter;
+      switch (palette.name) {
+        case '草莓甜点' || '焦糖矿山':
+          // 空中的马蹄铁
+          canvas.drawArc(
+            Rect.fromCenter(
+              center: Offset(px, groundY - 120),
+              width: 70,
+              height: 70,
+            ),
+            math.pi * 0.15,
+            math.pi * 1.7,
+            false,
+            Paint()
+              ..color = const Color(0xFFB8B0C8).withValues(alpha: 0.85)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 9
+              ..strokeCap = StrokeCap.round,
+          );
+        case '薄荷汽水':
+          _drawCloudQuestion(canvas, px);
+        case '香芋星空' || '玫瑰城堡' || '蓝莓峡谷':
+          _drawCrescentSleep(canvas, px);
+          canvas.drawCircle(
+            Offset(px + 110, groundY - 210),
+            3.5,
+            Paint()..color = Colors.white.withValues(alpha: 0.8),
+          );
+          canvas.drawCircle(
+            Offset(px - 90, groundY - 130),
+            2.5,
+            Paint()..color = Colors.white.withValues(alpha: 0.7),
+          );
+        case '柠檬沙滩':
+          // 初升的太阳：半圆加射线
+          final c = Offset(px, groundY - 120);
+          canvas.drawCircle(
+            c,
+            34,
+            Paint()..color = const Color(0xFFFFE08A).withValues(alpha: 0.8),
+          );
+          for (var i = 0; i < 9; i++) {
+            final a = math.pi * (1 + i / 8);
+            canvas.drawLine(
+              c + Offset(math.cos(a), math.sin(a)) * 44,
+              c + Offset(math.cos(a), math.sin(a)) * 62,
+              Paint()
+                ..color = const Color(0xFFFFD36B).withValues(alpha: 0.8)
+                ..strokeWidth = 5
+                ..strokeCap = StrokeCap.round,
+            );
+          }
+        default:
+          _drawMorningMist(canvas, px);
+      }
+    }
+    canvas.restore();
   }
 
   void _songText(

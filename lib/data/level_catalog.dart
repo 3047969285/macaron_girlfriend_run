@@ -47,21 +47,27 @@ class LevelCatalog {
     // 只检查路线真正要用到的格子：起跳弹簧的竖直通道，
     // 以及第一块平台和它上方的通道。别的地方有浮空平台也没关系。
     bool windowFree(int x0) {
-      // 地面上的怪、弹簧离出发点要留出 8 格以上的空档。
-      for (var x = x0 - 8; x < x0 + 14; x++) {
-        if (x >= 0 && x < width && 'AEGRTLYJBSW'.contains(rows[surface][x])) {
+      // 地面上的怪、弹簧、检查点离出发点要留出空档。
+      for (var x = x0 - 4; x < x0 + 9; x++) {
+        if (x >= 0 && x < width && 'AEGRTLYJBSWKV'.contains(rows[surface][x])) {
           return false;
         }
       }
-      // 前后各留 6 格实心地面，别和坑的起跳 / 落地区重叠。
-      for (var x = x0 - 6; x < x0 + 14; x++) {
+      // 前后各留几格实心地面，别和坑的起跳 / 落地区重叠。
+      for (var x = x0 - 4; x < x0 + 9; x++) {
         if (x < 0 || x >= width || rows[height - 2][x] != '#') {
           return false;
         }
       }
-      // 起跳平台在地面上方两格（下面照常能走过去），弹簧在它上面。
-      for (var x = x0; x <= x0 + 5; x++) {
+      // 起跳平台在地面上方两格（下面照常能走过去），弹簧在它上面；
+      // 只检查路线真正要用的通道：弹簧上方到第一块平台，以及平台上方。
+      for (var x = x0 + 1; x <= x0 + 4; x++) {
         if (!free(x, 0, 8)) {
+          return false;
+        }
+      }
+      for (var x = x0 + 5; x <= x0 + 5; x++) {
+        if (!free(x, 0, 3)) {
           return false;
         }
       }
