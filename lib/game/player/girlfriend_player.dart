@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart'
     show drawCarLabel;
+import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 /// 甜妹平台跳跃主角
@@ -274,6 +275,36 @@ class GirlfriendPlayer extends PositionComponent {
       _drawVehicle(canvas);
     }
 
+    if (role == PlayerRole.girlfriend && HeroSprites.ready) {
+      _drawHeroSprite(
+        canvas,
+        running: running,
+        falling: falling,
+        rising: rising,
+      );
+      if (holdingCandyGun) {
+        _drawCandyGun(canvas);
+      }
+      if (superMode) {
+        // 眼睛发红光（头部在站立高度的约 92% 处）。
+        for (final dx in const [-1.0, 4.0]) {
+          canvas.drawCircle(
+            Offset(dx + 3, -_spriteHeight * 0.915),
+            3.0,
+            Paint()
+              ..color = const Color(0xFFFF4040).withValues(alpha: 0.75)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+          );
+        }
+      }
+      canvas.restore();
+      if (gumBubble) {
+        _drawGumBubble(canvas);
+      }
+      canvas.restore();
+      return;
+    }
+
     canvas.save();
     canvas.scale(1.1, 1.1);
     final faceCenter = Offset(0, -size.y * 0.78);
@@ -351,6 +382,53 @@ class GirlfriendPlayer extends PositionComponent {
       );
     }
     canvas.restore();
+  }
+
+  /// 立绘里站立的人物在屏幕上的高度（含头发）。
+  double get _spriteHeight => size.y * 1.62;
+
+  void _drawHeroSprite(
+    Canvas canvas, {
+    required bool running,
+    required bool falling,
+    required bool rising,
+  }) {
+    final HeroPose pose;
+    if (ducking) {
+      pose = HeroPose.duck;
+    } else if (pounding || falling) {
+      pose = HeroPose.fall;
+    } else if (rising) {
+      pose = HeroPose.jump;
+    } else if (running) {
+      // 跑步循环：四帧依次播放，速度跟着 _anim 走。
+      const cycle = [
+        HeroPose.run1,
+        HeroPose.run2,
+        HeroPose.run3,
+        HeroPose.run4,
+      ];
+      pose = cycle[((_anim * 0.55).floor() % 4 + 4) % 4];
+    } else {
+      pose = HeroPose.stand;
+    }
+    HeroSprites.draw(canvas, pose, _spriteHeight);
+  }
+
+  void _drawGumBubble(Canvas canvas) {
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.55),
+      size.y * 0.78,
+      Paint()..color = MacaronColors.blush.withValues(alpha: 0.28),
+    );
+    canvas.drawCircle(
+      Offset(0, -size.y * 0.55),
+      size.y * 0.78,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
   }
 
   void _drawCape(Canvas canvas) {

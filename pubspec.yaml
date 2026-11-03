@@ -68,6 +68,7 @@ flutter:
     - assets/audio/meme_gum.mp4
     - assets/audio/meme_orchid.mp4
     - assets/audio/meme_mamba_out.mp4
+    - assets/character/
     - assets/audio/bgm_5am20.mp3
     - assets/audio/bgm_jingqiaoqiao.mp3
     - assets/audio/bgm_lost.mp3

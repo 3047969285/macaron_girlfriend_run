@@ -283,10 +283,44 @@ class _HeroFigureState extends State<_HeroFigure> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _HeroPainter(_player),
-    child: const SizedBox.expand(),
-  );
+  Widget build(BuildContext context) {
+    if (widget.role != PlayerRole.girlfriend) {
+      return CustomPaint(
+        painter: _HeroPainter(_player),
+        child: const SizedBox.expand(),
+      );
+    }
+    // 女主用写实立绘（透明背景 PNG），脚下垫一圈柔和的地面阴影。
+    return LayoutBuilder(
+      builder: (context, c) {
+        final h = c.maxHeight * 0.92;
+        return Stack(
+          children: [
+            Align(
+              alignment: const Alignment(0, 0.9),
+              child: Container(
+                width: h * 0.4,
+                height: h * 0.045,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(h),
+                  color: const Color(0xFF2E2433).withValues(alpha: 0.16),
+                ),
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.93),
+              child: Image.asset(
+                'assets/character/hero.png',
+                height: h,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _HeroPainter extends CustomPainter {
