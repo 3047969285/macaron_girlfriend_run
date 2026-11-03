@@ -263,6 +263,38 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return;
     }
     _busy = true;
+    if (widget.levelIndex == GameConstants.depthLevelIndex) {
+      // 歌曲深处不占 99 关进度：只记糖果和成绩统计。
+      await SaveService.instance.addRunStats(
+        coins: result.coins,
+        score: result.score,
+        kills: result.kills,
+        cleared: false,
+        bossCleared: false,
+      );
+      if (!mounted) {
+        return;
+      }
+      await showMacaronDialog<void>(
+        context: context,
+        landscape: true,
+        title: '${List.filled(result.stars, '★').join()} 到底了',
+        body:
+            '${WorldCatalog.paletteOf(widget.worldIndex).displayName} · 歌曲深处\n'
+            '分数 ${result.score} · 糖果 ${result.coins}/${game.totalCoins}',
+        actions: [
+          MacaronDialogAction(
+            label: '选关',
+            primary: true,
+            onPressed: (ctx) {
+              Navigator.pop(ctx);
+              _goToLevelSelect();
+            },
+          ),
+        ],
+      );
+      return;
+    }
     final global = SaveService.toGlobal(widget.worldIndex, widget.levelIndex);
     await SaveService.instance.setStars(global, result.stars);
     await SaveService.instance.setBestScore(global, result.score);

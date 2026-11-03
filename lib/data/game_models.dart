@@ -35,6 +35,10 @@ class GameConstants {
 
   static const int worldCount = 9;
   static const int levelsPerWorld = 11;
+
+  /// 每个世界在 11 关之外的「歌曲深处」：从高处一路往下走的纵向关卡。
+  /// 不计入 99 关进度，通关世界 Boss 后解锁。
+  static const int depthLevelIndex = levelsPerWorld;
   static const int totalLevels = worldCount * levelsPerWorld;
   static const int maxDifficulty =
       worldCount + (levelsPerWorld - 1) ~/ 3 + 2 + (worldCount - 1) ~/ 3;

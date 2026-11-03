@@ -127,6 +127,9 @@ class LevelNames {
   /// 获取关卡显示名
   static String of(int world, int level) {
     final w = world.clamp(0, GameConstants.worldCount - 1);
+    if (level == GameConstants.depthLevelIndex) {
+      return '歌曲深处';
+    }
     final l = level.clamp(0, GameConstants.levelsPerWorld - 1);
     return _byWorld[w][l];
   }

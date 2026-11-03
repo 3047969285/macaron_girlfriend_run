@@ -493,8 +493,81 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.2,
                 ),
-                itemCount: GameConstants.levelsPerWorld,
+                itemCount: GameConstants.levelsPerWorld + 1,
                 itemBuilder: (_, level) {
+                  if (level == GameConstants.depthLevelIndex) {
+                    // 第 12 格：通关本世界 Boss 后解锁的「歌曲深处」（向下的纵向关）。
+                    final open =
+                        unlocked >= (world + 1) * GameConstants.levelsPerWorld;
+                    return GestureDetector(
+                      onTap: open
+                          ? () =>
+                                Navigator.push(
+                                  context,
+                                  CupertinoPageRoute<void>(
+                                    builder: (_) => PlayPage(
+                                      worldIndex: world,
+                                      levelIndex: GameConstants.depthLevelIndex,
+                                    ),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) {
+                                    setState(() {});
+                                  }
+                                })
+                          : null,
+                      child: Opacity(
+                        opacity: open ? 1 : 0.4,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.white,
+                                Color.lerp(palette.ground, Colors.white, 0.2)!,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: palette.accent.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                open ? '↓' : '🔒',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: MacaronColors.cocoa,
+                                ),
+                              ),
+                              Text(
+                                '歌曲深处',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: MacaronColors.cocoa,
+                                ),
+                              ),
+                              Text(
+                                open ? '一路向下' : '通关 Boss 解锁',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: MacaronColors.cocoa.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final global = SaveService.toGlobal(world, level);
                   final locked = global > unlocked;
                   final stars = SaveService.instance.starsOf(global);

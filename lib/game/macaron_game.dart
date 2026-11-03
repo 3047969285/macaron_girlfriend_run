@@ -450,7 +450,7 @@ class MacaronGame extends FlameGame {
   /// 在附近第一块有地面且上方留空的列上方两格放置，避开敌人出生点。
   void _placeBonusPickups(double tile) {
     if (!spawnBonusPickups ||
-        level.levelIndex == GameConstants.levelsPerWorld - 1) {
+        level.levelIndex >= GameConstants.levelsPerWorld - 1) {
       return; // Boss 关保持原有节奏。
     }
     final plan = <(BonusKind, double)>[

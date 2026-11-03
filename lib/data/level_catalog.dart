@@ -9,6 +9,15 @@ class LevelCatalog {
 
   static LevelData load(int worldIndex, int levelIndex) {
     final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return LevelData(
+        worldIndex: w,
+        levelIndex: GameConstants.depthLevelIndex,
+        title: LevelNames.fullTitle(w, GameConstants.depthLevelIndex),
+        rows: _buildDepthRows(w),
+        difficulty: _difficulty(w, 5),
+      );
+    }
     final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
     final rows = _addSkyLayer(_buildRows(w, l), w, l);
     return LevelData(
@@ -18,6 +27,68 @@ class LevelCatalog {
       rows: rows,
       difficulty: _difficulty(w, l),
     );
+  }
+
+  /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着左右交错的平台
+  /// 一层层往下，每层都有糖果，中途有检查点；最底下一条长地面，旗杆在右端。
+  /// 平台每层相隔 5 行（一次跳跃的高度以内），两层在边缘处重叠 4 格，
+  /// 从边缘走下去必定落在下一层上。
+  static const int depthWidth = 72;
+  static const int depthHeight = 48;
+
+  static List<String> _buildDepthRows(int world) {
+    const width = depthWidth;
+    const height = depthHeight;
+    final grid = List.generate(height, (_) => List.filled(width, ' '));
+    // 两侧的墙。
+    for (var y = 0; y < height; y++) {
+      grid[y][0] = '#';
+      grid[y][width - 1] = '#';
+    }
+    // 底部长地面。
+    for (var x = 0; x < width; x++) {
+      grid[height - 1][x] = '#';
+      grid[height - 2][x] = '#';
+    }
+    const layers = 8;
+    const platformLen = 34;
+    final firstRow = 6;
+    for (var k = 0; k < layers; k++) {
+      final row = firstRow + k * 5;
+      final x0 = k.isEven ? 4 : 34;
+      for (var x = x0; x < x0 + platformLen; x++) {
+        grid[row][x] = '=';
+      }
+      // 糖果沿平台摆开，方向跟着走向（偶数层向右，奇数层向左）。
+      for (var i = 0; i < 8; i++) {
+        final cx = k.isEven ? x0 + 4 + i * 3 : x0 + platformLen - 5 - i * 3;
+        grid[row - 1][cx] = 'C';
+      }
+      // 每隔一层在平台中段放检查点；第 4 层放一颗心，第 6 层放能量马卡龙。
+      if (k == 3 || k == 5) {
+        grid[row - 1][x0 + platformLen ~/ 2] = 'K';
+      }
+      if (k == 2) {
+        grid[row - 1][x0 + platformLen ~/ 2] = 'H';
+      }
+      if (k == 6) {
+        grid[row - 1][x0 + platformLen ~/ 2] = 'M';
+      }
+    }
+    // 出生点：最高平台的左端。
+    grid[firstRow - 1][6] = 'P';
+    // 底部：几只慢走怪，旗杆在右端。
+    final surface = height - 3;
+    for (final x in [24, 36, 48]) {
+      grid[surface][x] = 'E';
+    }
+    grid[surface][width - 3] = 'F';
+    for (var x = 8; x < width - 8; x += 6) {
+      if (grid[surface][x] == ' ') {
+        grid[surface][x] = 'C';
+      }
+    }
+    return [for (final r in grid) r.join()];
   }
 
   /// 天空层行数：地面关卡上方再加的高度，角色可以沿弹簧路线飞上去。
