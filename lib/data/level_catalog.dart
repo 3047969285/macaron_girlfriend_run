@@ -80,13 +80,13 @@ class LevelCatalog {
     }
 
     final start = ((width * (0.38 + 0.04 * (world % 4))).round()).clamp(
-      14,
-      width - 40,
+      6,
+      width - 24,
     );
     int? x0;
     for (var d = 0; d < width && x0 == null; d++) {
       for (final x in [start + d, start - d]) {
-        if (x >= 14 && x <= width - 40 && windowFree(x)) {
+        if (x >= 6 && x <= width - 24 && windowFree(x)) {
           x0 = x;
           break;
         }
