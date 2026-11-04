@@ -50,6 +50,6 @@ void main() {
             'world $world should change its playable route between chapters',
       );
     }
-    expect(levelsWithLyricRoutes, greaterThanOrEqualTo(75));
+    expect(levelsWithLyricRoutes, 99);
   });
 }
