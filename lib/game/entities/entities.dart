@@ -320,6 +320,12 @@ class SoftEnemy extends PositionComponent {
   double _swoopRecoveryTimer = 0;
   double _swoopTargetX = 0;
   bool dead = false;
+  late final Paint _bodyPaint = Paint()
+    ..shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color.lerp(_bodyColor, Colors.white, 0.38)!, _bodyColor],
+    ).createShader(Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y));
 
   bool get isGuarding => kind == EnemyKind.shell && _guardTimer > 0;
 
@@ -616,7 +622,8 @@ class SoftEnemy extends PositionComponent {
       );
       return;
     }
-    final squash = 1 + math.sin(_wobble) * 0.06;
+    final squash =
+        1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.09 : 0);
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     // 落地阴影：飞行、弹跳时留在地面上，和人物的阴影一致。
@@ -646,7 +653,20 @@ class SoftEnemy extends PositionComponent {
           ..strokeWidth = 3,
       );
     }
+    if (_flash > 0) {
+      canvas.saveLayer(
+        null,
+        Paint()
+          ..colorFilter = ColorFilter.mode(
+            Colors.white.withValues(
+              alpha: (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+            ),
+            BlendMode.srcATop,
+          ),
+      );
+    }
     _drawSilhouette(canvas);
+    if (_flash > 0) canvas.restore();
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 15);
       final badge = RRect.fromRectAndRadius(
@@ -792,12 +812,7 @@ class SoftEnemy extends PositionComponent {
 
   void _drawSilhouette(Canvas canvas) {
     // 身体由上到下从提亮到本色，带出立体感。
-    final body = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color.lerp(_bodyColor, Colors.white, 0.38)!, _bodyColor],
-      ).createShader(Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y));
+    final body = _bodyPaint;
     final cream = Paint()..color = MacaronColors.cream;
     switch (kind) {
       case EnemyKind.walker:
@@ -2001,7 +2016,8 @@ class MacaronBoss extends PositionComponent {
       );
       return;
     }
-    final squash = 1 + math.sin(_wobble) * 0.05;
+    final squash =
+        1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.08 : 0);
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale((dir >= 0 ? 1.0 : -1.0) * squash, 1 / squash);
@@ -2014,7 +2030,12 @@ class MacaronBoss extends PositionComponent {
         ),
         const Radius.circular(18),
       ),
-      Paint()..color = enraged ? MacaronColors.rose : MacaronColors.lilac,
+      Paint()
+        ..color = Color.lerp(
+          enraged ? MacaronColors.rose : MacaronColors.lilac,
+          Colors.white,
+          (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+        )!,
     );
     canvas.drawCircle(
       Offset(-14, -size.y * 0.55),

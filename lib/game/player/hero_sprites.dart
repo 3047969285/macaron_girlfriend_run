@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -23,6 +24,45 @@ class HeroFrame {
 }
 
 enum HeroPose { stand, run1, run2, run3, run4, jump, fall, duck }
+
+class HeroPoseAnimator {
+  HeroPose? current;
+  HeroPose? previous;
+  double _age = 0;
+  double _impulseAge = 1;
+  double _impulse = 0;
+
+  double get blend {
+    final t = (_age / 0.14).clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
+
+  double get stretch => 1 + _impulse * math.exp(-_impulseAge * 10);
+
+  void advance(HeroPose pose, double dt) {
+    if (current == null) {
+      current = previous = pose;
+      _age = 0.14;
+    } else if (current != pose) {
+      previous = current;
+      final airborne = current == HeroPose.jump || current == HeroPose.fall;
+      final landing =
+          airborne && pose != HeroPose.jump && pose != HeroPose.fall;
+      if (pose == HeroPose.jump && !airborne) {
+        _impulse = 0.12;
+        _impulseAge = 0;
+      } else if (landing) {
+        _impulse = -0.13;
+        _impulseAge = 0;
+      }
+      current = pose;
+      _age = 0;
+    }
+    final elapsed = math.max(0.0, dt);
+    _age += elapsed;
+    _impulseAge += elapsed;
+  }
+}
 
 class HeroSprites {
   HeroSprites._();
@@ -49,6 +89,9 @@ class HeroSprites {
 
   static final Map<HeroPose, ui.Image> _images = {};
   static Future<void>? _loading;
+  static final HeroPoseAnimator _animator = HeroPoseAnimator();
+  static final Stopwatch _clock = Stopwatch()..start();
+  static Duration? _lastDraw;
 
   static bool get ready => _images.length == frames.length;
 
@@ -78,6 +121,28 @@ class HeroSprites {
     double standHeight, {
     double alpha = 1,
   }) {
+    final now = _clock.elapsed;
+    final elapsed = _lastDraw == null
+        ? 0.0
+        : (now - _lastDraw!).inMicroseconds / Duration.microsecondsPerSecond;
+    _lastDraw = now;
+    _animator.advance(pose, elapsed > 0.25 ? 0 : elapsed);
+    canvas.save();
+    canvas.scale(1 / _animator.stretch, _animator.stretch);
+    final blend = _animator.blend;
+    if (_animator.previous != pose && blend < 1) {
+      _drawFrame(canvas, _animator.previous!, standHeight, alpha * (1 - blend));
+    }
+    _drawFrame(canvas, pose, standHeight, alpha * blend);
+    canvas.restore();
+  }
+
+  static void _drawFrame(
+    ui.Canvas canvas,
+    HeroPose pose,
+    double standHeight,
+    double alpha,
+  ) {
     final image = _images[pose];
     final frame = frames[pose];
     if (image == null || frame == null) {

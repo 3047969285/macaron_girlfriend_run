@@ -2546,6 +2546,14 @@ class MacaronGame extends FlameGame {
   /// 左下角的轮盘不会挡住人物，前方的路也看得更远。
   static const double cameraLeadBias = 0.12;
 
+  @visibleForTesting
+  static double dampCamera(
+    double current,
+    double target,
+    double rate,
+    double dt,
+  ) => current + (target - current) * (1 - math.exp(-rate * math.max(0, dt)));
+
   void _updateCamera(double dt) {
     if (size.x <= 0 || size.y <= 0) {
       return;
@@ -2559,12 +2567,12 @@ class MacaronGame extends FlameGame {
         (player.facingRight ? 1.0 : -1.0) *
         GameConstants.cameraLookAhead *
         (player.wantsRun ? 1.0 : 0.55);
-    _lookAhead += (wantLook - _lookAhead) * (6 * dt).clamp(0.0, 1.0);
+    _lookAhead = dampCamera(_lookAhead, wantLook, 6, dt);
     var cx = player.position.x + _lookAhead + size.x * cameraLeadBias;
     var cy = player.position.y + 30;
     if (_shakeTimer > 0) {
       final s = _shakeMag * (_shakeTimer / 0.18);
-      final amp = GameConstants.cameraShakeMax * s;
+      final amp = GameConstants.cameraShakeMax * s * 0.3;
       cx += math.sin(_shakeTimer * 42) * amp;
       cy += math.cos(_shakeTimer * 38) * amp * 0.7;
     }
@@ -2575,10 +2583,9 @@ class MacaronGame extends FlameGame {
     cx = cx.clamp(minX, maxX);
     cy = cy.clamp(minY, maxY);
     final cur = camera.viewfinder.position;
-    final follow = (10 * dt).clamp(0.0, 1.0);
     camera.viewfinder.position = Vector2(
-      cur.x + (cx - cur.x) * follow,
-      cur.y + (cy - cur.y) * follow,
+      dampCamera(cur.x, cx, 8, dt),
+      dampCamera(cur.y, cy, 8, dt),
     );
     parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
     ambient?.syncViewport(camera.viewfinder.position.x, size.x);
@@ -2604,16 +2611,28 @@ class MacaronGame extends FlameGame {
     return stars;
   }
 
+  Paint? _skyPaint;
+  Size? _skySize;
+  Color? _skyTop;
+  Color? _skyBottom;
+
   @override
   void render(Canvas canvas) {
     final rect = Offset.zero & size.toSize();
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [palette.skyTop, palette.skyBottom],
-      ).createShader(rect);
-    canvas.drawRect(rect, paint);
+    if (_skySize != rect.size ||
+        _skyTop != palette.skyTop ||
+        _skyBottom != palette.skyBottom) {
+      _skySize = rect.size;
+      _skyTop = palette.skyTop;
+      _skyBottom = palette.skyBottom;
+      _skyPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [palette.skyTop, palette.skyBottom],
+        ).createShader(rect);
+    }
+    canvas.drawRect(rect, _skyPaint!);
     super.render(canvas);
   }
 }

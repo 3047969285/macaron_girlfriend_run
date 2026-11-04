@@ -29,8 +29,13 @@ class _SplashPageState extends State<SplashPage>
         context,
         PageRouteBuilder<void>(
           pageBuilder: (_, __, ___) => const HomePage(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
+          transitionsBuilder: (_, anim, __, child) => FadeTransition(
+            opacity: CurvedAnimation(
+              parent: anim,
+              curve: Curves.easeInOutCubic,
+            ),
+            child: child,
+          ),
           transitionDuration: const Duration(milliseconds: 450),
         ),
       );
