@@ -31,6 +31,32 @@ class HeroPoseAnimator {
   double _age = 0;
   double _impulseAge = 1;
   double _impulse = 0;
+  double _distance = 0;
+  double _elapsed = 0;
+
+  static const double strideLength = 96;
+  double get stridePhase => (_distance % strideLength) / strideLength;
+  double get idleScale => 1 + math.sin(_elapsed * 2.4) * 0.012;
+  double get runBob => math.sin(stridePhase * math.pi * 4) * 1.4;
+  double get runLean => 0.035 + math.sin(stridePhase * math.pi * 2) * 0.012;
+  HeroPose get runPose => const [
+    HeroPose.run1,
+    HeroPose.run2,
+    HeroPose.run3,
+    HeroPose.run4,
+  ][(stridePhase * 4).floor().clamp(0, 3)];
+
+  void move(double distance, double dt, {required bool running}) {
+    _elapsed += math.max(0.0, dt);
+    if (running) _distance += distance.abs();
+  }
+
+  List<(HeroPose, double)> layers(double alpha) => [
+    if (previous != null && previous != current && blend < 1)
+      (previous!, alpha),
+    if (current != null)
+      (current!, previous == current ? alpha : alpha * blend),
+  ];
 
   double get blend {
     final t = (_age / 0.14).clamp(0.0, 1.0);
@@ -89,9 +115,6 @@ class HeroSprites {
 
   static final Map<HeroPose, ui.Image> _images = {};
   static Future<void>? _loading;
-  static final HeroPoseAnimator _animator = HeroPoseAnimator();
-  static final Stopwatch _clock = Stopwatch()..start();
-  static Duration? _lastDraw;
 
   static bool get ready => _images.length == frames.length;
 
@@ -117,23 +140,15 @@ class HeroSprites {
   /// 画一帧：脚底落在 (0, 0)，身体中心在 x = 0；[standHeight] 是站立时人物的屏幕高度。
   static void draw(
     ui.Canvas canvas,
-    HeroPose pose,
     double standHeight, {
+    required HeroPoseAnimator animator,
     double alpha = 1,
   }) {
-    final now = _clock.elapsed;
-    final elapsed = _lastDraw == null
-        ? 0.0
-        : (now - _lastDraw!).inMicroseconds / Duration.microsecondsPerSecond;
-    _lastDraw = now;
-    _animator.advance(pose, elapsed > 0.25 ? 0 : elapsed);
     canvas.save();
-    canvas.scale(1 / _animator.stretch, _animator.stretch);
-    final blend = _animator.blend;
-    if (_animator.previous != pose && blend < 1) {
-      _drawFrame(canvas, _animator.previous!, standHeight, alpha * (1 - blend));
+    canvas.scale(1 / animator.stretch, animator.stretch);
+    for (final (frame, opacity) in animator.layers(alpha)) {
+      _drawFrame(canvas, frame, standHeight, opacity);
     }
-    _drawFrame(canvas, pose, standHeight, alpha * blend);
     canvas.restore();
   }
 

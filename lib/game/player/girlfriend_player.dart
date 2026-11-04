@@ -56,6 +56,10 @@ class GirlfriendPlayer extends PositionComponent {
   bool _eyesClosed = false;
   double _plantShotTimer = 0;
   double _wheelSpin = 0;
+  @visibleForTesting
+  final HeroPoseAnimator spriteAnimator = HeroPoseAnimator()
+    ..advance(HeroPose.stand, 0);
+  double? _lastSpriteX;
 
   void plantFired({required bool toRight}) {
     plantFacingRight = toRight;
@@ -157,6 +161,25 @@ class GirlfriendPlayer extends PositionComponent {
 
   @override
   void update(double dt) {
+    final lastX = _lastSpriteX ?? position.x;
+    final dx = position.x - lastX;
+    _lastSpriteX = position.x;
+    final running = velocity.x.abs() > 10 && visuallyGrounded && !ducking;
+    spriteAnimator.move(
+      dx.abs() <= HeroPoseAnimator.strideLength * 4 ? dx : 0,
+      dt,
+      running: running,
+    );
+    final pose = ducking
+        ? HeroPose.duck
+        : pounding || (!visuallyGrounded && velocity.y > 90 && !skillDashing)
+        ? HeroPose.fall
+        : !visuallyGrounded && velocity.y < -90 && !skillDashing
+        ? HeroPose.jump
+        : running
+        ? spriteAnimator.runPose
+        : HeroPose.stand;
+    spriteAnimator.advance(pose, dt);
     if (isDriving) {
       _wheelSpin = (_wheelSpin + velocity.x.abs() * dt / 7) % (math.pi * 2);
     }
@@ -397,26 +420,15 @@ class GirlfriendPlayer extends PositionComponent {
     required bool falling,
     required bool rising,
   }) {
-    final HeroPose pose;
-    if (ducking) {
-      pose = HeroPose.duck;
-    } else if (pounding || falling) {
-      pose = HeroPose.fall;
-    } else if (rising) {
-      pose = HeroPose.jump;
-    } else if (running) {
-      // 跑步循环：四帧依次播放，速度跟着 _anim 走。
-      const cycle = [
-        HeroPose.run1,
-        HeroPose.run2,
-        HeroPose.run3,
-        HeroPose.run4,
-      ];
-      pose = cycle[((_anim * 0.55).floor() % 4 + 4) % 4];
-    } else {
-      pose = HeroPose.stand;
+    canvas.save();
+    if (running) {
+      canvas.translate(0, spriteAnimator.runBob);
+      canvas.rotate(spriteAnimator.runLean);
+    } else if (!falling && !rising && !ducking && !pounding) {
+      canvas.scale(1, spriteAnimator.idleScale);
     }
-    HeroSprites.draw(canvas, pose, _spriteHeight);
+    HeroSprites.draw(canvas, _spriteHeight, animator: spriteAnimator);
+    canvas.restore();
   }
 
   void _drawGumBubble(Canvas canvas) {

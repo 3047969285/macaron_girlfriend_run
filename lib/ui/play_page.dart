@@ -278,6 +278,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       await showMacaronDialog<void>(
         context: context,
         landscape: true,
+        celebration: true,
         title: '${List.filled(result.stars, '★').join()} 到底了',
         body:
             '${WorldCatalog.paletteOf(widget.worldIndex).displayName} · 歌曲深处\n'
@@ -326,6 +327,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       await showMacaronDialog<void>(
         context: context,
         landscape: true,
+        celebration: true,
         title: '💍 蜜月彩虹通关！',
         body:
             '你推开了全部 99 扇甜蜜大门\n'
@@ -350,6 +352,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       await showMacaronDialog<void>(
         context: context,
         landscape: true,
+        celebration: true,
         title: '🌍 世界通关！',
         body:
             '${WorldCatalog.paletteOf(widget.worldIndex).displayName} 已收官\n'
@@ -391,6 +394,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     await showMacaronDialog<void>(
       context: context,
       landscape: true,
+      celebration: true,
       title: '${List.filled(result.stars, '★').join()} 过关',
       body:
           '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
