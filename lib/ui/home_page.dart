@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
@@ -452,6 +453,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
       body:
           '${WorldCatalog.paletteOf(world).displayName}\n'
           '$name\n'
+          '${isBoss ? '' : '${LyricWorld.chapterFor(world, level).name}\n'}'
           '$starLine\n'
           '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
           '进关后可暂停查看三星条件',

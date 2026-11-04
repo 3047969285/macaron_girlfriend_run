@@ -7,6 +7,7 @@ import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/effects/fx_layer.dart';
 import 'package:macaron_girlfriend_run/game/effects/parallax_layer.dart';
@@ -432,6 +433,10 @@ class MacaronGame extends FlameGame {
         mapWidth: mapWidth,
         groundY: groundY,
         sceneSeed: sceneSeed,
+        lyricChapter: levelIndex < GameConstants.depthLevelIndex
+            ? LyricWorld.chapterFor(worldIndex, levelIndex)
+            : null,
+        scenes: LevelCatalog.scenesOf(worldIndex, levelIndex),
       ),
     );
     for (final component in <Component>[

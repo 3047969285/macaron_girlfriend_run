@@ -1,0 +1,77 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/data/level_catalog.dart';
+import 'package:macaron_girlfriend_run/data/level_scenes.dart';
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
+import 'package:macaron_girlfriend_run/game/render/terrain_renderer.dart';
+
+void main() {
+  test(
+    'every song has three narrative chapters and matching scene choices',
+    () {
+      expect(LyricWorld.chapters.length, SongProfile.songs.length);
+      for (var world = 0; world < 9; world++) {
+        final chapters = [
+          for (final level in [0, 4, 8]) LyricWorld.chapterFor(world, level),
+        ];
+        expect(chapters.map((c) => c.name).toSet(), hasLength(3));
+        final preferred =
+            LyricWorld.preferredSceneKinds[SongProfile.songIndexOf(world)];
+        for (var phase = 0; phase < 3; phase++) {
+          expect(
+            LyricWorld.sceneBias(world, [0, 4, 8][phase], preferred[phase]),
+            greaterThan(0),
+          );
+          expect(LevelCatalog.scenesOf(world, [0, 4, 8][phase]), isNotEmpty);
+        }
+      }
+      var matchingPlans = 0;
+      for (var world = 0; world < 9; world++) {
+        for (var level = 0; level < 11; level++) {
+          final kind = SceneKind.values[LyricWorld.preferredScene(world, level)];
+          if (LevelScenes.planKinds(world, level).contains(kind)) matchingPlans++;
+        }
+      }
+      expect(matchingPlans, greaterThanOrEqualTo(85));
+    },
+  );
+
+  test(
+    'landmarks create distinct images at playable scene positions',
+    () async {
+      final signatures = <String>{};
+      final scenes = LevelCatalog.scenesOf(0, 0);
+      final first = scenes.first;
+      for (final landmark in LyricLandmark.values) {
+        final renderer = TerrainRenderer(
+          solids: const [],
+          palette: WorldCatalog.paletteOf(0),
+          mapWidth: 2000,
+          groundY: 400,
+          sceneSeed: 1,
+          lyricChapter: LyricChapter('test', landmark),
+          scenes: [first],
+        );
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder)
+          ..translate(
+            -(first.x + first.width / 2) * GameConstants.tileSize + 120,
+            0,
+          );
+        renderer.render(canvas);
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(240, 400);
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        signatures.add(base64Encode(data!.buffer.asUint8List()));
+        image.dispose();
+        picture.dispose();
+      }
+      expect(signatures, hasLength(LyricLandmark.values.length));
+    },
+  );
+}

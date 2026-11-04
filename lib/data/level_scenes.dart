@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/data/song_profile.dart';
 
 /// 场景种类，顺序与 [LevelScenes.kindWeights] 的列一致。
@@ -135,7 +136,9 @@ class LevelScenes {
         SongProfile.levelEnergyAt(world, level, (c - _lo) / (_hi(width) - _lo)) + rnd.nextDouble() * 0.2 - 0.1,
     ];
     final slotRank = [for (var i = 0; i < n; i++) i]..sort((a, b) => loud[a].compareTo(loud[b]));
-    final byLoudness = [...raw]..sort((a, b) => kindLoudness[a.index].compareTo(kindLoudness[b.index]));
+    final byLoudness = [...raw]..sort((a, b) =>
+      (kindLoudness[a.index] + LyricWorld.sceneBias(world, level, a.index)).compareTo(
+        kindLoudness[b.index] + LyricWorld.sceneBias(world, level, b.index)));
     final out = [...raw];
     for (var r = 0; r < n; r++) {
       out[slotRank[r]] = byLoudness[r];
@@ -326,6 +329,14 @@ class LevelScenes {
         final most = bag.reduce(math.max);
         bag[_pick(rnd, [for (var j = 0; j < n; j++) if (bag[j] == most) j], wts)]--;
         bag[coin]++;
+      }
+      final story = LyricWorld.preferredScene(world, level);
+      if (bag[story] == 0) {
+        final candidates = [for (var j = 0; j < n; j++) if (bag[j] > 1 && j != coin) j];
+        if (candidates.isNotEmpty) {
+          bag[_pick(rnd, candidates, wts)]--;
+          bag[story]++;
+        }
       }
       final seq = <SceneKind>[];
       for (var i = 0; i < count; i++) {
