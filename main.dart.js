@@ -87256,14 +87256,14 @@ i=m.ir(B.q,1.25,i,16,"\u6211\u4ece\u5c71\u4e2d\u6765\uff0c\u5e26\u7740\u5170\u82
 if(l.length>=32)m.je(B.b.fe(l,0))
 l.push(i)
 break}q.$0()}},
-aaq(){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d=this,c=d.O
-c===$&&A.a()
-s=c.R8?1:-1
-r=c.x2?40:68
+aaq(){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c=this,b=c.O
+b===$&&A.a()
+s=b.R8?1:-1
+r=b.x2?40:68
 q=new A.M(new Float32Array(2))
 q.ba(s*8,-r*0.8)
-p=c.ax.e.M(0,q)
-for(c=d.d8,r=c.length,q=d.O,o=null,n=420,m=0;m<r;++m){l=c[m]
+p=b.ax.e.M(0,q)
+for(b=c.d8,r=b.length,q=c.O,o=null,n=420,m=0;m<r;++m){l=b[m]
 if(l.a6)continue
 k=l.ax.e.a
 j=q.ax.e.a
@@ -87272,41 +87272,42 @@ k=k[1]
 j=j[1]
 if(i<0||i>n||Math.abs(k-j)>150)continue
 n=i
-o=l}h=d.fT
+o=l}h=c.fT
 r=h==null
 g=r?1/0:(h.ax.e.a[0]-q.ax.e.a[0])*s
+r=!r
+f=r&&!h.ad&&g>=0&&g<=420
+if(f&&g<n)o=null
 q=o==null
-if(q)k=r||h.ad||g<0||g>420
-else k=!1
-if(k)return
-d.vl=0.45
+if(q&&!f)return
+c.vl=0.45
 $.bo().ni()
-if(!q){r=d.b3
+if(!q){r=c.b3
 r===$&&A.a()
 q=o.ax.e
 k=q.a
 j=k[0]
 k=k[1]
-f=new A.M(new Float32Array(2))
-f.ba(j,k-14)
-r.Wf(p,f)
+e=new A.M(new Float32Array(2))
+e.ba(j,k-14)
+r.Wf(p,e)
 while(!o.a6)o.lG()
 o.ate()
-B.b.C(c,o)
-d.nC(o)
-c=d.b3
+B.b.C(b,o)
+c.nC(o)
+b=c.b3
 r=new A.M(new Float32Array(2))
 r.aN(q)
-c.lQ(r)}else if(!r){c=d.b3
-c===$&&A.a()
+b.lQ(r)}else if(r){b=c.b3
+b===$&&A.a()
 r=h.ax.e.a
 q=r[0]
 r=r[1]
 k=new A.M(new Float32Array(2))
 k.ba(q,r-40)
-c.Wf(p,k)
-e=h.aJ
-if(h.ZI())d.Fz(h,!e&&h.aJ,!0)}},
+b.Wf(p,k)
+d=h.aJ
+if(h.ZI())c.Fz(h,!d&&h.aJ,!0)}},
 ahj(){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=h.ew()
 for(s=h.fW,r=s.length,q=0;q<r;++q){p=s[q]
 if(p.p1)continue
