@@ -1909,11 +1909,15 @@ class MacaronGame extends FlameGame {
     final bossDx = currentBoss == null
         ? double.infinity
         : (currentBoss.position.x - player.position.x) * dir;
-    if (target == null &&
-        (currentBoss == null ||
-            currentBoss.dead ||
-            bossDx < 0 ||
-            bossDx > 420)) {
+    final bossInRange =
+        currentBoss != null &&
+        !currentBoss.dead &&
+        bossDx >= 0 &&
+        bossDx <= 420;
+    if (bossInRange && bossDx < best) {
+      target = null;
+    }
+    if (target == null && !bossInRange) {
       return;
     }
     _beamCooldown = 0.45;
