@@ -4,6 +4,7 @@ import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
@@ -484,6 +485,12 @@ class _WorldMapPageState extends State<WorldMapPage> {
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
     final palette = WorldCatalog.paletteOf(world);
+    final song = SongProfile.of(world);
+    final completed = List.generate(
+      GameConstants.levelsPerWorld,
+      (level) =>
+          SaveService.instance.starsOf(SaveService.toGlobal(world, level)),
+    ).where((stars) => stars > 0).length;
     return Scaffold(
       backgroundColor: MacaronColors.cream,
       body: SafeArea(
@@ -552,6 +559,69 @@ class _WorldMapPageState extends State<WorldMapPage> {
                 },
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '♪ ${song.title}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: MacaronColors.cocoa,
+                            ),
+                          ),
+                          Text(
+                            '已通关 $completed / ${GameConstants.levelsPerWorld}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: MacaronColors.cocoa.withValues(
+                                alpha: 0.65,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 80,
+                      height: 28,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          for (final energy in song.energy)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 0.4,
+                                ),
+                                child: Container(
+                                  height: 3 + energy * 24,
+                                  color: palette.accent,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             Expanded(
               child: GridView.builder(
@@ -560,7 +630,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   crossAxisCount: 3,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 1.2,
+                  mainAxisExtent: 112,
                 ),
                 itemCount: GameConstants.levelsPerWorld + 1,
                 itemBuilder: (_, level) {
