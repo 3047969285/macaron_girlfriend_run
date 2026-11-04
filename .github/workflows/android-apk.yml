@@ -26,17 +26,3 @@ jobs:
           name: macaron-android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-      - uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: pages
-      - name: Publish APK to GitHub Pages
-        run: |
-          mkdir -p pages/android-download
-          cp build/app/outputs/flutter-apk/app-release.apk pages/android-download/macaron.apk
-          cd pages
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add android-download/macaron.apk
-          git commit -m "Publish Android APK for ${GITHUB_SHA::7}"
-          git push origin HEAD:gh-pages
