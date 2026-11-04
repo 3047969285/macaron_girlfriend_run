@@ -3,6 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/data/level_scenes.dart';
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 int _sceneValue(int seed, int lane, int salt) =>
@@ -29,6 +32,8 @@ class TerrainRenderer extends PositionComponent {
     required this.mapWidth,
     required this.groundY,
     required this.sceneSeed,
+    this.lyricChapter,
+    this.scenes = const [],
   }) : super(priority: 0);
 
   final List<TerrainTile> solids;
@@ -36,6 +41,8 @@ class TerrainRenderer extends PositionComponent {
   final double mapWidth;
   final double groundY;
   final int sceneSeed;
+  final LyricChapter? lyricChapter;
+  final List<PlacedScene> scenes;
 
   ui.Picture? _picture;
 
@@ -73,6 +80,7 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawTerrain(Canvas canvas) {
+    _drawLyricLandmarks(canvas);
     final platformRows = <double, List<Rect>>{};
     final duckCeilingRows = <double, List<Rect>>{};
     for (final tile in solids) {
@@ -85,6 +93,84 @@ class TerrainRenderer extends PositionComponent {
     }
     _drawPlatformRows(canvas, platformRows);
     _drawPlatformRows(canvas, duckCeilingRows, duckCeiling: true);
+  }
+
+  void _drawLyricLandmarks(Canvas canvas) {
+    final chapter = lyricChapter;
+    if (chapter == null) return;
+    final ink = Paint()
+      ..color = palette.groundDark.withValues(alpha: 0.42)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    final light = Paint()..color = palette.accent.withValues(alpha: 0.35);
+    for (var i = 0; i < scenes.length; i++) {
+      final scene = scenes[i];
+      final x = (scene.x + scene.width / 2) * GameConstants.tileSize;
+      final y = groundY - 95;
+      canvas.save();
+      canvas.translate(x, y);
+      switch (chapter.landmark) {
+        case LyricLandmark.street:
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(-65, -150, 130, 145),
+              const Radius.circular(8),
+            ),
+            light,
+          );
+          canvas.drawRect(const Rect.fromLTWH(-58, -142, 116, 137), ink);
+          for (final dx in [-36.0, 12.0]) {
+            canvas.drawRect(Rect.fromLTWH(dx, -120, 27, 35), ink);
+            canvas.drawLine(Offset(dx, -102), Offset(dx + 27, -102), ink);
+          }
+          canvas.drawRect(const Rect.fromLTWH(-16, -62, 32, 57), ink);
+        case LyricLandmark.gate:
+          final path = Path()
+            ..moveTo(-75, 0)
+            ..lineTo(-75, -120)
+            ..quadraticBezierTo(0, -190, 75, -120)
+            ..lineTo(75, 0);
+          canvas.drawPath(path, ink..strokeWidth = 10);
+          canvas.drawLine(const Offset(-94, -118), const Offset(94, -118), ink);
+          canvas.drawCircle(const Offset(0, -155), 12, light);
+          ink.strokeWidth = 6;
+        case LyricLandmark.mirror:
+          canvas.drawOval(const Rect.fromLTWH(-50, -160, 100, 130), light);
+          canvas.drawOval(const Rect.fromLTWH(-50, -160, 100, 130), ink);
+          canvas.drawLine(const Offset(-28, -120), const Offset(-5, -144), ink);
+          canvas.drawLine(const Offset(-20, -105), const Offset(5, -130), ink);
+          canvas.drawLine(const Offset(0, -30), const Offset(0, 0), ink);
+        case LyricLandmark.heartbeat:
+          final heart = Path()
+            ..moveTo(0, -50)
+            ..cubicTo(-120, -115, -44, -185, 0, -138)
+            ..cubicTo(44, -185, 120, -115, 0, -50)
+            ..close();
+          canvas.drawPath(heart, light);
+          canvas.drawPath(heart, ink);
+          final pulse = Path()
+            ..moveTo(-48, -102)
+            ..lineTo(-20, -102)
+            ..lineTo(-10, -120)
+            ..lineTo(0, -82)
+            ..lineTo(10, -105)
+            ..lineTo(48, -105);
+          canvas.drawPath(pulse, ink);
+        case LyricLandmark.clock:
+          canvas.drawCircle(const Offset(0, -105), 55, light);
+          canvas.drawCircle(const Offset(0, -105), 55, ink);
+          canvas.drawLine(const Offset(0, -105), const Offset(0, -140), ink);
+          canvas.drawLine(const Offset(0, -105), const Offset(29, -86), ink);
+          canvas.drawLine(const Offset(0, -50), const Offset(0, 0), ink);
+        case LyricLandmark.streetlight:
+          canvas.drawLine(const Offset(0, 0), const Offset(0, -152), ink);
+          canvas.drawLine(const Offset(0, -152), const Offset(42, -152), ink);
+          canvas.drawCircle(const Offset(42, -142), 15, light);
+          canvas.drawLine(const Offset(25, -142), const Offset(59, -142), ink);
+      }
+      canvas.restore();
+    }
   }
 
   void _drawPlatformRows(
