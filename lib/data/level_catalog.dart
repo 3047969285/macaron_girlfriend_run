@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/level_scenes.dart';
-import 'package:macaron_girlfriend_run/data/song_profile.dart';
 
 /// 99 关全量目录（每关独立构图规则，按世界主题手调）
 class LevelCatalog {
@@ -46,21 +45,18 @@ class LevelCatalog {
 
   static final Map<int, SceneResult> _sceneCache = {};
 
-  static SceneResult _composed(int w, int l) => _sceneCache.putIfAbsent(
-    w * 100 + l,
-    () => LevelScenes.compose(_baseRows(w, l), w, l),
-  );
+  static SceneResult _composed(int w, int l) =>
+      _sceneCache.putIfAbsent(w * 100 + l, () => LevelScenes.compose(_baseRows(w, l), w, l));
 
-  static List<String> _baseRows(int w, int l) =>
-      _addSkyLayer(_buildRows(w, l), w, l);
+  static List<String> _baseRows(int w, int l) => _addSkyLayer(_buildRows(w, l), w, l);
 
   static LevelData _levelData(int w, int l, List<String> rows) => LevelData(
-    worldIndex: w,
-    levelIndex: l,
-    title: LevelNames.fullTitle(w, l),
-    rows: rows,
-    difficulty: _difficulty(w, l),
-  );
+        worldIndex: w,
+        levelIndex: l,
+        title: LevelNames.fullTitle(w, l),
+        rows: rows,
+        difficulty: _difficulty(w, l),
+      );
 
   /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着平台一层层往下，
   /// 最底下一条长地面，旗杆在右端。路线由世界编号做种子随机生成，所以每个世界
@@ -488,9 +484,6 @@ class LevelCatalog {
       _signatureSpice(grid, world, level);
     }
 
-    if (level != GameConstants.levelsPerWorld - 1) {
-      _reshapePits(grid, world, level);
-    }
     _applyDifficultyPass(grid, world, level);
     _fillLongRun(grid, world, level);
     _addSceneChallenges(grid, world, level);
@@ -518,100 +511,7 @@ class LevelCatalog {
     // 最后限流：只删普通巡逻怪，不改动前面各层已经定型的平台与路线。
     _capWalkerDensity(grid, world, level);
 
-    if (level != GameConstants.levelsPerWorld - 1) {
-      _finishPitRhythm(grid, world, level);
-    }
-
     return grid.map((r) => r.join()).toList();
-  }
-
-  static void _finishPitRhythm(List<List<String>> grid, int world, int level) {
-    final h = grid.length;
-    final width = grid.first.length;
-    bool isPit(int x) => grid[h - 1][x] == ' ' && grid[h - 2][x] == ' ';
-    List<(int, int)> pits() {
-      final result = <(int, int)>[];
-      for (var x = 2; x < width - 2;) {
-        if (!isPit(x)) {
-          x++;
-          continue;
-        }
-        final start = x;
-        while (x < width - 2 && isPit(x)) {
-          x++;
-        }
-        result.add((start, x - start));
-      }
-      return result;
-    }
-
-    void fill((int, int) p) {
-      for (var x = p.$1; x < p.$1 + p.$2; x++) {
-        grid[h - 1][x] = '#';
-        grid[h - 2][x] = '#';
-      }
-    }
-
-    final original = pits();
-    for (var i = 0; i < original.length; i++) {
-      final p = original[i];
-      final pairBefore =
-          i > 0 && p.$1 == original[i - 1].$1 + original[i - 1].$2 + 2;
-      final pairAfter =
-          i + 1 < original.length && original[i + 1].$1 == p.$1 + p.$2 + 2;
-      final checkpointInPit = List.generate(
-        p.$2,
-        (j) => p.$1 + j,
-      ).any((x) => grid[h - 3][x] == 'K');
-      final checkpointNearPair =
-          pairBefore &&
-          [
-            for (
-              var x = math.max(0, p.$1 - 12);
-              x <= math.min(width - 1, p.$1 + p.$2 + 4);
-              x++
-            )
-              x,
-          ].any((x) => grid[h - 3][x] == 'K');
-      final center = (p.$1 ~/ 10) * 10 + 5;
-      final lowEnergy =
-          SongProfile.levelEnergyAt(world, level, center / width) < 0.4;
-      if (checkpointInPit ||
-          checkpointNearPair ||
-          (lowEnergy && !pairBefore && !pairAfter)) {
-        fill(p);
-      }
-    }
-    var remaining = pits();
-    if (remaining.length >= 8 && remaining.every((p) => p.$2 == 2)) {
-      fill((remaining.first.$1 + 1, 1));
-      remaining = pits();
-    }
-    for (var i = 3; i < remaining.length; i++) {
-      final a = remaining[i - 2].$1 - remaining[i - 3].$1;
-      if (remaining[i - 1].$1 - remaining[i - 2].$1 == a &&
-          remaining[i].$1 - remaining[i - 1].$1 == a) {
-        fill(remaining[i - 1]);
-        remaining = pits();
-        i = 2;
-      }
-    }
-    Set<int> spacings(List<(int, int)> ps) => {
-      for (var i = 1; i < ps.length; i++) ps[i].$1 - ps[i - 1].$1,
-    };
-    if (remaining.length > 6 && spacings(remaining).length < 4) {
-      var best = -1;
-      var variety = spacings(remaining).length;
-      for (var i = 1; i < remaining.length - 1; i++) {
-        final candidate = List<(int, int)>.of(remaining)..removeAt(i);
-        final n = spacings(candidate).length;
-        if (n > variety) {
-          best = i;
-          variety = n;
-        }
-      }
-      if (best >= 0) fill(remaining[best]);
-    }
   }
 
   /// 每个世界的敌人密度上限（每 100 列），后段关卡按 [densityRampPerLevel] 小幅递增。
@@ -1760,106 +1660,6 @@ class LevelCatalog {
       _coin(grid, x, y - 1);
       if (level >= 3 && (x + world) % 22 == 0) {
         _coin(grid, x + 1, y - 1);
-      }
-    }
-  }
-
-  /// 重排坑：丢掉一部分、挪动、改宽度、加双坑、在响的段落补坑。
-  static void _reshapePits(List<List<String>> grid, int world, int level) {
-    final h = grid.length;
-    final w = grid.first.length;
-    final rnd = math.Random(world * 7919 + level * 131 + 17);
-    const lo = 8;
-    final hi = w - 12;
-
-    bool isPit(int x) => grid[h - 1][x] == ' ' && grid[h - 2][x] == ' ';
-    void dig(int start, int len, String tile) {
-      for (var x = start; x < start + len; x++) {
-        grid[h - 1][x] = tile;
-        grid[h - 2][x] = tile;
-      }
-    }
-
-    double energyAt(int x) => SongProfile.levelEnergyAt(world, level, x / w);
-
-    // 1. 收集起点在 [lo, hi] 内的坑。
-    final pits = <(int, int)>[];
-    for (var x = lo; x <= hi; x++) {
-      if (isPit(x) && !isPit(x - 1)) {
-        var end = x;
-        while (end < w && isPit(end)) {
-          end++;
-        }
-        pits.add((x, end - x));
-      }
-    }
-
-    final n = pits.length;
-    final full = n >= 3;
-    final placed = <(int, int)>[];
-    if (full) {
-      // 2. 丢弃：按响度保留，保留数不少于 ceil(0.6n)，剩余名额不够时后面的全部保留。
-      final minKeep = (n * 3 + 4) ~/ 5;
-      final kept = <(int, int)>[];
-      for (var i = 0; i < n; i++) {
-        if (n - i <= minKeep - kept.length ||
-            rnd.nextDouble() < 0.5 + 0.5 * energyAt(pits[i].$1)) {
-          kept.add(pits[i]);
-        }
-      }
-      for (final (start, len) in pits) {
-        dig(start, len, '#');
-      }
-
-      // 3–4. 挪动并改宽：与前一个坑隔 4 格以上才移动，否则保持原位；不压到下一个原坑。
-      for (var i = 0; i < kept.length; i++) {
-        final bound = i + 1 < kept.length ? kept[i + 1].$1 - 1 : hi;
-        final prevEnd = placed.isEmpty ? 0 : placed.last.$1 + placed.last.$2;
-        bool fits(int x, int len, int gap) =>
-            x >= lo && x - prevEnd >= gap && x + len <= bound;
-        final start = kept[i].$1;
-        final len = rnd.nextDouble() < 0.35 ? 1 : 2;
-        final moved = (start + rnd.nextInt(5) - 2).clamp(lo, hi);
-        final pick = fits(moved, len, 4)
-            ? (moved, len)
-            : (start, fits(start, len, 1) ? len : 1);
-        if (!fits(pick.$1, pick.$2, 1)) {
-          continue;
-        }
-        placed.add(pick);
-        dig(pick.$1, pick.$2, ' ');
-      }
-    }
-
-    // 5. 补坑：响度 ≥ 0.7 的 12 列窗口里没有坑时，一半概率在中心挖 1–2 格。
-    final budget = full ? n * 3 ~/ 10 : 1;
-    var added = 0;
-    for (var a = lo; a + 12 <= hi && added < budget; a += 12) {
-      final c = a + 6;
-      if (energyAt(c) < 0.7 ||
-          List.generate(12, (i) => a + i).any(isPit) ||
-          !rnd.nextBool()) {
-        continue;
-      }
-      dig(c, rnd.nextBool() ? 1 : 2, ' ');
-      added++;
-    }
-
-    // 6. 双坑：保留的坑有 25% 概率在其后空 2 格实地再挖 1–2 格，右侧下一个坑至少隔 4 格。
-    if (full) {
-      for (final (start, len) in placed) {
-        if (rnd.nextDouble() >= 0.25) {
-          continue;
-        }
-        final s2 = start + len + 2;
-        final doubleLen = rnd.nextBool() ? 1 : 2;
-        var nextPit = start + len;
-        while (nextPit < w && !isPit(nextPit)) {
-          nextPit++;
-        }
-        if (s2 + doubleLen - 1 <= hi && nextPit - (s2 + doubleLen) >= 4) {
-          dig(s2, doubleLen, ' ');
-        }
       }
     }
   }
