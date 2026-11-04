@@ -17,6 +17,19 @@ Future<T?> showMacaronDialog<T>({
     barrierLabel: 'dialog',
     barrierColor: Colors.black54,
     transitionDuration: const Duration(milliseconds: 220),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
     pageBuilder: (ctx, _, __) {
       final dialog = SafeArea(
         child: Center(
