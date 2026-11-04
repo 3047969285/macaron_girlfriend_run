@@ -411,7 +411,8 @@ void main() {
             expect(runs.length, greaterThanOrEqualTo(4), reason: why);
           case SceneKind.tower:
             expect(runs.map((r) => r.$1).toSet().length, greaterThanOrEqualTo(4), reason: why);
-            expect(s.width, lessThanOrEqualTo(10), reason: why);
+            // 歌词主题双塔、钟楼额外带一个下层出口，普通塔仍保持紧凑。
+            expect(s.width, lessThanOrEqualTo(s.lyricRoute == null ? 10 : 14), reason: why);
           case SceneKind.skyBridge:
             expect(runs.any((r) => r.$3 >= 8), isTrue, reason: why);
           case SceneKind.ziggurat:

@@ -8,6 +8,13 @@ import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 
+int landingOffset(int song, int phase) => switch (song) {
+  0 => 16,
+  1 || 3 => 17,
+  2 || 4 => 9 + phase,
+  _ => 18 + phase,
+};
+
 void main() {
   testWidgets('a jump from the main lyric route can reach its new landing', (
     tester,
@@ -18,8 +25,8 @@ void main() {
       'haptic_on': false,
     });
     await SaveService.instance.init();
-    for (final world in [0, 1, 3, 7, 8]) {
-        for (var level = 4; level < 11; level++) {
+    for (var world = 0; world < 9; world++) {
+      for (var level = 4; level < 11; level++) {
         final game = MacaronGame(
           worldIndex: world,
           levelIndex: level,
@@ -34,13 +41,19 @@ void main() {
         ).firstWhere((s) => s.lyricRoute != null);
         final song = SongProfile.songIndexOf(world);
         final phase = level * 3 ~/ 11;
-        final startDx = song == 0 ? 4 + 8 + phase - 1 : 6 + 8 + phase - 1;
-        final startHeight = song == 0
-            ? 7
-            : song == 1
-            ? 9
-            : 8;
-        final targetDx = song == 0 ? 16 : 17;
+        final startDx = switch (song) {
+          0 => 11 + phase,
+          1 || 3 => 13 + phase,
+          2 || 4 => 6 + phase,
+          _ => 15 + phase,
+        };
+        final startHeight = switch (song) {
+          0 => 7,
+          1 => 9,
+          3 => 8,
+          _ => 10,
+        };
+        final targetDx = landingOffset(song, phase);
         int col(int dx) =>
             scene.x + (scene.mirrored ? scene.width - 1 - dx : dx);
         final startX = (col(startDx) + 0.5) * GameConstants.tileSize;
@@ -91,7 +104,7 @@ void main() {
       'haptic_on': false,
     });
     await SaveService.instance.init();
-    for (final world in [0, 1, 3, 7, 8]) {
+    for (var world = 0; world < 9; world++) {
       for (var level = 4; level < 11; level++) {
         final game = MacaronGame(
           worldIndex: world,
@@ -106,7 +119,10 @@ void main() {
           world,
           level,
         ).firstWhere((s) => s.lyricRoute != null);
-        final offset = SongProfile.songIndexOf(world) == 0 ? 16 : 17;
+        final offset = landingOffset(
+          SongProfile.songIndexOf(world),
+          level * 3 ~/ 11,
+        );
         final col =
             scene.x + (scene.mirrored ? scene.width - 1 - offset : offset);
         final top = (game.level.height - 3 - 7) * GameConstants.tileSize;
@@ -133,10 +149,10 @@ void main() {
     }
   });
   test('later lyric routes retain their optional lower landing', () {
-    for (final world in [0, 1, 3, 7, 8]) {
+    for (var world = 0; world < 9; world++) {
       for (var level = 4; level < 11; level++) {
         final song = SongProfile.songIndexOf(world);
-        final offset = song == 0 ? 16 : 17;
+        final offset = landingOffset(song, level * 3 ~/ 11);
         final ground = LevelCatalog.load(world, level).height - 3;
         final routes = LevelCatalog.scenesOf(
           world,

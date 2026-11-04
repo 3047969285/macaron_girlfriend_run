@@ -519,6 +519,7 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(9, 0, 2 + phase % 2);
       p.bricks(10, 5, 2 + phase);
       p.top(6, 11);
+      if (phase > 0) p.bricks(7, 9 + phase, 2);
     case 3:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -535,6 +536,7 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(9, 1, 3);
       p.bricks(10, 5, 2 + phase);
       p.top(5, 11);
+      if (phase > 0) p.bricks(7, 9 + phase, 2);
     case 5:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -542,6 +544,7 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 10, 2 + phase);
       p.bricks(10, 14 + phase, 2);
       p.coin(10, 8);
+      if (phase > 0) p.bricks(7, 18 + phase, 2);
   }
   return true;
 }
