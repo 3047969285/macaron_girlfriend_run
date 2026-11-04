@@ -70,6 +70,36 @@ void main() {
     expect(game.enemies.contains(enemy), isFalse);
   });
 
+  testWidgets('superman targets a closer boss before a monster behind it', (
+    tester,
+  ) async {
+    final game = await _boot(tester, level: GameConstants.levelsPerWorld - 1);
+    final boss = game.boss!;
+    game.player.position.setValues(boss.position.x - 120, boss.position.y);
+    game.player.facingRight = true;
+    final enemy = SoftEnemy(
+      position: boss.position + Vector2(100, 0),
+      leftBound: boss.position.x + 100,
+      rightBound: boss.position.x + 100,
+      difficulty: game.level.difficulty,
+      speed: 0,
+    );
+    game.enemies
+      ..clear()
+      ..add(enemy);
+    game.world.add(enemy);
+    game.superTimer = 5;
+    final beforeEffects = game.fx.auxiliaryEffectCount;
+    game.update(0.02);
+    expect(
+      game.fx.auxiliaryEffectCount,
+      greaterThan(beforeEffects),
+      reason: 'the beam actually fired',
+    );
+    expect(enemy.dead, isFalse, reason: 'the boss is closer than the monster');
+    expect(game.enemies, contains(enemy));
+  });
+
   testWidgets('the plane flies freely in all four directions', (tester) async {
     final game = await _boot(tester);
     game.update(1 / 60);
