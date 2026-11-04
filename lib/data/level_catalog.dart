@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
+import 'package:macaron_girlfriend_run/data/level_scenes.dart';
 
 /// 99 关全量目录（每关独立构图规则，按世界主题手调）
 class LevelCatalog {
@@ -19,15 +20,43 @@ class LevelCatalog {
       );
     }
     final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
-    final rows = _addSkyLayer(_buildRows(w, l), w, l);
-    return LevelData(
-      worldIndex: w,
-      levelIndex: l,
-      title: LevelNames.fullTitle(w, l),
-      rows: rows,
-      difficulty: _difficulty(w, l),
-    );
+    return _levelData(w, l, _composed(w, l).rows);
   }
+
+  /// 不含场景的关卡（含天空层），测试用。深渊关与 [load] 一致。
+  static LevelData loadBase(int worldIndex, int levelIndex) {
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return load(worldIndex, levelIndex);
+    }
+    final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
+    return _levelData(w, l, _baseRows(w, l));
+  }
+
+  /// 该关放置的场景（深渊关返回空列表）。
+  static List<PlacedScene> scenesOf(int worldIndex, int levelIndex) {
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return const [];
+    }
+    final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
+    return _composed(w, l).scenes;
+  }
+
+  static final Map<int, SceneResult> _sceneCache = {};
+
+  static SceneResult _composed(int w, int l) =>
+      _sceneCache.putIfAbsent(w * 100 + l, () => LevelScenes.compose(_baseRows(w, l), w, l));
+
+  static List<String> _baseRows(int w, int l) => _addSkyLayer(_buildRows(w, l), w, l);
+
+  static LevelData _levelData(int w, int l, List<String> rows) => LevelData(
+        worldIndex: w,
+        levelIndex: l,
+        title: LevelNames.fullTitle(w, l),
+        rows: rows,
+        difficulty: _difficulty(w, l),
+      );
 
   /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着平台一层层往下，
   /// 最底下一条长地面，旗杆在右端。路线由世界编号做种子随机生成，所以每个世界

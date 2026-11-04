@@ -1702,6 +1702,9 @@ void main() {
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
+        final sceneCells = {
+          for (final scene in LevelCatalog.scenesOf(w, l)) ...scene.cells.keys,
+        };
         // 天空层（最上面 skyRows 行）不受地面可达带限制。
         final off = level.height > 14 ? LevelCatalog.skyRows : 0;
         final base = level.height - off;
@@ -1717,7 +1720,7 @@ void main() {
           }
           for (var x = 0; x < row.length; x++) {
             final ch = row[x];
-            if (ch == '=' || ch == '?') {
+            if ((ch == '=' || ch == '?') && !sceneCells.contains((x, y))) {
               expect(
                 y,
                 inInclusiveRange(highest, lowest),
