@@ -88,6 +88,7 @@ class MacaronGame extends FlameGame {
   MacaronBoss? boss;
   late FxLayer fx;
   ParallaxLayer? parallax;
+  AmbientSparkles? ambient;
 
   bool leftPressed = false;
   bool rightPressed = false;
@@ -280,19 +281,18 @@ class MacaronGame extends FlameGame {
       WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
         ..position.y = skyShift,
     );
-    world.add(
-      AmbientSparkles(
-        mapWidth: mapWidth,
-        tint: palette.accent,
-        groundY: groundY,
-        kind: switch (palette.name) {
-          '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
-          '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
-          '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
-          _ => AmbientKind.sparkle,
-        },
-      ),
+    ambient = AmbientSparkles(
+      mapWidth: mapWidth,
+      tint: palette.accent,
+      groundY: groundY,
+      kind: switch (palette.name) {
+        '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
+        '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
+        '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
+        _ => AmbientKind.sparkle,
+      },
     );
+    world.add(ambient!);
     fx = FxLayer();
     world.add(fx);
 
@@ -1104,6 +1104,7 @@ class MacaronGame extends FlameGame {
       cy.clamp(minY, maxY),
     );
     parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
+    ambient?.syncViewport(camera.viewfinder.position.x, size.x);
   }
 
   @override
@@ -2567,6 +2568,7 @@ class MacaronGame extends FlameGame {
       dampCamera(cur.y, cy, 8, dt),
     );
     parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
+    ambient?.syncViewport(camera.viewfinder.position.x, size.x);
   }
 
   int starRating() {

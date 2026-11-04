@@ -643,6 +643,36 @@ class AmbientSparkles extends PositionComponent {
   final List<_Spark> _dots = [];
   final math.Random _rng = math.Random();
   double _acc = 0;
+  double _viewLeft = 0;
+  double _viewRight = 0;
+  bool _hasViewport = false;
+
+  /// 在镜头外留缓冲区，让粒子随长地图前进而循环，不在画面中央突然出现。
+  void syncViewport(double center, double width) {
+    if (width <= 0 || mapWidth <= 0) return;
+    final left = (center - width / 2 - 180).clamp(0.0, mapWidth);
+    final right = (center + width / 2 + 180).clamp(0.0, mapWidth);
+    final jumped = !_hasViewport || left > _viewRight || right < _viewLeft;
+    _viewLeft = left;
+    _viewRight = right;
+    _hasViewport = true;
+    for (final d in _dots) {
+      if (jumped) {
+        d.x = left + _rng.nextDouble() * (right - left);
+      } else if (d.x < left) {
+        d.x = math.max(left, right - _rng.nextDouble() * 160);
+      } else if (d.x > right) {
+        d.x = math.min(right, left + _rng.nextDouble() * 160);
+      }
+    }
+  }
+
+  double _randomX() => _hasViewport
+      ? _viewLeft + _rng.nextDouble() * (_viewRight - _viewLeft)
+      : _rng.nextDouble() * mapWidth;
+
+  @visibleForTesting
+  List<double> get debugParticleX => [for (final d in _dots) d.x];
 
   /// 粒子的高度范围：地面线上方约 480 到 70 像素。
   double get _top => math.max(30, groundY - 480);
@@ -658,7 +688,7 @@ class AmbientSparkles extends PositionComponent {
 
   _Spark _makeSpark() {
     return _Spark(
-      x: _rng.nextDouble() * mapWidth,
+      x: _randomX(),
       y: _top + _rng.nextDouble() * (_bottom - _top),
       phase: _rng.nextDouble() * math.pi * 2,
       size: 2 + _rng.nextDouble() * 3,
@@ -679,14 +709,14 @@ class AmbientSparkles extends PositionComponent {
           d.x += math.sin(d.phase) * dt * 22 + dt * 6;
           if (d.y > _bottom) {
             d.y = _top - 10;
-            d.x = _rng.nextDouble() * mapWidth;
+            d.x = _randomX();
           }
         case AmbientKind.bubble:
           d.y -= dt * (12 + d.size * 4);
           d.x += math.sin(d.phase) * dt * 10;
           if (d.y < _top - 10) {
             d.y = _bottom;
-            d.x = _rng.nextDouble() * mapWidth;
+            d.x = _randomX();
           }
         case AmbientKind.firefly:
           d.x += math.cos(d.phase * 0.7) * dt * 14;
@@ -696,7 +726,7 @@ class AmbientSparkles extends PositionComponent {
     if (kind == AmbientKind.sparkle && _acc > 2.5) {
       _acc = 0;
       final s = _dots[_rng.nextInt(_dots.length)];
-      s.x = _rng.nextDouble() * mapWidth;
+      s.x = _randomX();
       s.y = _top + _rng.nextDouble() * (_bottom - _top);
     }
   }
@@ -705,6 +735,10 @@ class AmbientSparkles extends PositionComponent {
   void render(Canvas canvas) {
     for (final d in _dots) {
       final blink = 0.5 + 0.5 * math.sin(d.phase);
+      final edgeFade = (math.min(d.y - _top, _bottom - d.y) / 45).clamp(
+        0.0,
+        1.0,
+      );
       switch (kind) {
         case AmbientKind.sparkle:
           canvas.drawCircle(
@@ -712,7 +746,7 @@ class AmbientSparkles extends PositionComponent {
             d.size,
             Paint()
               ..color = tint.withValues(
-                alpha: (0.25 + 0.35 * blink).clamp(0.0, 1.0),
+                alpha: (0.25 + 0.35 * blink) * edgeFade,
               ),
           );
         case AmbientKind.petal:
@@ -725,7 +759,7 @@ class AmbientSparkles extends PositionComponent {
               width: d.size * 3.4,
               height: d.size * 1.7,
             ),
-            Paint()..color = tint.withValues(alpha: 0.55),
+            Paint()..color = tint.withValues(alpha: 0.55 * edgeFade),
           );
           canvas.restore();
         case AmbientKind.bubble:
@@ -733,17 +767,17 @@ class AmbientSparkles extends PositionComponent {
             Offset(d.x, d.y),
             d.size * 1.6,
             Paint()
-              ..color = Colors.white.withValues(alpha: 0.55)
+              ..color = Colors.white.withValues(alpha: 0.55 * edgeFade)
               ..style = PaintingStyle.stroke
               ..strokeWidth = 1.1,
           );
           canvas.drawCircle(
             Offset(d.x - d.size * 0.5, d.y - d.size * 0.5),
             d.size * 0.35,
-            Paint()..color = Colors.white.withValues(alpha: 0.7),
+            Paint()..color = Colors.white.withValues(alpha: 0.7 * edgeFade),
           );
         case AmbientKind.firefly:
-          final a = (0.2 + 0.7 * blink * blink).clamp(0.0, 1.0);
+          final a = (0.2 + 0.7 * blink * blink) * edgeFade;
           canvas.drawCircle(
             Offset(d.x, d.y),
             d.size * 3.2,
