@@ -41,7 +41,7 @@ void main() {
 
       expect(find.text('iPhone 版'), findsNothing);
       expect(find.text('关于与上架说明'), findsNothing);
-      for (final label in ['继续冒险', '选关地图', '糖果商店', '玩法', '任务', '设置']) {
+      for (final label in ['开始摸鱼', '选关地图', '糖果商店', '玩法', '任务', '设置']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
     });
@@ -208,14 +208,16 @@ void main() {
     testWidgets('地图可指定初始世界，越界夹紧', (tester) async {
       await _initSave();
       await _useTallView(tester);
-      final third = WorldCatalog.paletteOf(3).name;
+      final third = WorldCatalog.paletteOf(3).displayName;
       await tester.pumpWidget(
         const MaterialApp(home: WorldMapPage(initialWorld: 3)),
       );
       await tester.pump();
       expect(find.textContaining('$third · 选关'), findsOneWidget);
 
-      final last = WorldCatalog.paletteOf(GameConstants.worldCount - 1).name;
+      final last = WorldCatalog.paletteOf(
+        GameConstants.worldCount - 1,
+      ).displayName;
       await tester.pumpWidget(
         const MaterialApp(home: WorldMapPage(initialWorld: 99)),
       );
@@ -314,8 +316,8 @@ void main() {
   });
 
   group('R9 说明文字', () {
-    test('触屏说明提到「换」，键盘说明含 F 和 Esc', () {
-      expect(InputModeRules.touchLines.any((l) => l.contains('换')), isTrue);
+    test('触屏说明不再提技能切换，键盘说明含 F 和 Esc', () {
+      expect(InputModeRules.touchLines.any((l) => l.contains('换')), isFalse);
       final keys = InputModeRules.keyboardLines.join(' ');
       expect(keys, contains('F'));
       expect(keys, contains('Esc'));

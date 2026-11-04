@@ -68,6 +68,7 @@ class TouchControls extends StatefulWidget {
     this.onInteract,
     this.onSkill,
     this.onCycleSkill,
+    this.onVertical,
     this.onShoot,
     this.skillCooldown = 0,
     this.skillLabel = '冲刺',
@@ -84,6 +85,9 @@ class TouchControls extends StatefulWidget {
 
   /// 非空时，在技能键旁显示文字为「换」的小按钮，点按调用它。
   final VoidCallback? onCycleSkill;
+
+  /// 摇杆上推 / 下拉：-1 / 1 / 0。飞机飞行时控制升降。
+  final ValueChanged<int>? onVertical;
   final ValueChanged<bool>? onShoot;
   final double skillCooldown;
   final String skillLabel;
@@ -159,19 +163,29 @@ class _TouchControlsState extends State<TouchControls> {
     }
 
     final hasCycle = widget.onCycleSkill != null && widget.onSkill != null;
+    // 触控区到右侧按钮群之前为止，至少容得下一个轮盘。
+    final wheelAreaWidth = math.max(
+      _wheelSize * s + 20 + pad.left,
+      math.min(width * 0.4, width - _baseWidth * s - 4),
+    );
     final children = <Widget>[
+      // 左半边整块都是摇杆触控区（浮动圆心），手指不必精确落在小圆上。
       Positioned(
-        left: 10.0 + pad.left,
-        bottom: bottomPad,
-        width: _wheelSize * s,
-        height: _wheelSize * s,
+        left: 0,
+        bottom: 0,
+        width: wheelAreaWidth,
+        height: (_baseHeight + 8) * s + bottomPad,
         child: _MoveWheel(
+          diameter: _wheelSize * s,
+          homeLeft: 10.0 + pad.left,
+          homeBottom: bottomPad,
           onLeft: widget.onLeft,
           onRight: widget.onRight,
           onFull: (full) {
             _wheelRun = full;
             _syncRun();
           },
+          onVertical: widget.onVertical ?? (_) {},
           onInteract: widget.onInteract,
         ),
       ),
@@ -248,19 +262,34 @@ class _TouchControlsState extends State<TouchControls> {
   }
 }
 
+/// 摇杆圆盘的 key（测试用来找到圆盘本身）。
+@visibleForTesting
+const moveWheelKey = ValueKey<String>('move-wheel');
+
 class _MoveWheel extends StatefulWidget {
   const _MoveWheel({
     required this.onLeft,
     required this.onRight,
     required this.onFull,
+    required this.onVertical,
+    required this.diameter,
+    required this.homeLeft,
+    required this.homeBottom,
     this.onInteract,
   });
 
+  /// 轮盘直径，以及空闲时圆在触控区内的左 / 下边距。
+  final double diameter;
+  final double homeLeft;
+  final double homeBottom;
   final ValueChanged<bool> onLeft;
   final ValueChanged<bool> onRight;
 
   /// 轮盘被推到底（接近最大行程）时为 true，用来触发奔跑。
   final ValueChanged<bool> onFull;
+
+  /// 竖直方向：-1 上推、1 下拉、0 回中（飞行时用来控制升降）。
+  final ValueChanged<int> onVertical;
   final VoidCallback? onInteract;
 
   @override
@@ -276,9 +305,12 @@ class _MoveWheelState extends State<_MoveWheel> {
   int _dir = 0;
   Offset _knob = Offset.zero;
 
-  void _update(Offset local, Size size) {
-    final radius = size.width / 2;
-    final delta = local - Offset(radius, radius);
+  /// 浮动摇杆：手指落下的位置就是圆心；没按时回到左下角的原位。
+  Offset? _origin;
+
+  void _update(Offset local, double diameter) {
+    final radius = diameter / 2;
+    final delta = local - (_origin ?? local);
     final limit = radius * 0.55;
     final clamped = delta.distance > limit
         ? delta / delta.distance * limit
@@ -297,8 +329,27 @@ class _MoveWheelState extends State<_MoveWheel> {
       dir = ratio > _engage ? 1 : 0;
     }
     _setDir(dir);
+    final vratio = clamped.dy / radius;
+    var vdir = _vdir;
+    if (vdir == 0) {
+      vdir = vratio > _engage ? 1 : (vratio < -_engage ? -1 : 0);
+    } else if (vdir == 1 && vratio < _release) {
+      vdir = 0;
+    } else if (vdir == -1 && vratio > -_release) {
+      vdir = 0;
+    }
+    _setVDir(vdir);
     _setFull(clamped.dx.abs() >= limit * 0.9);
     setState(() => _knob = clamped);
+  }
+
+  int _vdir = 0;
+
+  void _setVDir(int v) {
+    if (v != _vdir) {
+      _vdir = v;
+      widget.onVertical(v);
+    }
   }
 
   bool _full = false;
@@ -329,7 +380,9 @@ class _MoveWheelState extends State<_MoveWheel> {
 
   void _end() {
     _pointer = null;
+    _origin = null;
     _setDir(0);
+    _setVDir(0);
     _setFull(false);
     setState(() => _knob = Offset.zero);
   }
@@ -338,6 +391,9 @@ class _MoveWheelState extends State<_MoveWheel> {
   void dispose() {
     if (_dir != 0) {
       _setDir(0);
+    }
+    if (_vdir != 0) {
+      widget.onVertical(0);
     }
     if (_full) {
       widget.onFull(false);
@@ -349,8 +405,15 @@ class _MoveWheelState extends State<_MoveWheel> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = constraints.biggest;
-        final knobSize = size.width * 0.42;
+        final area = constraints.biggest;
+        final d = widget.diameter;
+        final knobSize = d * 0.42;
+        final home = Offset(
+          widget.homeLeft + d / 2,
+          area.height - widget.homeBottom - d / 2,
+        );
+        final center = _origin ?? home;
+        final size = Size(d, d);
         return Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (event) {
@@ -358,12 +421,17 @@ class _MoveWheelState extends State<_MoveWheel> {
               return;
             }
             _pointer = event.pointer;
+            // 圆心取落点，但整个圆要留在触控区内。
+            _origin = Offset(
+              event.localPosition.dx.clamp(d / 2, area.width - d / 2),
+              event.localPosition.dy.clamp(d / 2, area.height - d / 2),
+            );
             widget.onInteract?.call();
-            _update(event.localPosition, size);
+            _update(event.localPosition, d);
           },
           onPointerMove: (event) {
             if (event.pointer == _pointer) {
-              _update(event.localPosition, size);
+              _update(event.localPosition, d);
             }
           },
           onPointerUp: (event) {
@@ -377,67 +445,78 @@ class _MoveWheelState extends State<_MoveWheel> {
             }
           },
           child: Stack(
-            alignment: Alignment.center,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(
-                    alpha: _pointer == null ? 0.22 : 0.4,
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    width: 2,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 14,
-                      offset: Offset(0, 5),
+              Positioned(
+                left: center.dx - d / 2,
+                top: center.dy - d / 2,
+                width: d,
+                height: d,
+                child: Stack(
+                  key: moveWheelKey,
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(
+                          alpha: _pointer == null ? 0.22 : 0.4,
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          width: 2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 14,
+                            offset: Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left: size.width * 0.1,
+                      child: Icon(
+                        CupertinoIcons.left_chevron,
+                        size: size.width * 0.14,
+                        color: MacaronColors.cocoa.withValues(
+                          alpha: _dir == -1 ? 0.8 : 0.3,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: size.width * 0.1,
+                      child: Icon(
+                        CupertinoIcons.right_chevron,
+                        size: size.width * 0.14,
+                        color: MacaronColors.cocoa.withValues(
+                          alpha: _dir == 1 ? 0.8 : 0.3,
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: _knob,
+                      child: Container(
+                        width: knobSize,
+                        height: knobSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            center: Alignment(-0.3, -0.4),
+                            colors: [Color(0xFFFFFFFF), Color(0xFFFFD6E4)],
+                          ),
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x26000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
-                ),
-              ),
-              Positioned(
-                left: size.width * 0.1,
-                child: Icon(
-                  CupertinoIcons.left_chevron,
-                  size: size.width * 0.14,
-                  color: MacaronColors.cocoa.withValues(
-                    alpha: _dir == -1 ? 0.8 : 0.3,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: size.width * 0.1,
-                child: Icon(
-                  CupertinoIcons.right_chevron,
-                  size: size.width * 0.14,
-                  color: MacaronColors.cocoa.withValues(
-                    alpha: _dir == 1 ? 0.8 : 0.3,
-                  ),
-                ),
-              ),
-              Transform.translate(
-                offset: _knob,
-                child: Container(
-                  width: knobSize,
-                  height: knobSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      center: Alignment(-0.3, -0.4),
-                      colors: [Color(0xFFFFFFFF), Color(0xFFFFD6E4)],
-                    ),
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x26000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],

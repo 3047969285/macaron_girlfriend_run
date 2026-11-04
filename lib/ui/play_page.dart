@@ -87,14 +87,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       game.setPaused(true);
     }
     // ignore: unawaited_futures
-    AudioService.instance
-        .startBgm(
-          worldIndex: widget.worldIndex,
-          levelIndex: widget.levelIndex,
-          boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
-          owner: this,
-        )
-        .then((_) => AudioService.instance.levelOpening());
+    AudioService.instance.startBgm(
+      worldIndex: widget.worldIndex,
+      levelIndex: widget.levelIndex,
+      boss: widget.levelIndex == GameConstants.levelsPerWorld - 1,
+      owner: this,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focus.requestFocus();
@@ -212,18 +210,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return KeyEventResult.handled;
     }
     if (down) {
-      final skill = switch (key) {
-        LogicalKeyboardKey.keyJ => HeroSkill.dash,
-        LogicalKeyboardKey.keyK => HeroSkill.shield,
-        LogicalKeyboardKey.keyQ => HeroSkill.petalVolley,
-        LogicalKeyboardKey.digit1 ||
-        LogicalKeyboardKey.numpad1 => HeroSkill.pound,
-        LogicalKeyboardKey.digit2 ||
-        LogicalKeyboardKey.numpad2 => HeroSkill.airHop,
-        LogicalKeyboardKey.digit3 ||
-        LogicalKeyboardKey.numpad3 => HeroSkill.grapple,
-        _ => null,
-      };
+      final skill = key == LogicalKeyboardKey.keyJ ? HeroSkill.dash : null;
       if (skill != null) {
         game.activateSkill(skill);
         return KeyEventResult.handled;
@@ -276,6 +263,38 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return;
     }
     _busy = true;
+    if (widget.levelIndex == GameConstants.depthLevelIndex) {
+      // 歌曲深处不占 99 关进度：只记糖果和成绩统计。
+      await SaveService.instance.addRunStats(
+        coins: result.coins,
+        score: result.score,
+        kills: result.kills,
+        cleared: false,
+        bossCleared: false,
+      );
+      if (!mounted) {
+        return;
+      }
+      await showMacaronDialog<void>(
+        context: context,
+        landscape: true,
+        title: '${List.filled(result.stars, '★').join()} 到底了',
+        body:
+            '${WorldCatalog.paletteOf(widget.worldIndex).displayName} · 歌曲深处\n'
+            '分数 ${result.score} · 糖果 ${result.coins}/${game.totalCoins}',
+        actions: [
+          MacaronDialogAction(
+            label: '选关',
+            primary: true,
+            onPressed: (ctx) {
+              Navigator.pop(ctx);
+              _goToLevelSelect();
+            },
+          ),
+        ],
+      );
+      return;
+    }
     final global = SaveService.toGlobal(widget.worldIndex, widget.levelIndex);
     await SaveService.instance.setStars(global, result.stars);
     await SaveService.instance.setBestScore(global, result.score);
@@ -333,7 +352,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         landscape: true,
         title: '🌍 世界通关！',
         body:
-            '${WorldCatalog.paletteOf(widget.worldIndex).name} 已收官\n'
+            '${WorldCatalog.paletteOf(widget.worldIndex).displayName} 已收官\n'
             '${List.filled(result.stars, '★').join()} · 分数 ${result.score}\n'
             '世界通关糖果已进钱包\n'
             '${game.starTips()}',
@@ -537,7 +556,10 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   Widget _buildPlayView(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     final levelTitle = LevelNames.of(widget.worldIndex, widget.levelIndex);
-    final worldName = WorldCatalog.paletteOf(widget.worldIndex).name;
+    final isBossLevel = widget.levelIndex == GameConstants.levelsPerWorld - 1;
+    final worldName =
+        '${WorldCatalog.paletteOf(widget.worldIndex).displayName}'
+        '${isBossLevel ? '' : ' ♪ ${AudioService.songTitleFor(widget.worldIndex)}'}';
     final sky = WorldCatalog.paletteOf(widget.worldIndex).skyBottom;
 
     return Focus(
@@ -599,11 +621,6 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                         levelTitle: levelTitle,
                         onPause: (_showTutorial || _busy) ? null : _togglePause,
                       ),
-                      if (game.levelReady &&
-                          _inputMode == InputMode.keyboard) ...[
-                        const SizedBox(height: 6),
-                        _SkillStrip(game: game, onCast: game.activateSkill),
-                      ],
                       if (game.comboCount > 1) ...[
                         const SizedBox(height: 6),
                         Align(
@@ -668,11 +685,14 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                     onRun: (v) => game.runPressed = v,
                     onDuck: game.setDuckPressed,
                     onJumpHeld: game.setJumpHeld,
-                    onSkill: game.activateSkill,
-                    onCycleSkill: game.cycleSelectedSkill,
+                    onVertical: (v) {
+                      game.upPressed = v < 0;
+                      game.downPressed = v > 0;
+                    },
+                    onSkill: () => game.activateSkill(HeroSkill.dash),
                     onShoot: game.weaponVisible ? game.setShootPressed : null,
-                    skillCooldown: game.skillCooldownRatio,
-                    skillLabel: game.skillButtonLabel,
+                    skillCooldown: game.cooldownRatioOf(HeroSkill.dash),
+                    skillLabel: '撞击',
                   ),
                 ),
               ),
@@ -833,75 +853,6 @@ class _GameHudHeader extends StatelessWidget {
       );
     },
   );
-}
-
-class _SkillStrip extends StatelessWidget {
-  const _SkillStrip({required this.game, required this.onCast});
-
-  final MacaronGame game;
-  final void Function(HeroSkill skill) onCast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      alignment: WrapAlignment.end,
-      children: [
-        for (final skill in HeroSkill.values)
-          _SkillCastChip(
-            keyLabel: skill.keyLabel,
-            name: skill.shortLabel,
-            cooldown: game.cooldownRatioOf(skill),
-            onTap: () => onCast(skill),
-          ),
-      ],
-    );
-  }
-}
-
-class _SkillCastChip extends StatelessWidget {
-  const _SkillCastChip({
-    required this.keyLabel,
-    required this.name,
-    required this.cooldown,
-    required this.onTap,
-  });
-
-  final String keyLabel;
-  final String name;
-  final double cooldown;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = cooldown <= 0;
-    return Material(
-      color: ready
-          ? Colors.white.withValues(alpha: 0.88)
-          : Colors.white.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: ready ? onTap : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Text(
-            ready
-                ? '$keyLabel $name'
-                : '$keyLabel ${(cooldown * 100).round()}%',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: ready
-                  ? MacaronColors.cocoa
-                  : MacaronColors.cocoa.withValues(alpha: 0.45),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _HudChip extends StatelessWidget {

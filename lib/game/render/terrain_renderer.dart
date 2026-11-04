@@ -538,6 +538,270 @@ class TerrainRenderer extends PositionComponent {
       default:
         _drawSharedScenery(canvas);
     }
+    _drawSongSet(canvas);
+  }
+
+  /// 每个世界配的歌的意象，作为远景装饰叠在原有布景上（不参与碰撞）。
+  /// 素颜 → 晨雾；身骑白马 → 路灯与马蹄铁；谁 → 云里的问号；
+  /// 静悄悄 → 月牙与“zZ”；5点20AM → 指着 5:20 的闹钟；Lost → 岔路指示牌。
+  void _drawSongSet(Canvas canvas) {
+    final (double spacing, void Function(Canvas, double) draw)? set =
+        switch (palette.name) {
+          '奶油草地' || '蜜月彩虹' => (420.0, _drawMorningMist),
+          '草莓甜点' || '焦糖矿山' => (330.0, _drawHorseshoeLamp),
+          '薄荷汽水' => (400.0, _drawCloudQuestion),
+          '香芋星空' => (430.0, _drawCrescentSleep),
+          '柠檬沙滩' => (520.0, _drawDawnClock),
+          '玫瑰城堡' || '蓝莓峡谷' => (460.0, _drawForkSign),
+          _ => null,
+        };
+    if (set == null) {
+      return;
+    }
+    for (var x = 210.0; x < mapWidth - 100; x += set.$1) {
+      final jitter = (_sceneValue(sceneSeed, x.round(), 9) % 61) - 30.0;
+      set.$2(canvas, x + jitter);
+    }
+    if (groundY > 700) {
+      _drawSkySong(canvas);
+    }
+  }
+
+  /// 有天空层的关卡：高处再挂一些这首歌的意象（飘在云层里，不参与碰撞）。
+  void _drawSkySong(Canvas canvas) {
+    // 下面的装饰函数都以 groundY 为基准，把它们整体抬到天空层中部。
+    canvas.save();
+    canvas.translate(0, -(groundY - 430));
+    for (var x = 340.0; x < mapWidth - 100; x += 520) {
+      final jitter = (_sceneValue(sceneSeed, x.round(), 11) % 101) - 50.0;
+      final px = x + jitter;
+      switch (palette.name) {
+        case '草莓甜点' || '焦糖矿山':
+          // 空中的马蹄铁
+          canvas.drawArc(
+            Rect.fromCenter(
+              center: Offset(px, groundY - 120),
+              width: 70,
+              height: 70,
+            ),
+            math.pi * 0.15,
+            math.pi * 1.7,
+            false,
+            Paint()
+              ..color = const Color(0xFFB8B0C8).withValues(alpha: 0.85)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 9
+              ..strokeCap = StrokeCap.round,
+          );
+        case '薄荷汽水':
+          _drawCloudQuestion(canvas, px);
+        case '香芋星空' || '玫瑰城堡' || '蓝莓峡谷':
+          _drawCrescentSleep(canvas, px);
+          canvas.drawCircle(
+            Offset(px + 110, groundY - 210),
+            3.5,
+            Paint()..color = Colors.white.withValues(alpha: 0.8),
+          );
+          canvas.drawCircle(
+            Offset(px - 90, groundY - 130),
+            2.5,
+            Paint()..color = Colors.white.withValues(alpha: 0.7),
+          );
+        case '柠檬沙滩':
+          // 初升的太阳：半圆加射线
+          final c = Offset(px, groundY - 120);
+          canvas.drawCircle(
+            c,
+            34,
+            Paint()..color = const Color(0xFFFFE08A).withValues(alpha: 0.8),
+          );
+          for (var i = 0; i < 9; i++) {
+            final a = math.pi * (1 + i / 8);
+            canvas.drawLine(
+              c + Offset(math.cos(a), math.sin(a)) * 44,
+              c + Offset(math.cos(a), math.sin(a)) * 62,
+              Paint()
+                ..color = const Color(0xFFFFD36B).withValues(alpha: 0.8)
+                ..strokeWidth = 5
+                ..strokeCap = StrokeCap.round,
+            );
+          }
+        default:
+          _drawMorningMist(canvas, px);
+      }
+    }
+    canvas.restore();
+  }
+
+  void _songText(
+    Canvas canvas,
+    String text,
+    Offset center,
+    double size,
+    Color c,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontSize: size, fontWeight: FontWeight.w900, color: c),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  void _drawMorningMist(Canvas canvas, double x) {
+    final mist = Paint()..color = Colors.white.withValues(alpha: 0.38);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, groundY - 96), width: 260, height: 36),
+      mist,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(x + 70, groundY - 74),
+        width: 200,
+        height: 28,
+      ),
+      mist,
+    );
+    canvas.drawCircle(
+      Offset(x - 60, groundY - 150),
+      16,
+      Paint()..color = const Color(0xFFFFF3B0).withValues(alpha: 0.55),
+    );
+  }
+
+  void _drawHorseshoeLamp(Canvas canvas, double x) {
+    final pole = Paint()
+      ..color = const Color(0xFF8A7A8F)
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(x, groundY), Offset(x, groundY - 110), pole);
+    canvas.drawCircle(
+      Offset(x, groundY - 118),
+      16,
+      Paint()..color = const Color(0xFFFFE9A8).withValues(alpha: 0.6),
+    );
+    canvas.drawCircle(
+      Offset(x, groundY - 118),
+      7,
+      Paint()..color = const Color(0xFFFFD86B),
+    );
+    // 马蹄铁：开口朝下的粗弧。
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(x + 34, groundY - 56),
+        width: 30,
+        height: 30,
+      ),
+      math.pi * 0.15,
+      math.pi * 1.7,
+      false,
+      Paint()
+        ..color = const Color(0xFFB8B0C8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  void _drawCloudQuestion(Canvas canvas, double x) {
+    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.7);
+    final c = Offset(x, groundY - 150);
+    canvas.drawCircle(c, 30, cloud);
+    canvas.drawCircle(c + const Offset(-30, 8), 22, cloud);
+    canvas.drawCircle(c + const Offset(30, 8), 22, cloud);
+    _songText(canvas, '?', c + const Offset(0, 2), 34, palette.groundDark);
+  }
+
+  void _drawCrescentSleep(Canvas canvas, double x) {
+    final c = Offset(x, groundY - 170);
+    canvas.drawCircle(c, 20, Paint()..color = const Color(0xFFFFF3C4));
+    canvas.drawCircle(
+      c + const Offset(9, -4),
+      18,
+      Paint()..color = palette.skyTop,
+    );
+    _songText(
+      canvas,
+      'zZ',
+      c + const Offset(34, -18),
+      15,
+      const Color(0xCCE8DDFF),
+    );
+    _songText(
+      canvas,
+      'z',
+      c + const Offset(52, -34),
+      11,
+      const Color(0x99E8DDFF),
+    );
+  }
+
+  void _drawDawnClock(Canvas canvas, double x) {
+    final c = Offset(x, groundY - 88);
+    canvas.drawLine(
+      Offset(x - 14, groundY),
+      c + const Offset(-10, 24),
+      Paint()
+        ..color = const Color(0xFFB07A5A)
+        ..strokeWidth = 4,
+    );
+    canvas.drawLine(
+      Offset(x + 14, groundY),
+      c + const Offset(10, 24),
+      Paint()
+        ..color = const Color(0xFFB07A5A)
+        ..strokeWidth = 4,
+    );
+    canvas.drawCircle(c, 26, Paint()..color = const Color(0xFFFFF8E8));
+    canvas.drawCircle(
+      c,
+      26,
+      Paint()
+        ..color = palette.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4,
+    );
+    final hand = Paint()
+      ..color = const Color(0xFF6B4F4F)
+      ..strokeCap = StrokeCap.round;
+    // 5:20：时针指向 5 点偏一点（约 160°），分针指向 4（120°）。
+    final hour = (5 + 20 / 60) * math.pi / 6 - math.pi / 2;
+    final minute = 20 * math.pi / 30 - math.pi / 2;
+    canvas.drawLine(
+      c,
+      c + Offset(math.cos(hour), math.sin(hour)) * 13,
+      hand..strokeWidth = 4,
+    );
+    canvas.drawLine(
+      c,
+      c + Offset(math.cos(minute), math.sin(minute)) * 20,
+      hand..strokeWidth = 2.5,
+    );
+  }
+
+  void _drawForkSign(Canvas canvas, double x) {
+    final post = Paint()
+      ..color = const Color(0xFF9A7B8F)
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(x, groundY), Offset(x, groundY - 120), post);
+    final boards = [(-1.0, -104.0), (1.0, -84.0), (-1.0, -64.0)];
+    for (final (dir, dy) in boards) {
+      final y = groundY + dy;
+      final path = Path()
+        ..moveTo(x, y - 9)
+        ..lineTo(x + dir * 38, y - 9)
+        ..lineTo(x + dir * 50, y)
+        ..lineTo(x + dir * 38, y + 9)
+        ..lineTo(x, y + 9)
+        ..close();
+      canvas.drawPath(
+        path,
+        Paint()..color = palette.accent.withValues(alpha: 0.9),
+      );
+    }
   }
 
   void _alongGround(

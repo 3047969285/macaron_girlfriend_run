@@ -169,7 +169,7 @@ class _HomeMenu extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '马卡龙女友跑酷',
+          '马卡龙跑酷',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: compact ? 28 : 34,
@@ -203,10 +203,10 @@ class _HomeMenu extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: MacaronColors.rose,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
-              '继续冒险',
+              '开始摸鱼',
               style: TextStyle(
                 fontSize: compact ? 18 : 20,
                 fontWeight: FontWeight.w700,
@@ -283,10 +283,44 @@ class _HeroFigureState extends State<_HeroFigure> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _HeroPainter(_player),
-    child: const SizedBox.expand(),
-  );
+  Widget build(BuildContext context) {
+    if (widget.role != PlayerRole.girlfriend) {
+      return CustomPaint(
+        painter: _HeroPainter(_player),
+        child: const SizedBox.expand(),
+      );
+    }
+    // 女主用写实立绘（透明背景 PNG），脚下垫一圈柔和的地面阴影。
+    return LayoutBuilder(
+      builder: (context, c) {
+        final h = c.maxHeight * 0.92;
+        return Stack(
+          children: [
+            Align(
+              alignment: const Alignment(0, 0.9),
+              child: Container(
+                width: h * 0.4,
+                height: h * 0.045,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(h),
+                  color: const Color(0xFF2E2433).withValues(alpha: 0.16),
+                ),
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.93),
+              child: Image.asset(
+                'assets/character/hero.png',
+                height: h,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _HeroPainter extends CustomPainter {
@@ -323,13 +357,13 @@ class _HomeScenePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFAF6), Color(0xFFFFF0F4)],
+          colors: [Color(0xFFF8F5F7), Color(0xFFEFE6EB)],
         ).createShader(Offset.zero & size),
     );
     canvas.drawCircle(
       Offset(size.width * 0.18, size.height * 0.62),
       size.shortestSide * 0.52,
-      Paint()..color = const Color(0xFFFFE3EC).withValues(alpha: 0.7),
+      Paint()..color = const Color(0xFFE6D3DB).withValues(alpha: 0.7),
     );
   }
 
@@ -384,7 +418,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
       context: context,
       title: isBoss ? 'Boss 关预览' : '关卡预览',
       body:
-          '${WorldCatalog.paletteOf(world).name}\n'
+          '${WorldCatalog.paletteOf(world).displayName}\n'
           '$name\n'
           '$starLine\n'
           '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
@@ -438,7 +472,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   ),
                   Expanded(
                     child: Text(
-                      '${palette.name} · 选关',
+                      '${palette.displayName} · 选关',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -471,7 +505,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        WorldCatalog.paletteOf(i).name,
+                        WorldCatalog.paletteOf(i).displayName,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -493,8 +527,81 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.2,
                 ),
-                itemCount: GameConstants.levelsPerWorld,
+                itemCount: GameConstants.levelsPerWorld + 1,
                 itemBuilder: (_, level) {
+                  if (level == GameConstants.depthLevelIndex) {
+                    // 第 12 格：通关本世界 Boss 后解锁的「歌曲深处」（向下的纵向关）。
+                    final open =
+                        unlocked >= (world + 1) * GameConstants.levelsPerWorld;
+                    return GestureDetector(
+                      onTap: open
+                          ? () =>
+                                Navigator.push(
+                                  context,
+                                  CupertinoPageRoute<void>(
+                                    builder: (_) => PlayPage(
+                                      worldIndex: world,
+                                      levelIndex: GameConstants.depthLevelIndex,
+                                    ),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) {
+                                    setState(() {});
+                                  }
+                                })
+                          : null,
+                      child: Opacity(
+                        opacity: open ? 1 : 0.4,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.white,
+                                Color.lerp(palette.ground, Colors.white, 0.2)!,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: palette.accent.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                open ? '↓' : '🔒',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: MacaronColors.cocoa,
+                                ),
+                              ),
+                              Text(
+                                '歌曲深处',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: MacaronColors.cocoa,
+                                ),
+                              ),
+                              Text(
+                                open ? '一路向下' : '通关 Boss 解锁',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: MacaronColors.cocoa.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final global = SaveService.toGlobal(world, level);
                   final locked = global > unlocked;
                   final stars = SaveService.instance.starsOf(global);
@@ -706,7 +813,7 @@ class AchievementsPage extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFE8F0), MacaronColors.cream, Color(0xFFE8FFF6)],
+            colors: [Color(0xFFF1E4EA), MacaronColors.cream, Color(0xFFE4EEEC)],
           ),
         ),
         child: SafeArea(
@@ -789,7 +896,7 @@ class _AchievementCard extends StatelessWidget {
                   MacaronColors.blush.withValues(alpha: 0.12),
                 ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: unlocked
               ? MacaronColors.rose.withValues(alpha: 0.55)
@@ -912,7 +1019,7 @@ class AboutPage extends StatelessWidget {
       title: '关于',
       children: const [
         Text(
-          '马卡龙女友跑酷',
+          '马卡龙跑酷',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
         Text('版本 1.5.0 · 完全体'),

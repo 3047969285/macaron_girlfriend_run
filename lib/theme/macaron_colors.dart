@@ -2,19 +2,20 @@ import 'package:flutter/cupertino.dart'
     show CupertinoTextThemeData, CupertinoThemeData;
 import 'package:flutter/material.dart';
 
-/// 马卡龙色板与主题
+/// 色板与主题：冷调、利落的御姐风——瓷白底、墨紫字、深酒红做强调色，金色点缀。
+/// （类名沿用 Macaron，色值已换成偏冷的高级灰粉。）
 class MacaronColors {
   MacaronColors._();
 
-  static const Color cream = Color(0xFFFFF6F0);
-  static const Color blush = Color(0xFFFFB4C8);
-  static const Color mint = Color(0xFFB8F0D8);
-  static const Color lilac = Color(0xFFD4C4F5);
-  static const Color lemon = Color(0xFFFFE6A7);
-  static const Color sky = Color(0xFFB8E0FF);
-  static const Color cocoa = Color(0xFF6B4F4F);
-  static const Color rose = Color(0xFFFF8FB5);
-  static const Color softWhite = Color(0xFFFFFBFE);
+  static const Color cream = Color(0xFFF4F1F3);
+  static const Color blush = Color(0xFFE3B9C3);
+  static const Color mint = Color(0xFFB9D6D0);
+  static const Color lilac = Color(0xFFC9C1DE);
+  static const Color lemon = Color(0xFFE8D3A0);
+  static const Color sky = Color(0xFFBFD2E6);
+  static const Color cocoa = Color(0xFF2E2433);
+  static const Color rose = Color(0xFFA8344F);
+  static const Color softWhite = Color(0xFFFBF9FA);
 
   /// 内置的中文字体族，见 pubspec.yaml。
   static const String fontFamily = 'NotoSansSC';
@@ -62,7 +63,7 @@ class MacaronColors {
           foregroundColor: softWhite,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -83,6 +84,7 @@ class MacaronColors {
 class WorldPalette {
   const WorldPalette({
     required this.name,
+    this.title,
     required this.skyTop,
     required this.skyBottom,
     required this.ground,
@@ -92,7 +94,12 @@ class WorldPalette {
     required this.parallaxMid,
   });
 
+  /// 渲染器按它认主题（不能改）。
   final String name;
+
+  /// 玩家看到的世界名，缺省同 name。
+  final String? title;
+  String get displayName => title ?? name;
   final Color skyTop;
   final Color skyBottom;
   final Color ground;

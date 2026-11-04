@@ -42,12 +42,12 @@ Future<T?> showMacaronDialog<T>({
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFFFFF6F0),
-                        Color(0xFFFFE8F0),
-                        Color(0xFFE8FFF6),
+                        Color(0xFFF4F1F3),
+                        Color(0xFFF1E4EA),
+                        Color(0xFFE4EEEC),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x33000000),
@@ -168,7 +168,7 @@ void showAchievementToast(
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFB39DDB), Color(0xFFFFB4C8)],
+                        colors: [Color(0xFF6E5A7E), Color(0xFFA8344F)],
                       ),
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: const [

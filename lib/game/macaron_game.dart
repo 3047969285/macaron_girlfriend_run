@@ -92,6 +92,10 @@ class MacaronGame extends FlameGame {
   bool rightPressed = false;
   bool runPressed = false;
   bool duckPressed = false;
+
+  /// 摇杆上推 / 下拉（飞机飞行时控制升降）。
+  bool upPressed = false;
+  bool downPressed = false;
   bool jumpHeld = false;
   bool shootPressed = false;
   bool _jumpArmed = true;
@@ -115,7 +119,6 @@ class MacaronGame extends FlameGame {
   double planeTimer = 0;
   double gumTimer = 0;
   double _beamCooldown = 0;
-  double _planeCruiseY = 0;
   static const double superDuration = 10;
   static const double planeDuration = 9;
   static const double gumDuration = 10;
@@ -263,16 +266,32 @@ class MacaronGame extends FlameGame {
     spawnPoint = Vector2(tile * 2, tile * 8);
     final groundY = (level.height - 1) * tile;
 
+    // 远景山和云是按 14 行高的地图画的；有天空层的关卡整体下移，贴着地面，
+    // 上面留给渐变天空。
+    final skyShift = (level.height - 14) * tile;
     parallax = ParallaxLayer(
       mapWidth: mapWidth,
       farColor: palette.parallaxFar,
       midColor: palette.parallaxMid,
-    );
+    )..position.y = skyShift;
     world.add(parallax!);
     world.add(
-      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed),
+      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
+        ..position.y = skyShift,
     );
-    world.add(AmbientSparkles(mapWidth: mapWidth, tint: palette.accent));
+    world.add(
+      AmbientSparkles(
+        mapWidth: mapWidth,
+        tint: palette.accent,
+        groundY: groundY,
+        kind: switch (palette.name) {
+          '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
+          '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
+          '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
+          _ => AmbientKind.sparkle,
+        },
+      ),
+    );
     fx = FxLayer();
     world.add(fx);
 
@@ -445,8 +464,34 @@ class MacaronGame extends FlameGame {
   /// 超人 / 飞机 / 口香糖三种道具不在关卡字符里：按关卡长度的固定比例，
   /// 在附近第一块有地面且上方留空的列上方两格放置，避开敌人出生点。
   void _placeBonusPickups(double tile) {
+    if (spawnBonusPickups &&
+        level.levelIndex == GameConstants.depthLevelIndex) {
+      // 歌曲深处：口香糖护盾放在第 2 层，超人放在第 5 层（下面的怪交给眼睛射线），
+      // 中间第 4 层放一架飞机，可以飞着换层。
+      final layers = LevelCatalog.depthLayers(worldIndex);
+      final plan = <(BonusKind, int)>[
+        (BonusKind.gum, 1),
+        (BonusKind.plane, 3),
+        (BonusKind.superman, 5),
+      ];
+      for (final (kind, k) in plan) {
+        final (x0, len, _, _) = layers[k];
+        final row =
+            LevelCatalog.depthFirstRow + k * LevelCatalog.depthRowGap - 2;
+        bonusPickups.add(
+          BonusPickup(
+            kind: kind,
+            position: Vector2(
+              (x0 + len ~/ 2) * tile + tile / 2,
+              row * tile + tile / 2,
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (!spawnBonusPickups ||
-        level.levelIndex == GameConstants.levelsPerWorld - 1) {
+        level.levelIndex >= GameConstants.levelsPerWorld - 1) {
       return; // Boss 关保持原有节奏。
     }
     final plan = <(BonusKind, double)>[
@@ -1013,6 +1058,8 @@ class MacaronGame extends FlameGame {
     rightPressed = false;
     runPressed = false;
     duckPressed = false;
+    upPressed = false;
+    downPressed = false;
     jumpHeld = false;
     shootPressed = false;
     jumpPressedEdge = false;
@@ -1321,28 +1368,38 @@ class MacaronGame extends FlameGame {
     player.velocity.y += GameConstants.gravity * dt;
     final flying = planeTimer > 0;
     if (flying) {
-      // 飞机：跳 = 上升，蹲 = 下降，什么都不按就悬停；自动向前飞。
-      // 起飞后自己爬到巡航高度并悬停；按住跳抬高巡航线，按住蹲压低。
+      // 飞机：完全自由飞行。摇杆 / 方向键控制四个方向，也可以按住「跳」上升、
+      // 按住「蹲」下降；什么都不按就停在原地悬停。
       final tile = GameConstants.tileSize;
       final floorY = (level.height - 2) * tile - tile * 0.6;
-      if (jumpHeld) {
-        _planeCruiseY -= 240 * dt;
-      } else if (duckPressed) {
-        _planeCruiseY += 240 * dt;
+      final up = jumpHeld || upPressed;
+      final down = duckPressed || downPressed;
+      var targetY = 0.0;
+      if (up && !down) {
+        targetY = -300;
+      } else if (down && !up) {
+        targetY = 300;
       }
-      _planeCruiseY = _planeCruiseY.clamp(tile * 1.5, floorY).toDouble();
-      final target = ((_planeCruiseY - player.position.y) * 4)
-          .clamp(-260.0, 260.0)
-          .toDouble();
+      if (player.position.y <= tile * 1.2 && targetY < 0) {
+        targetY = 0; // 别飞出地图顶端
+      }
+      if (player.position.y >= floorY && targetY > 0) {
+        targetY = 0;
+      }
       player.onGround = false;
-      player.velocity.y += (target - player.velocity.y) * math.min(1.0, dt * 8);
-      if (!(player.wantsLeft && !player.wantsRight)) {
-        player.velocity.x =
-            GameConstants.playerRunSpeedFor(level.difficulty) * 1.1;
+      player.velocity.y +=
+          (targetY - player.velocity.y) * math.min(1.0, dt * 9);
+      final flySpeed = GameConstants.playerRunSpeedFor(level.difficulty) * 1.1;
+      if (player.wantsRight && !player.wantsLeft) {
+        player.velocity.x = flySpeed;
         player.facingRight = true;
+      } else if (player.wantsLeft && !player.wantsRight) {
+        player.velocity.x = -flySpeed;
+        player.facingRight = false;
+      } else {
+        player.velocity.x = 0;
       }
-    }
-    // 松开跳跃只截断玩家自己起跳的上升段。弹簧是场地给的完整弹射，
+    } // 松开跳跃只截断玩家自己起跳的上升段。弹簧是场地给的完整弹射，
     // 不按住跳跃键也要飞完，否则会在垫上反复短跳，水平速度也被清掉。
     final jumpCut = GameConstants.playerJumpCutVelocityFor(level.difficulty);
     if (!flying && !_springBoost && !jumpHeld && player.velocity.y < jumpCut) {
@@ -1786,11 +1843,7 @@ class MacaronGame extends FlameGame {
           planeTimer = planeDuration;
           player.onGround = false;
           player.velocity.y = -220;
-          _planeCruiseY = math.max(
-            GameConstants.tileSize * 1.5,
-            player.position.y - GameConstants.tileSize * 3.2,
-          );
-          fx.heroCallout('起飞！跳上升 蹲下降', at);
+          fx.heroCallout('起飞！摇杆控制方向', at);
         case BonusKind.gum:
           gumTimer = gumDuration;
           fx.heroCallout('我从山中来，带着兰花草', at);

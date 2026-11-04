@@ -21,11 +21,11 @@ class InputModeRules {
     }
   }
 
-  /// 触屏说明，每行一条，必须有一行包含「换」。
+  /// 触屏说明，每行一条。
   static const List<String> touchLines = [
     '推动摇杆移动，推到底加速，「蹲」下蹲',
     '「跳」按住跳更高',
-    '右下技能键放技能，点「换」切换六种技能',
+    '「撞击」冲过去撞开怪',
     '看头顶预警再出手',
   ];
 
@@ -33,7 +33,7 @@ class InputModeRules {
   static const List<String> keyboardLines = [
     'A/D 或方向键移动，Shift 跑，S 蹲',
     '空格 / W 跳，长按更高',
-    'J 闪冲 · K 糖盾 · Q 花弹 · 1 下砸 · 2 二段跳 · 3 糖线 · F 射击',
+    'J 撞击 · F 射击',
     'Esc / P 暂停',
   ];
 

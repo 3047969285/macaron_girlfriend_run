@@ -17,6 +17,23 @@ class AudioService {
     'audio/morning.mp3',
   ];
 
+  /// 用户提供的歌曲，每个世界配一首（世界 0–8 → 下标），Boss 关不用。
+  static const List<({String title, String asset})> songs = [
+    (title: '素颜', asset: 'audio/bgm_suyan.mp3'),
+    (title: '身骑白马', asset: 'audio/bgm_shenqibaima.mp3'),
+    (title: '谁', asset: 'audio/bgm_shui.mp3'),
+    (title: '静悄悄', asset: 'audio/bgm_jingqiaoqiao.mp3'),
+    (title: '5点20AM', asset: 'audio/bgm_5am20.mp3'),
+    (title: 'Lost', asset: 'audio/bgm_lost.mp3'),
+  ];
+  static const List<int> _worldSongs = [0, 1, 2, 3, 4, 5, 5, 1, 0];
+
+  /// 某个世界普通关配的歌名。
+  static String songTitleFor(int worldIndex) =>
+      songs[_worldSongs[worldIndex.clamp(0, 8).toInt()]].title;
+
+  int _bgmSong = -1;
+  int _bgmLevel = 0;
   final AudioPlayer _bgm = AudioPlayer();
   final List<AudioPlayer> _fxPool = [];
   int _fxCursor = 0;
@@ -26,7 +43,6 @@ class AudioService {
   bool _bgmPlaying = false;
   int _bgmWorld = -1;
   bool _bgmBoss = false;
-  bool _bgmSynth = false;
   Object? _bgmOwner;
   int _bgmRevision = 0;
   double? _appliedBgmVolume;
@@ -141,6 +157,7 @@ class AudioService {
   }) async {
     final revision = ++_bgmRevision;
     _bgmOwner = owner;
+    _bgmLevel = levelIndex;
     await init();
     if (!_isBgmRequestCurrent(revision, owner)) {
       return;
@@ -150,11 +167,13 @@ class AudioService {
       return;
     }
     final world = worldIndex.clamp(0, 8).toInt();
-    final synth = !boss && levelIndex.isOdd;
+    // 普通关按世界配一首真实歌曲；Boss 关用合成的 Boss 主题。
+    final song = boss ? -1 : _worldSongs[world];
+    final synth = song < 0;
     if (_bgmPlaying &&
         _bgmWorld == world &&
         _bgmBoss == boss &&
-        _bgmSynth == synth) {
+        _bgmSong == song) {
       await applyVolumes();
       if (!_isBgmRequestCurrent(revision, owner)) {
         return;
@@ -171,20 +190,31 @@ class AudioService {
       return;
     }
     final asset = _bgmAssets[(world + (boss ? 1 : 0)) % _bgmAssets.length];
-    try {
-      await _bgm.play(BytesSource(_bgmBytes(world, boss: boss, alt: synth)));
-    } catch (_) {
-      if (!_isBgmRequestCurrent(revision, owner)) {
-        return;
+    var played = false;
+    if (!synth) {
+      try {
+        await _bgm.play(AssetSource(songs[song].asset));
+        played = true;
+      } catch (_) {}
+    }
+    if (!played) {
+      try {
+        await _bgm.play(
+          BytesSource(_bgmBytes(world, boss: boss, alt: levelIndex.isOdd)),
+        );
+      } catch (_) {
+        if (!_isBgmRequestCurrent(revision, owner)) {
+          return;
+        }
+        await _bgm.play(AssetSource(asset));
       }
-      await _bgm.play(AssetSource(asset));
     }
     if (!_isBgmRequestCurrent(revision, owner)) {
       return;
     }
     _bgmWorld = world;
     _bgmBoss = boss;
-    _bgmSynth = synth;
+    _bgmSong = song;
     _unlockPending = true;
     _bgmPlaying = true;
   }
@@ -214,7 +244,6 @@ class AudioService {
     _bgmPlaying = false;
     _bgmWorld = -1;
     _bgmBoss = false;
-    _bgmSynth = false;
   }
 
   /// 驾驶「理想」时的进行曲：压住普通 BGM，开车结束后再接回来。
@@ -289,36 +318,30 @@ class AudioService {
       return;
     }
     try {
-      await _sting.setVolume(SaveService.instance.soundVolume);
-      await _sting.play(AssetSource(_mambaAsset));
+      final volume = SaveService.instance.soundVolume;
+      await _sting.setVolume(volume);
+      await _sting.setSource(AssetSource(_mambaAsset));
+      await _sting.seek(_mambaStart);
+      await _sting.resume();
+      // 只播一小段，结尾淡出两步再停，免得突然截断。
+      Timer(_mambaLength - const Duration(milliseconds: 600), () {
+        _sting.setVolume(volume * 0.5).catchError((Object _) {});
+      });
+      Timer(_mambaLength - const Duration(milliseconds: 250), () {
+        _sting.setVolume(volume * 0.2).catchError((Object _) {});
+      });
+      Timer(_mambaLength, () {
+        _sting.stop().catchError((Object _) {});
+      });
     } catch (_) {
       await _playFx(() => _mambaBytes ??= SynthWav.mambaOut());
     }
   }
 
-  int _openingRevision = 0;
-
-  /// 每局刚开始播放《兰花草》：先压住背景乐，放完再接回来。
-  Future<void> levelOpening() async {
-    if (!musicOn) {
-      return;
-    }
-    final revision = ++_openingRevision;
-    try {
-      await init();
-      if (_bgmPlaying) {
-        await _bgm.pause();
-      }
-      await _sting.setVolume(SaveService.instance.musicVolume);
-      await _sting.play(AssetSource(_gumAsset));
-      await _sting.onPlayerComplete.first;
-    } catch (_) {}
-    if (revision == _openingRevision && !_marchPlaying && _bgmPlaying) {
-      try {
-        await _bgm.resume();
-      } catch (_) {}
-    }
-  }
+  /// 原片 15 秒音量几乎不变；按「高频冲击最强」挑出结尾那一段（约 11–14.5 秒，
+  /// 12.5 秒处有明显的瞬态）。要换段改这两个常量。
+  static const Duration _mambaStart = Duration(milliseconds: 11000);
+  static const Duration _mambaLength = Duration(milliseconds: 3500);
 
   final AudioPlayer _killPlayer = AudioPlayer();
   DateTime _killStingAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -377,7 +400,7 @@ class AudioService {
     if (!_bgmPlaying && _bgmWorld >= 0) {
       await startBgm(
         worldIndex: _bgmWorld,
-        levelIndex: _bgmSynth ? 1 : 0,
+        levelIndex: _bgmLevel,
         boss: _bgmBoss,
         owner: _bgmOwner,
       );

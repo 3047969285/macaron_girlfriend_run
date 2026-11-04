@@ -107,79 +107,180 @@ class SynthWav {
     return List<double>.filled((_sampleRate * dur).round(), 0);
   }
 
-  /// 预置音效 PCM
-  static Uint8List click() => build(tone(880, 0.05, vol: 0.25));
+  // ───────── 界面与游戏音效：轻、圆、有玻璃质感的短音（类似手机系统的轻触反馈） ─────────
 
+  /// 玻璃 / 铃音：基音加一个略不和谐的 2.76 倍泛音，指数衰减，起音极快但不爆音。
+  static List<double> _bell(
+    double freq,
+    double dur, {
+    double vol = 0.25,
+    double decay = 9,
+    double glide = 0,
+  }) {
+    final n = (_sampleRate * dur).round();
+    final out = List<double>.filled(n, 0);
+    final fade = math.min(0.012, dur * 0.25);
+    for (var i = 0; i < n; i++) {
+      final t = i / _sampleRate;
+      final f = freq * (1 + glide * (t / dur));
+      final env =
+          math.exp(-t * decay) *
+          math.min(1.0, t / 0.0025) *
+          (t > dur - fade ? (dur - t) / fade : 1.0);
+      final wave =
+          math.sin(2 * math.pi * f * t) +
+          0.28 *
+              math.sin(2 * math.pi * f * 2.76 * t) *
+              math.exp(-t * decay * 1.6);
+      out[i] = vol * env * wave;
+    }
+    return out;
+  }
+
+  /// 低沉圆润的“咚”：很短的下滑正弦。
+  static List<double> _thud(
+    double dur, {
+    double vol = 0.3,
+    double from = 150,
+    double to = 70,
+  }) {
+    final n = (_sampleRate * dur).round();
+    final out = List<double>.filled(n, 0);
+    var phase = 0.0;
+    for (var i = 0; i < n; i++) {
+      final t = i / _sampleRate;
+      final f = from + (to - from) * (t / dur).clamp(0.0, 1.0);
+      phase += 2 * math.pi * f / _sampleRate;
+      out[i] =
+          vol * math.sin(phase) * math.exp(-t * 22) * math.min(1.0, t / 0.002);
+    }
+    return out;
+  }
+
+  /// 轻柔的气流声：低通噪声，慢起慢落。
+  static List<double> _air(
+    double dur, {
+    double vol = 0.06,
+    double cutoff = 0.12,
+  }) {
+    final rnd = math.Random(11);
+    final n = (_sampleRate * dur).round();
+    final out = List<double>.filled(n, 0);
+    var lp = 0.0;
+    for (var i = 0; i < n; i++) {
+      final t = i / _sampleRate;
+      lp += cutoff * ((rnd.nextDouble() * 2 - 1) - lp);
+      final shape = math.sin(math.pi * (t / dur).clamp(0.0, 1.0));
+      out[i] = vol * lp * shape * 3;
+    }
+    return out;
+  }
+
+  static List<double> _at(double start, List<double> src, [double total = 0]) {
+    final pad = (_sampleRate * start).round();
+    final out = List<double>.filled(
+      math.max(pad + src.length, (_sampleRate * total).round()),
+      0,
+    );
+    for (var i = 0; i < src.length; i++) {
+      out[pad + i] = src[i];
+    }
+    return out;
+  }
+
+  /// 按键：一声很轻的“嗒”。
+  static Uint8List click() => build(
+    mix([
+      _bell(1568, 0.07, vol: 0.2, decay: 38),
+      _thud(0.05, vol: 0.06, from: 260, to: 180),
+    ]),
+  );
+
+  /// 跳：向上的轻“啵”。
   static Uint8List jump() => build(
     mix([
-      tone(520, 0.08, vol: 0.28, bend: 420),
-      tone(780, 0.1, vol: 0.18, bend: 300),
+      _bell(660, 0.12, vol: 0.16, decay: 20, glide: 0.5),
+      _air(0.1, vol: 0.03),
     ]),
   );
 
-  static Uint8List coin() =>
-      build(mix([tone(988, 0.06, vol: 0.3), tone(1318, 0.09, vol: 0.22)]));
+  /// 糖果：清脆的两个上行音。
+  static Uint8List coin() => build(
+    mix([
+      _bell(1319, 0.22, vol: 0.2, decay: 14),
+      _at(0.06, _bell(1760, 0.28, vol: 0.17, decay: 12)),
+    ]),
+  );
 
+  /// 踩扁：软软的一声闷响，带一点高音泡泡。
   static Uint8List stomp() => build(
     mix([
-      tone(180, 0.07, vol: 0.45, bend: -80),
-      tone(120, 0.12, vol: 0.35, bend: -40),
-      noise(0.08, vol: 0.25),
+      _thud(0.12, vol: 0.3),
+      _at(0.015, _bell(880, 0.12, vol: 0.09, decay: 26)),
     ]),
   );
 
+  /// 受伤：两个下行的低音，不刺耳。
   static Uint8List hurt() => build(
     mix([
-      tone(220, 0.15, vol: 0.35, bend: -120),
-      tone(160, 0.2, vol: 0.25, bend: -60),
+      _bell(392, 0.3, vol: 0.2, decay: 9),
+      _at(0.09, _bell(294, 0.38, vol: 0.2, decay: 8)),
     ]),
   );
 
+  /// 拾取强化：三个上行的铃音（大三和弦）。
   static Uint8List powerUp() => build(
     mix([
-      tone(440, 0.08, vol: 0.25, bend: 180),
-      tone(660, 0.12, vol: 0.25, bend: 220),
-      tone(880, 0.16, vol: 0.2, bend: 260),
+      _bell(784, 0.3, vol: 0.17, decay: 10),
+      _at(0.07, _bell(988, 0.3, vol: 0.16, decay: 10)),
+      _at(0.14, _bell(1319, 0.42, vol: 0.15, decay: 8)),
     ]),
   );
 
+  /// 撞击 / 冲刺：一阵气流加一个上滑的圆音。
   static Uint8List skillDash() => build(
     mix([
-      noise(0.16, vol: 0.1),
-      tone(620, 0.08, vol: 0.22, bend: 520),
-      tone(930, 0.12, vol: 0.2, bend: 440),
-      tone(1244, 0.16, vol: 0.16, bend: 260),
+      _air(0.22, vol: 0.08, cutoff: 0.18),
+      _bell(440, 0.2, vol: 0.14, decay: 12, glide: 1.2),
     ]),
   );
 
+  /// 射击：很短的轻弹。
   static Uint8List shoot() => build(
     mix([
-      tone(920, 0.035, vol: 0.16, bend: -220),
-      tone(520, 0.055, vol: 0.13, bend: -180),
+      _bell(1047, 0.08, vol: 0.13, decay: 34, glide: -0.35),
+      _thud(0.05, vol: 0.05, from: 200, to: 120),
     ]),
   );
 
+  /// 载具：两个上行的圆音。
   static Uint8List vehicle() => build(
     mix([
-      tone(392, 0.07, vol: 0.2, bend: 180),
-      tone(587, 0.09, vol: 0.2, bend: 220),
-      tone(784, 0.12, vol: 0.16, bend: 260),
+      _bell(523, 0.22, vol: 0.15, decay: 11),
+      _at(0.08, _bell(784, 0.3, vol: 0.15, decay: 9)),
     ]),
   );
 
   static Uint8List enemySkill() => build(
     mix([
-      tone(620, 0.09, vol: 0.19, bend: 180),
-      tone(880, 0.11, vol: 0.13, bend: -120),
+      _bell(698, 0.14, vol: 0.1, decay: 20, glide: 0.2),
+      _air(0.12, vol: 0.03),
     ]),
   );
 
+  /// 通关：柔和的上行大三和弦，尾音长一点。
   static Uint8List win() {
-    final parts = <List<double>>[];
-    for (final e in [(523, 0.12), (659, 0.12), (784, 0.18), (1046, 0.25)]) {
-      parts.add(tone(e.$1.toDouble(), e.$2, vol: 0.28));
-    }
-    return build(mix(parts));
+    final notes = [
+      (523.25, 0.0),
+      (659.25, 0.09),
+      (783.99, 0.18),
+      (1046.5, 0.3),
+    ];
+    return build(
+      mix([
+        for (final e in notes) _at(e.$2, _bell(e.$1, 0.9, vol: 0.14, decay: 5)),
+      ]),
+    );
   }
 
   /// 马卡龙风 BGM 循环

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
@@ -18,6 +19,9 @@ Future<void> main() async {
     ]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   } catch (_) {}
+  // 角色立绘帧后台加载，没加载完时先用矢量画法。
+  // ignore: unawaited_futures
+  HeroSprites.preload();
   await SaveService.instance.init();
   try {
     await AudioService.instance.init();
@@ -47,7 +51,7 @@ class MacaronApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '马卡龙女友跑酷',
+      title: '马卡龙跑酷',
       debugShowCheckedModeBanner: false,
       builder: macaronAppShell,
       theme: MacaronColors.theme.copyWith(

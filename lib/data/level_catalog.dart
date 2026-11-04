@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
+import 'package:macaron_girlfriend_run/data/level_scenes.dart';
 
 /// 99 关全量目录（每关独立构图规则，按世界主题手调）
 class LevelCatalog {
@@ -9,15 +10,409 @@ class LevelCatalog {
 
   static LevelData load(int worldIndex, int levelIndex) {
     final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return LevelData(
+        worldIndex: w,
+        levelIndex: GameConstants.depthLevelIndex,
+        title: LevelNames.fullTitle(w, GameConstants.depthLevelIndex),
+        rows: _buildDepthRows(w),
+        difficulty: _difficulty(w, 5),
+      );
+    }
     final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
-    final rows = _buildRows(w, l);
-    return LevelData(
-      worldIndex: w,
-      levelIndex: l,
-      title: LevelNames.fullTitle(w, l),
-      rows: rows,
-      difficulty: _difficulty(w, l),
+    return _levelData(w, l, _composed(w, l).rows);
+  }
+
+  /// 不含场景的关卡（含天空层），测试用。深渊关与 [load] 一致。
+  static LevelData loadBase(int worldIndex, int levelIndex) {
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return load(worldIndex, levelIndex);
+    }
+    final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
+    return _levelData(w, l, _baseRows(w, l));
+  }
+
+  /// 该关放置的场景（深渊关返回空列表）。
+  static List<PlacedScene> scenesOf(int worldIndex, int levelIndex) {
+    if (levelIndex >= GameConstants.depthLevelIndex) {
+      return const [];
+    }
+    final w = worldIndex.clamp(0, GameConstants.worldCount - 1);
+    final l = levelIndex.clamp(0, GameConstants.levelsPerWorld - 1);
+    return _composed(w, l).scenes;
+  }
+
+  static final Map<int, SceneResult> _sceneCache = {};
+
+  static SceneResult _composed(int w, int l) =>
+      _sceneCache.putIfAbsent(w * 100 + l, () => LevelScenes.compose(_baseRows(w, l), w, l));
+
+  static List<String> _baseRows(int w, int l) => _addSkyLayer(_buildRows(w, l), w, l);
+
+  static LevelData _levelData(int w, int l, List<String> rows) => LevelData(
+        worldIndex: w,
+        levelIndex: l,
+        title: LevelNames.fullTitle(w, l),
+        rows: rows,
+        difficulty: _difficulty(w, l),
+      );
+
+  /// 「歌曲深处」：一座向下走的纵向地图。出生在最高处，沿着平台一层层往下，
+  /// 最底下一条长地面，旗杆在右端。路线由世界编号做种子随机生成，所以每个世界
+  /// 都不一样：平台长短、左右走向、缺口、立柱、岔路和隐藏小房间都不同。
+  /// 平台每层相隔 5 行（一次跳跃的高度以内），相邻两层在边缘处重叠，
+  /// 从边缘走下去必定落在下一层上（见 [depthLayers]）。
+  static const int depthWidth = 72;
+  static const int depthHeight = 48;
+  static const int depthFirstRow = 6;
+  static const int depthRowGap = 5;
+  static const int depthLayerCount = 8;
+
+  /// 某个世界下探关每一层平台的 (起始列, 长度, 中间留空的格数, 方向：1 向右走 / -1 向左走)。
+  /// 下一层一定盖住从上一层边缘走出去的落点。
+  static List<(int, int, int, int)> depthLayers(int world) {
+    final rnd = math.Random(world * 977 + 31);
+    const maxX = depthWidth - 2;
+    final layers = <(int, int, int, int)>[];
+    var dir = rnd.nextBool() ? 1 : -1;
+    var len = 20 + rnd.nextInt(16);
+    var x0 = dir > 0 ? 3 + rnd.nextInt(8) : maxX - len - 3 - rnd.nextInt(8);
+    for (var k = 0; k < depthLayerCount; k++) {
+      final last = k == depthLayerCount - 1;
+      if (last) {
+        // 最后一层：别把人送到旗杆右边的墙根。
+        dir = x0 + len + 1 > 58 ? -1 : dir;
+      }
+      final gap = (len >= 24 && rnd.nextInt(4) == 0) ? 4 : 0;
+      layers.add((x0, len, gap, dir));
+      if (last) {
+        break;
+      }
+      final beyond = dir > 0 ? x0 + len + 1 : x0 - 2;
+      final lo = dir > 0 ? beyond : beyond - 2; // 下一层至少盖住 lo..hi
+      final hi = dir > 0 ? beyond + 2 : beyond;
+      var next = (0, 0, 0);
+      for (var attempt = 0; attempt < 40; attempt++) {
+        final nd = rnd.nextInt(10) < 6 ? -dir : dir;
+        final nlen = 14 + rnd.nextInt(24);
+        final minX = math.max(3, hi - nlen + 1);
+        final maxStart = math.min(lo, maxX - nlen);
+        if (minX > maxStart) {
+          continue;
+        }
+        final nx0 = minX + rnd.nextInt(maxStart - minX + 1);
+        // 走出去的那一侧要留够落脚的空间。
+        if (nd > 0 && nx0 + nlen + 4 > maxX) {
+          continue;
+        }
+        if (nd < 0 && nx0 - 4 < 2) {
+          continue;
+        }
+        next = (nx0, nlen, nd);
+        break;
+      }
+      if (next.$2 == 0) {
+        // 退路：和原来一样的左右交错。
+        final nd = -dir;
+        next = nd > 0 ? (4, 34, nd) : (34, 34, nd);
+      }
+      x0 = next.$1;
+      len = next.$2;
+      dir = next.$3;
+    }
+    return layers;
+  }
+
+  static List<String> _buildDepthRows(int world) {
+    const width = depthWidth;
+    const height = depthHeight;
+    final rnd = math.Random(world * 313 + 5);
+    final grid = List.generate(height, (_) => List.filled(width, ' '));
+    // 两侧的墙。
+    for (var y = 0; y < height; y++) {
+      grid[y][0] = '#';
+      grid[y][width - 1] = '#';
+    }
+    // 底部长地面。
+    for (var x = 0; x < width; x++) {
+      grid[height - 1][x] = '#';
+      grid[height - 2][x] = '#';
+    }
+    bool isFree(int x, int y) =>
+        x > 0 && x < width - 1 && y >= 0 && y < height && grid[y][x] == ' ';
+    final layers = depthLayers(world);
+    for (var k = 0; k < layers.length; k++) {
+      final row = depthFirstRow + k * depthRowGap;
+      final (x0, len, gap, dir) = layers[k];
+      final mid = x0 + len ~/ 2;
+      bool inGap(int x) =>
+          gap > 0 && x >= mid - gap ~/ 2 - 1 && x < mid + (gap + 1) ~/ 2 + 1;
+      for (var x = x0; x < x0 + len; x++) {
+        if (gap > 0 && x >= mid - gap ~/ 2 && x < mid + (gap + 1) ~/ 2) {
+          continue;
+        }
+        grid[row][x] = '=';
+      }
+      // 立柱：平台上一格高的石墩，要跳过去。离两端和缺口都留几格。
+      final pillars = <int>{};
+      final pillarCount = len >= 20 ? rnd.nextInt(3) : rnd.nextInt(2);
+      for (var i = 0; i < pillarCount; i++) {
+        final px = x0 + 6 + rnd.nextInt(math.max(1, len - 12));
+        if (inGap(px) || pillars.any((p) => (p - px).abs() < 4)) {
+          continue;
+        }
+        pillars.add(px);
+        grid[row - 1][px] = '#';
+      }
+      // 糖果的摆法每层不同：一排、高处一排、成对。
+      final style = rnd.nextInt(3);
+      final count = (len ~/ 3).clamp(4, 9);
+      for (var i = 0; i < count; i++) {
+        final cx = dir > 0 ? x0 + 3 + i * 3 : x0 + len - 4 - i * 3;
+        if (cx <= x0 || cx >= x0 + len - 1 || grid[row][cx] != '=') {
+          continue;
+        }
+        final cy = switch (style) {
+          0 => row - 1,
+          1 => row - 2 - (i.isEven ? 0 : 1),
+          _ => row - 1 - (i % 3 == 2 ? 2 : 0),
+        };
+        if (grid[cy][cx] == ' ') {
+          grid[cy][cx] = 'C';
+        }
+      }
+      // 检查点、心、能量马卡龙：放在平台上第一个空着的落脚格。
+      void placeOnLedge(String c, {required bool fromEnd}) {
+        for (var i = 2; i < len - 2; i++) {
+          final cx = fromEnd ? x0 + len - 1 - i : x0 + i;
+          if (grid[row][cx] == '=' && grid[row - 1][cx] == ' ') {
+            grid[row - 1][cx] = c;
+            return;
+          }
+        }
+      }
+
+      if (k == 3 || k == 5) {
+        placeOnLedge('K', fromEnd: false);
+      }
+      if (k == 2) {
+        placeOnLedge('H', fromEnd: true);
+      }
+      if (k == 6) {
+        placeOnLedge('M', fromEnd: true);
+      }
+      // 岔路：主路相反的一侧悬着一间小平台，隔 3 格能跳过去；
+      // 平台上有弹簧，弹到更高的一块隐藏台，上面有糖和心。
+      if (k >= 1 && k <= 6 && rnd.nextInt(2) == 0) {
+        final bLen = 8;
+        final bx = dir > 0 ? x0 - 3 - bLen : x0 + len + 3;
+        var ok = bx >= 2 && bx + bLen < width - 2;
+        for (var x = bx; ok && x < bx + bLen; x++) {
+          for (var y = row - 8; y <= row; y++) {
+            if (!isFree(x, y)) {
+              ok = false;
+              break;
+            }
+          }
+        }
+        if (ok) {
+          for (var x = bx; x < bx + bLen; x++) {
+            grid[row][x] = '=';
+          }
+          grid[row - 1][bx + 2] = 'C';
+          grid[row - 1][bx + 5] = 'C';
+          grid[row - 1][bx + bLen ~/ 2] = 'S';
+          final ledgeRow = row - 7;
+          for (var x = bx + 1; x < bx + bLen - 1; x++) {
+            grid[ledgeRow][x] = '=';
+          }
+          grid[ledgeRow - 1][bx + 2] = 'C';
+          grid[ledgeRow - 1][bx + 3] = 'C';
+          grid[ledgeRow - 1][bx + 4] = k.isEven ? 'H' : 'C';
+        }
+      }
+    }
+    // 出生点：最高平台的左侧起点附近。
+    final (firstX, firstLen, _, _) = layers.first;
+    grid[depthFirstRow - 1][firstX + 1] = 'P';
+    if (grid[depthFirstRow - 1][firstX + 1] != 'P') {
+      grid[depthFirstRow - 1][firstX + firstLen ~/ 2] = 'P';
+    }
+    // 底部：几只慢走怪，旗杆在右端。
+    final surface = height - 3;
+    for (final x in [
+      22 + rnd.nextInt(4),
+      34 + rnd.nextInt(4),
+      46 + rnd.nextInt(4),
+    ]) {
+      grid[surface][x] = 'E';
+    }
+    grid[surface][width - 3] = 'F';
+    for (var x = 8; x < width - 8; x += 6) {
+      if (grid[surface][x] == ' ') {
+        grid[surface][x] = 'C';
+      }
+    }
+    return [for (final r in grid) r.join()];
+  }
+
+  /// 天空层行数：地面关卡上方再加的高度，角色可以沿弹簧路线飞上去。
+  static const int skyRows = 14;
+
+  /// 不局限于一个平面：普通关卡在原地图上方加一层“歌曲天空”。
+  /// 找一段上方完全空的地面，造「弹簧 → 平台 → 弹簧 → 平台 → 弹簧」的上升路线，
+  /// 通向一座空中岛屿（糖果弧线、生命心、能量马卡龙，岛上形状随世界不同）。
+  /// 地面关卡本身一格都不动，只是整体下移 [skyRows] 行；找不到空地时不加。
+  static List<String> _addSkyLayer(List<String> rows, int world, int level) {
+    if (level == GameConstants.levelsPerWorld - 1) {
+      return rows; // Boss 关保持原样
+    }
+    final height = rows.length;
+    final width = rows.first.length;
+    final surface = height - 3;
+    bool free(int x, int fromRow, int toRow) {
+      for (var y = fromRow; y <= toRow; y++) {
+        final t = rows[y][x];
+        if (t != ' ' && t != 'C') {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 只检查路线真正要用到的格子：起跳弹簧的竖直通道，
+    // 以及第一块平台和它上方的通道。别的地方有浮空平台也没关系。
+    bool windowFree(int x0) {
+      // 地面上的怪、弹簧、检查点离出发点要留出空档。
+      for (var x = x0 - 4; x < x0 + 9; x++) {
+        if (x >= 0 && x < width && 'AEGRTLYJBSWKV'.contains(rows[surface][x])) {
+          return false;
+        }
+      }
+      // 前后各留几格实心地面，别和坑的起跳 / 落地区重叠。
+      for (var x = x0 - 4; x < x0 + 9; x++) {
+        if (x < 0 || x >= width || rows[height - 2][x] != '#') {
+          return false;
+        }
+      }
+      // 起跳平台在地面上方两格（下面照常能走过去），弹簧在它上面；
+      // 只检查路线真正要用的通道：弹簧上方到第一块平台，以及平台上方。
+      for (var x = x0 + 1; x <= x0 + 4; x++) {
+        if (!free(x, 0, 8)) {
+          return false;
+        }
+      }
+      for (var x = x0 + 5; x <= x0 + 5; x++) {
+        if (!free(x, 0, 3)) {
+          return false;
+        }
+      }
+      for (var x = x0; x <= x0 + 2; x++) {
+        if (!free(x, 9, surface)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    final start = ((width * (0.38 + 0.04 * (world % 4))).round()).clamp(
+      6,
+      width - 24,
     );
+    int? x0;
+    for (var d = 0; d < width && x0 == null; d++) {
+      for (final x in [start + d, start - d]) {
+        if (x >= 6 && x <= width - 24 && windowFree(x)) {
+          x0 = x;
+          break;
+        }
+      }
+    }
+    if (x0 == null) {
+      return rows;
+    }
+
+    final grid = [
+      for (var i = 0; i < skyRows; i++) List.filled(width, ' '),
+      for (final r in rows) r.split(''),
+    ];
+    final s = skyRows + surface; // 新坐标里的地面站立行
+    void put(int x, int y, String c) {
+      if (x >= 1 && x < width - 1 && y >= 0 && y < grid.length) {
+        grid[y][x] = c;
+      }
+    }
+
+    void bar(int xa, int xb, int y) {
+      for (var x = xa; x <= xb; x++) {
+        put(x, y, '=');
+      }
+    }
+
+    final x = x0;
+    // 上升路线：每个弹簧约弹 7 格高。起跳弹簧在离地两格的小平台上，
+    // 地面路线从它下面走过，不会被意外弹飞。
+    bar(x, x + 2, s - 2);
+    put(x + 1, s - 3, 'S');
+    bar(x + 3, x + 5, s - 8);
+    put(x + 4, s - 9, 'S');
+    bar(x + 6, x + 8, s - 14);
+    put(x + 7, s - 15, 'S'); // 空中岛屿。
+    // 空中岛屿：长度、高度、踏脚石、第二座更高的小岛和奖励都由世界 / 关卡
+    // 编号做种子随机，各关不一样。岛上的糖果数量很少（糖果总数有上限）。
+    final rnd = math.Random(world * 131 + level * 17 + 3);
+    final islandLen = 12 + rnd.nextInt(13);
+    final islandRow = s - 20 + rnd.nextInt(3) - 1; // 比较高低错落
+    final ix0 = x + 9;
+    final ix1 = ix0 + islandLen - 1;
+    bar(ix0, ix1, islandRow);
+    // 岛的形状：有的中间凹下去一块。
+    if (islandLen >= 16 && rnd.nextBool()) {
+      final dip = ix0 + islandLen ~/ 2;
+      for (var d = 0; d < 3; d++) {
+        if (dip + d < width - 1) {
+          grid[islandRow][dip + d] = ' ';
+          put(dip + d, islandRow + 1, '=');
+        }
+      }
+    }
+    // 糖果的摆法：弧线、两排、阶梯、成串、散点。
+    switch (rnd.nextInt(5)) {
+      case 0:
+        for (var i = 0; i < 5; i++) {
+          put(ix0 + 3 + i * 2, islandRow - 2 - (2 - (i - 2).abs()), 'C');
+        }
+      case 1:
+        for (var i = 0; i < 3; i++) {
+          put(ix0 + 3 + i * 3, islandRow - 1, 'C');
+          put(ix0 + 4 + i * 3, islandRow - 3, 'C');
+        }
+      case 2:
+        for (var i = 0; i < 5; i++) {
+          put(ix0 + 3 + i * 2, islandRow - 1 - i ~/ 2, 'C');
+        }
+      case 3:
+        for (var i = 0; i < 6; i++) {
+          put(ix0 + 2 + i, islandRow - 1, 'C');
+        }
+      default:
+        for (var i = 0; i < 4; i++) {
+          put(ix0 + 2 + i * 3, islandRow - 1 - rnd.nextInt(3), 'C');
+        }
+    }
+    // 第二座更高的小岛，用踏脚石一级级跳上去，上面放大奖励。
+    if (rnd.nextInt(3) != 0 && islandRow - 9 >= 1) {
+      final hx = ix1 - 3;
+      bar(hx - 2, hx, islandRow - 4);
+      bar(hx + 3, hx + 7, islandRow - 8);
+      put(hx + 4, islandRow - 9, 'C');
+      put(hx + 5, islandRow - 9, 'H');
+      put(hx + 6, islandRow - 9, 'C');
+    }
+    put(ix1 - 1, islandRow - 1, rnd.nextBool() ? 'H' : 'M');
+    put(ix0 + 1 + rnd.nextInt(4), islandRow - 1, rnd.nextBool() ? 'M' : 'C');
+    return [for (final r in grid) r.join()];
   }
 
   static int _difficulty(int w, int l) {
