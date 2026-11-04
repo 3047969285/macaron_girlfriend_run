@@ -126,14 +126,19 @@ class TerrainRenderer extends PositionComponent {
           }
           canvas.drawRect(const Rect.fromLTWH(-16, -62, 32, 57), ink);
         case LyricLandmark.gate:
-          final path = Path()
-            ..moveTo(-75, 0)
-            ..lineTo(-75, -120)
-            ..quadraticBezierTo(0, -190, 75, -120)
-            ..lineTo(75, 0);
-          canvas.drawPath(path, ink..strokeWidth = 10);
-          canvas.drawLine(const Offset(-94, -118), const Offset(94, -118), ink);
-          canvas.drawCircle(const Offset(0, -155), 12, light);
+          final centers = scene.lyricRoute == null
+              ? [0.0]
+              : [-120.0, 0.0, 120.0];
+          for (final center in centers) {
+            final path = Path()
+              ..moveTo(center - 45, 0)
+              ..lineTo(center - 45, -120)
+              ..quadraticBezierTo(center, -175, center + 45, -120)
+              ..lineTo(center + 45, 0);
+            canvas.drawPath(path, ink..strokeWidth = 10);
+            canvas.drawLine(Offset(center - 55, -118), Offset(center + 55, -118), ink);
+            canvas.drawCircle(Offset(center, -145), 10, light);
+          }
           ink.strokeWidth = 6;
         case LyricLandmark.mirror:
           canvas.drawOval(const Rect.fromLTWH(-50, -160, 100, 130), light);
@@ -168,6 +173,9 @@ class TerrainRenderer extends PositionComponent {
           canvas.drawLine(const Offset(0, -152), const Offset(42, -152), ink);
           canvas.drawCircle(const Offset(42, -142), 15, light);
           canvas.drawLine(const Offset(25, -142), const Offset(59, -142), ink);
+      }
+      if (scene.lyricRoute case final name?) {
+        _songText(canvas, name, const Offset(0, -198), 18, palette.groundDark);
       }
       canvas.restore();
     }

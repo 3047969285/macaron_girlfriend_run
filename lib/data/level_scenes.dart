@@ -17,6 +17,7 @@ class PlacedScene {
     required this.cells,
     this.climax = false,
     this.motif = false,
+    this.lyricRoute,
   });
 
   /// 种类。
@@ -39,9 +40,10 @@ class PlacedScene {
 
   /// 糖果波摆成了歌的标志造型。
   final bool motif;
+  final String? lyricRoute;
 
   /// 同一个场景，标为高潮。
-  PlacedScene asClimax() => PlacedScene(kind: kind, x: x, width: width, mirrored: mirrored, cells: cells, climax: true, motif: motif);
+  PlacedScene asClimax() => PlacedScene(kind: kind, x: x, width: width, mirrored: mirrored, cells: cells, climax: true, motif: motif, lyricRoute: lyricRoute);
 }
 
 /// 带场景的关卡行数据，场景按 x 从左到右。
@@ -198,7 +200,7 @@ class LevelScenes {
     }
     final baseCoins = rows.fold(0, (n, r) => n + 'C'.allMatches(r).length);
     final boss = level == GameConstants.levelsPerWorld - 1 ? grid[g].indexOf('B') : -1;
-    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)), SongProfile.of(world).motif);
+    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)), SongProfile.of(world).motif, SongProfile.songIndexOf(world), level);
     final kinds = planKinds(world, level);
     final seed = world * 1009 + level * 37 + 11 + salt * 100003;
     final slots = _slotColumns(world, level, kinds.length, w);
@@ -338,6 +340,15 @@ class LevelScenes {
           bag[story]++;
         }
       }
+      final lyric = _lyricKinds[SongProfile.songIndexOf(world)].index;
+      if ((SongProfile.songIndexOf(world) == 3 || level == 0) && bag[lyric] == 0) {
+        final candidates = [for (var j = 0; j < n; j++) if (bag[j] > 0 && j != coin && j != story) j];
+        if (candidates.isNotEmpty) {
+          final repeated = candidates.where((j) => bag[j] > 1).toList();
+          bag[_pick(rnd, repeated.isEmpty ? candidates : repeated, wts)]--;
+          bag[lyric]++;
+        }
+      }
       final seq = <SceneKind>[];
       for (var i = 0; i < count; i++) {
         final cands = [for (var j = 0; j < n; j++) if (bag[j] > 0 && (seq.isEmpty || seq.last.index != j)) j];
@@ -389,6 +400,7 @@ class _Pen {
   int mLeft;
   bool ok = true;
   bool usedMotif = false;
+  String? lyricRoute;
 
   /// 留给糖果波标志造型的糖果名额：其他种类不能用掉它。
   int reserve = 0;
@@ -443,6 +455,58 @@ void _draw(SceneKind kind, _Pen p) {
     case SceneKind.coinWave:
       _coinWave(p);
   }
+}
+
+const _lyricKinds = [SceneKind.cloudRoom, SceneKind.skyBridge, SceneKind.tower,
+  SceneKind.hangingGarden, SceneKind.tower, SceneKind.valley];
+
+bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
+  final phase = (level.clamp(0, 10) * 3 ~/ 11).clamp(0, 2);
+  if (kind != _lyricKinds[song]) return false;
+  p.lyricRoute = ['街角屋檐', '白马三关', '倒影双塔', '心跳花园', '时钟街区', '夜行归路'][song];
+  switch (song) {
+    case 0:
+      p.bricks(3, 0, 3);
+      final length = 8 + phase;
+      p.bricks(7, 4, length, q: 7);
+      p.bricks(10, 5, length - 2);
+      p.top(4, 8);
+    case 1:
+      p.bricks(3, 0, 2);
+      p.bricks(7, 3, 2);
+      p.bricks(9, 6, 8 + phase);
+      p.coin(7, 10);
+      p.coin(10, 10);
+      p.coin(13, 10);
+    case 2:
+      p.bricks(3, 0, 3);
+      p.bricks(7, 3, 2 + phase % 2);
+      p.bricks(9, 0, 2 + phase % 2);
+      p.bricks(10, 5, 2 + phase);
+      p.top(6, 11);
+    case 3:
+      p.bricks(3, 0, 2);
+      p.bricks(7, 3, 2);
+      p.bricks(8, 6, 8 + phase);
+      p.bricks(7, 8, 1);
+      p.bricks(7, 12, 1);
+      p.coin(10, 5);
+      p.coin(13, 5);
+    case 4:
+      p.bricks(3, 0, 3);
+      p.bricks(7, 4, 2);
+      p.bricks(9, 1, 3);
+      p.bricks(10, 5, 2 + phase);
+      p.top(5, 11);
+    case 5:
+      p.bricks(3, 0, 2);
+      p.bricks(7, 3, 2);
+      p.bricks(10, 6, 2);
+      p.bricks(7, 10, 2 + phase);
+      p.bricks(10, 14 + phase, 2);
+      p.coin(10, 8);
+  }
+  return true;
 }
 
 void _staircase(_Pen p) {
@@ -619,13 +683,15 @@ void _coinWave(_Pen p) {
 
 /// 一个关卡内的放置状态：按顺序放场景，失败则回滚。
 class _Writer {
-  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins, this.motif);
+  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins, this.motif, this.song, this.level);
 
   final List<List<String>> grid;
   final List<bool> banned;
   final List<bool> springZone;
   final int boss;
   final List<(int, int)> motif;
+  final int song;
+  final int level;
   int coins;
   int mLeft = 1;
   final Set<int> owned = {};
@@ -644,7 +710,9 @@ class _Writer {
       for (var attempt = 0; attempt < 24; attempt++) {
         final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3), motif)
           ..reserve = kind == SceneKind.coinWave ? 0 : motif.length;
-        _draw(kind, pen);
+        if (attempt >= 8 || !_drawLyricRoute(song, level, kind, pen)) {
+          _draw(kind, pen);
+        }
         if (!pen.ok) {
           return null;
         }
@@ -738,7 +806,7 @@ class _Writer {
     }
     coins -= cells.values.where((v) => v == 'C').length;
     mLeft -= cells.values.where((v) => v == 'M').length;
-    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells, motif: pen.usedMotif);
+    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells, motif: pen.usedMotif, lyricRoute: pen.lyricRoute);
   }
 
   /// 升降台通道（行 g-5…g-3，列 I-1…I+3）不放场景，免得挡住 stage_platform 的升降路径。
