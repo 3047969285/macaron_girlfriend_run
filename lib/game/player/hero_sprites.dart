@@ -51,11 +51,21 @@ class HeroPoseAnimator {
     if (running) _distance += distance.abs();
   }
 
+  bool _isRunning(HeroPose? pose) =>
+      pose == HeroPose.run1 ||
+      pose == HeroPose.run2 ||
+      pose == HeroPose.run3 ||
+      pose == HeroPose.run4;
+
   List<(HeroPose, double)> layers(double alpha) => [
-    if (previous != null && previous != current && blend < 1)
-      (previous!, alpha),
-    if (current != null)
-      (current!, previous == current ? alpha : alpha * blend),
+    if (current != null && (_isRunning(current) || _isRunning(previous)))
+      (current!, alpha)
+    else ...[
+      if (previous != null && previous != current && blend < 1)
+        (previous!, alpha),
+      if (current != null)
+        (current!, previous == current ? alpha : alpha * blend),
+    ],
   ];
 
   double get blend {

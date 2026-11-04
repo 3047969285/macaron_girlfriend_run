@@ -17,6 +17,14 @@ void main() {
     expect(layers.last.$2, closeTo(0.5, 0.0001));
   });
 
+  test('running transitions draw only the current silhouette', () {
+    final animator = HeroPoseAnimator()..advance(HeroPose.stand, 0);
+    for (final pose in [HeroPose.run1, HeroPose.run2, HeroPose.fall]) {
+      animator.advance(pose, 0.02);
+      expect(animator.layers(0.8), [(pose, 0.8)]);
+    }
+  });
+
   test('players animate independently and stride follows distance', () {
     final first = GirlfriendPlayer(role: PlayerRole.girlfriend)
       ..onGround = true;
