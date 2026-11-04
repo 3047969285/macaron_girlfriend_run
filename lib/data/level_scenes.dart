@@ -502,6 +502,8 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 4, length, q: 7);
       p.bricks(10, 5, length - 2);
       p.top(4, 8);
+      // 后段屋檐提供独立的回落点，玩家可选择高处奖励或继续前行。
+      if (phase > 0) p.bricks(7, 16, 2);
     case 1:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -509,6 +511,8 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.coin(7, 10);
       p.coin(10, 10);
       p.coin(13, 10);
+      // 归途末段有一座低于主桥的驿站，给跳跃失误留出恢复空间。
+      if (phase > 0) p.bricks(7, 17, 2);
     case 2:
       p.bricks(3, 0, 3);
       p.bricks(7, 3, 2 + phase % 2);
@@ -523,6 +527,8 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 12, 1);
       p.coin(10, 5);
       p.coin(13, 5);
+      // 花园出口设置下层分支，不改变地面保底路线。
+      if (phase > 0) p.bricks(7, 17, 2);
     case 4:
       p.bricks(3, 0, 3);
       p.bricks(7, 4, 2);
