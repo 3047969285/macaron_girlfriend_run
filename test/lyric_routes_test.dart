@@ -104,6 +104,7 @@ void main() {
       'haptic_on': false,
     });
     await SaveService.instance.init();
+    var checkedRewards = 0;
     for (var world = 0; world < 9; world++) {
       for (var level = 4; level < 11; level++) {
         final game = MacaronGame(
@@ -126,6 +127,18 @@ void main() {
         final col =
             scene.x + (scene.mirrored ? scene.width - 1 - offset : offset);
         final top = (game.level.height - 3 - 7) * GameConstants.tileSize;
+        final rewardRow = game.level.height - 3 - 8;
+        final rewards = game.coins
+            .where(
+              (coin) =>
+                  (coin.position.x - (col + 0.5) * GameConstants.tileSize)
+                          .abs() <
+                      1 &&
+                  (coin.position.y - (rewardRow + 0.5) * GameConstants.tileSize)
+                          .abs() <
+                      1,
+            )
+            .toList();
         game.player
           ..position.setValues((col + 0.5) * GameConstants.tileSize, top - 12)
           ..velocity.setValues(0, 200)
@@ -144,9 +157,23 @@ void main() {
           reason:
               'world $world level $level landing at ${game.player.position}, expected y=$top',
         );
+        if (scene.cells[(col, rewardRow)] == 'C') {
+          expect(
+            rewards,
+            hasLength(1),
+            reason: 'world $world level $level reward created',
+          );
+          expect(
+            rewards.single.collected,
+            isTrue,
+            reason: 'world $world level $level reward collected',
+          );
+          checkedRewards++;
+        }
         await tester.pumpWidget(const SizedBox.shrink());
       }
     }
+    expect(checkedRewards, greaterThan(0));
   });
   test('later lyric routes retain their optional lower landing', () {
     for (var world = 0; world < 9; world++) {
