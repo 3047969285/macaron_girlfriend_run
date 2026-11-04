@@ -702,7 +702,6 @@ class _RoundHoldState extends State<_RoundHold> {
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.size * (_down ? 0.92 : 1.0);
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (_) => _set(true),
@@ -713,32 +712,37 @@ class _RoundHoldState extends State<_RoundHold> {
         width: widget.size,
         height: widget.size,
         alignment: Alignment.center,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: (widget.fill ?? Colors.white.withValues(alpha: 0.7))
-                .withValues(alpha: _down ? 1.0 : 0.85),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: _down ? 0.95 : 0.65),
-              width: _down ? 2.5 : 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x18000000),
-                blurRadius: _down ? 8 : 16,
-                offset: Offset(0, _down ? 3 : 6),
+        child: AnimatedScale(
+          scale: _down ? 0.92 : 1,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: (widget.fill ?? Colors.white.withValues(alpha: 0.7))
+                  .withValues(alpha: _down ? 1.0 : 0.85),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: _down ? 0.95 : 0.65),
+                width: _down ? 2.5 : 1.5,
               ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            widget.label ?? '',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: MacaronColors.cocoa,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x18000000),
+                  blurRadius: _down ? 8 : 16,
+                  offset: Offset(0, _down ? 3 : 6),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              widget.label ?? '',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: MacaronColors.cocoa,
+              ),
             ),
           ),
         ),
