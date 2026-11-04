@@ -10,6 +10,7 @@ Future<T?> showMacaronDialog<T>({
   required String body,
   required List<MacaronDialogAction> actions,
   bool landscape = false,
+  bool celebration = false,
 }) {
   return showGeneralDialog<T>(
     context: context,
@@ -17,6 +18,19 @@ Future<T?> showMacaronDialog<T>({
     barrierLabel: 'dialog',
     barrierColor: Colors.black54,
     transitionDuration: const Duration(milliseconds: 220),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
     pageBuilder: (ctx, _, __) {
       final dialog = SafeArea(
         child: Center(
@@ -71,14 +85,18 @@ Future<T?> showMacaronDialog<T>({
                       const SizedBox(height: 12),
                       Flexible(
                         child: SingleChildScrollView(
-                          child: Text(
-                            body,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              height: 1.45,
-                              color: MacaronColors.cocoa.withValues(alpha: 0.8),
-                            ),
-                          ),
+                          child: celebration
+                              ? CelebrationBody(body: body)
+                              : Text(
+                                  body,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    height: 1.45,
+                                    color: MacaronColors.cocoa.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -115,6 +133,57 @@ Future<T?> showMacaronDialog<T>({
       return landscape ? GameViewport(showHint: false, child: dialog) : dialog;
     },
   );
+}
+
+class CelebrationBody extends StatefulWidget {
+  const CelebrationBody({super.key, required this.body});
+  final String body;
+  @override
+  State<CelebrationBody> createState() => _CelebrationBodyState();
+}
+
+class _CelebrationBodyState extends State<CelebrationBody>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  )..forward();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = widget.body.split('\n');
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final elapsed = _controller.value * 800;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < lines.length; i++)
+              Opacity(
+                opacity: ((elapsed - i * 100) / 100).clamp(0.0, 1.0),
+                child: Text(
+                  lines[i].replaceAllMapped(RegExp(r'分数\s+(\d+)'), (m) {
+                    final score = int.parse(m[1]!);
+                    return '分数 ${(score * Curves.easeOutCubic.transform(_controller.value)).round()}';
+                  }),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    height: 1.45,
+                    color: MacaronColors.cocoa.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 /// 弹窗按钮

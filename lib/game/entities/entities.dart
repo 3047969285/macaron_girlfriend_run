@@ -20,6 +20,11 @@ class MacaronCoin extends PositionComponent {
   double _spin = 0;
   double _bob = 0;
 
+  void removeWithPop() {
+    parent?.add(CoinPopVisual(position: position.clone()));
+    removeFromParent();
+  }
+
   @override
   void update(double dt) {
     _spin += dt * 5;
@@ -53,6 +58,34 @@ class MacaronCoin extends PositionComponent {
       Paint()..color = Colors.white.withValues(alpha: 0.6),
     );
     canvas.restore();
+  }
+}
+
+class CoinPopVisual extends PositionComponent {
+  CoinPopVisual({required Vector2 position})
+    : super(
+        position: position,
+        size: Vector2.all(34),
+        anchor: Anchor.center,
+        priority: 50,
+      );
+  static const duration = 0.3;
+  double age = 0;
+  double get progress => (age / duration).clamp(0.0, 1.0);
+  @override
+  void update(double dt) {
+    age += dt;
+    if (age >= duration) removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final p = progress;
+    canvas.drawCircle(
+      Offset(size.x / 2, size.y / 2 - 24 * p),
+      15 * (1 + 0.3 * p),
+      Paint()..color = MacaronColors.lemon.withValues(alpha: 1 - p),
+    );
   }
 }
 
@@ -203,6 +236,8 @@ class SpringPad extends PositionComponent {
       );
 
   double _squash = 0;
+  double get visualHeightFactor =>
+      1 - 0.4 * _squash * math.cos((1 - _squash) * math.pi * 2);
 
   void bounce() {
     _squash = 1;
@@ -217,7 +252,7 @@ class SpringPad extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    final h = size.y * (1 - _squash * 0.4);
+    final h = size.y * visualHeightFactor;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, size.y - h, size.x, h),
@@ -303,6 +338,27 @@ class SoftEnemy extends PositionComponent {
   double _swoopRecoveryTimer = 0;
   double _swoopTargetX = 0;
   bool dead = false;
+  double _walkDistance = 0;
+  double? _lastWalkX;
+  double _landing = 0;
+  @visibleForTesting
+  double get visualSquash =>
+      1 +
+      math.sin(_walkDistance / 24 * math.pi) * 0.035 +
+      _landing * 0.12 +
+      (_warningTimer > 0 ? 0.09 : 0);
+
+  void removeWithFade() {
+    if (dead) parent?.add(EnemyDeathVisual(this));
+    removeFromParent();
+  }
+
+  late final Paint _bodyPaint = Paint()
+    ..shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color.lerp(_bodyColor, Colors.white, 0.38)!, _bodyColor],
+    ).createShader(Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y));
 
   bool get isGuarding => kind == EnemyKind.shell && _guardTimer > 0;
 
@@ -328,6 +384,9 @@ class SoftEnemy extends PositionComponent {
     if (dead || !simActive) {
       return;
     }
+    _walkDistance += (position.x - (_lastWalkX ?? position.x)).abs();
+    _lastWalkX = position.x;
+    _landing = math.max(0, _landing - dt * 5);
     _wobble += dt * 8;
     if (_flash > 0) {
       _flash -= dt;
@@ -545,6 +604,7 @@ class SoftEnemy extends PositionComponent {
         position.y = _baseY;
         _hopVy = 0;
         _justLanded = true;
+        _landing = 1;
         _pouncing = false;
       }
     }
@@ -576,10 +636,7 @@ class SoftEnemy extends PositionComponent {
     if (dead) {
       return;
     }
-    if (_flash > 0 && (_flash * 18).floor().isOdd) {
-      return;
-    }
-    final squash = 1 + math.sin(_wobble) * 0.06;
+    final squash = visualSquash;
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     // 落地阴影：飞行、弹跳时留在地面上，和人物的阴影一致。
@@ -609,7 +666,20 @@ class SoftEnemy extends PositionComponent {
           ..strokeWidth = 3,
       );
     }
+    if (_flash > 0) {
+      canvas.saveLayer(
+        null,
+        Paint()
+          ..colorFilter = ColorFilter.mode(
+            Colors.white.withValues(
+              alpha: (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+            ),
+            BlendMode.srcATop,
+          ),
+      );
+    }
     _drawSilhouette(canvas);
+    if (_flash > 0) canvas.restore();
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 15);
       final badge = RRect.fromRectAndRadius(
@@ -755,12 +825,7 @@ class SoftEnemy extends PositionComponent {
 
   void _drawSilhouette(Canvas canvas) {
     // 身体由上到下从提亮到本色，带出立体感。
-    final body = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color.lerp(_bodyColor, Colors.white, 0.38)!, _bodyColor],
-      ).createShader(Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y));
+    final body = _bodyPaint;
     final cream = Paint()..color = MacaronColors.cream;
     switch (kind) {
       case EnemyKind.walker:
@@ -1027,6 +1092,38 @@ class SoftEnemy extends PositionComponent {
 }
 
 /// 怪物发射的糖豆，碰到地形或玩家后消失
+class EnemyDeathVisual extends PositionComponent {
+  EnemyDeathVisual(this.enemy)
+    : super(
+        position: enemy.position.clone(),
+        size: enemy.size.clone(),
+        anchor: Anchor.bottomCenter,
+        priority: 40,
+      );
+  final SoftEnemy enemy;
+  static const duration = 0.28;
+  double age = 0;
+  double get progress => (age / duration).clamp(0.0, 1.0);
+  @override
+  void update(double dt) {
+    age += dt;
+    if (age >= duration) removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final p = progress;
+    canvas.saveLayer(
+      null,
+      Paint()..color = Colors.white.withValues(alpha: 1 - p),
+    );
+    canvas.translate(size.x / 2, size.y);
+    canvas.scale(enemy.dir * (1 - p * 0.5), 1 - p * 0.5);
+    enemy._drawSilhouette(canvas);
+    canvas.restore();
+  }
+}
+
 class EnemyCandyShot extends PositionComponent {
   EnemyCandyShot({
     required Vector2 position,
@@ -1947,10 +2044,8 @@ class MacaronBoss extends PositionComponent {
     if (dead) {
       return;
     }
-    if (_flash > 0 && (_flash * 20).floor().isOdd) {
-      return;
-    }
-    final squash = 1 + math.sin(_wobble) * 0.05;
+    final squash =
+        1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.08 : 0);
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale((dir >= 0 ? 1.0 : -1.0) * squash, 1 / squash);
@@ -1963,7 +2058,12 @@ class MacaronBoss extends PositionComponent {
         ),
         const Radius.circular(18),
       ),
-      Paint()..color = enraged ? MacaronColors.rose : MacaronColors.lilac,
+      Paint()
+        ..color = Color.lerp(
+          enraged ? MacaronColors.rose : MacaronColors.lilac,
+          Colors.white,
+          (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+        )!,
     );
     canvas.drawCircle(
       Offset(-14, -size.y * 0.55),
@@ -2131,6 +2231,8 @@ class CheckpointPad extends PositionComponent {
 
   bool activated = false;
   double _wave = 0;
+  @visibleForTesting
+  double get waveOffset => math.sin(_wave) * 3;
 
   void activate() {
     activated = true;
@@ -2147,7 +2249,7 @@ class CheckpointPad extends PositionComponent {
       Rect.fromLTWH(size.x * 0.42, 0, 5, size.y),
       Paint()..color = MacaronColors.cocoa,
     );
-    final tip = math.sin(_wave) * 3;
+    final tip = waveOffset;
     canvas.drawPath(
       Path()
         ..moveTo(size.x * 0.5, 8)

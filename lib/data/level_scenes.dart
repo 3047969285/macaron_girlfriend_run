@@ -1,13 +1,22 @@
 import 'dart:math' as math;
 
 import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 
 /// 场景种类，顺序与 [LevelScenes.kindWeights] 的列一致。
 enum SceneKind { staircase, archipelago, tower, skyBridge, ziggurat, valley, cloudRoom, hangingGarden, coinWave }
 
 /// 一个已放置的场景。坐标是最终关卡行数据里的绝对 (列, 行)。
 class PlacedScene {
-  const PlacedScene({required this.kind, required this.x, required this.width, required this.mirrored, required this.cells});
+  const PlacedScene({
+    required this.kind,
+    required this.x,
+    required this.width,
+    required this.mirrored,
+    required this.cells,
+    this.climax = false,
+    this.motif = false,
+  });
 
   /// 种类。
   final SceneKind kind;
@@ -23,6 +32,15 @@ class PlacedScene {
 
   /// (列, 行) -> '=' | '?' | 'C' | 'M'，只含本场景写入的格子。
   final Map<(int, int), String> cells;
+
+  /// 本关响度最高点最近的场景。
+  final bool climax;
+
+  /// 糖果波摆成了歌的标志造型。
+  final bool motif;
+
+  /// 同一个场景，标为高潮。
+  PlacedScene asClimax() => PlacedScene(kind: kind, x: x, width: width, mirrored: mirrored, cells: cells, climax: true, motif: motif);
 }
 
 /// 带场景的关卡行数据，场景按 x 从左到右。
@@ -53,36 +71,99 @@ class LevelScenes {
     [2, 2, 2, 2, 2, 2, 2, 2, 2],
   ];
 
+  /// 种类的响度分，顺序同 [SceneKind.values]。
+  static const List<double> kindLoudness = [0.7, 0.3, 1.0, 0.4, 0.9, 0.5, 0.8, 0.3, 0.1];
+
   /// 计划场景数：clamp(关卡宽度 ÷ 30, 4, 14)。
   static int plannedCount(int width) => (width ~/ 30).clamp(4, 14);
 
-  /// 关卡的场景种类计划（与 [compose] 同一套种子）。相邻两关按位置对齐的相同比例不超过一半。
+  /// 关卡的场景种类计划（与 [compose] 同一套种子）。种类先按响度匹配到槽位，再要求相邻不重复、
+  /// 相邻两关按位置对齐的相同比例不超过一半；换盐重抽最多 40 次。
   static List<SceneKind> planKinds(int world, int level) {
-    final count = plannedCount(140 + world * 18 + level * 18);
+    final count = plannedCount(_levelWidth(world, level));
     final prev = level > 0 ? planKinds(world, level - 1) : null;
-    var plan = _rawPlan(world, level, 0, count);
-    for (var t = 1; t <= 20 && prev != null && _sameShare(plan, prev) > 0.5; t++) {
-      plan = _rawPlan(world, level, t * 1000, count);
+    for (var t = 0; t < 40; t++) {
+      final salt = t * 1000;
+      final plan = _loudnessMatch(_rawPlan(world, level, salt, count), world, level, salt);
+      if (_adjacentFree(plan) && (prev == null || _sameShare(plan, prev) <= 0.5)) {
+        return plan;
+      }
     }
-    return plan;
+    return _rawPlan(world, level, 0, count);
   }
 
+  static int _levelWidth(int world, int level) => 140 + world * 18 + level * 18;
+
+  /// 场景槽位的左右范围：[_lo, _hi(width)]。
+  static const int _lo = 18;
+  static int _hi(int width) => width - 22;
+
+  /// 槽位列：在 [_lo, _hi] 上按 0.15 + 响度加权做逆累积分布取点，吸附到最近的小节线（_lo + k × 小节长度），
+  /// 与前一个槽位至少隔半小节（不够就顺延到下一条小节线）。
+  static List<int> _slotColumns(int world, int level, int n, int width) {
+    final hi = _hi(width);
+    final bar = SongProfile.barTiles(world);
+    final cum = List<double>.filled(hi - _lo + 1, 0);
+    var total = 0.0;
+    for (var x = _lo; x <= hi; x++) {
+      total += 0.15 + SongProfile.levelEnergyAt(world, level, (x - _lo) / (hi - _lo));
+      cum[x - _lo] = total;
+    }
+    final cols = <int>[];
+    var x = _lo;
+    for (var i = 0; i < n; i++) {
+      final target = (i + 0.5) / n * total;
+      while (x < hi && cum[x - _lo] < target) {
+        x++;
+      }
+      var c = _lo + (x - _lo + bar ~/ 2) ~/ bar * bar;
+      if (cols.isNotEmpty && c < cols.last + bar ~/ 2) {
+        c = _lo + (cols.last + bar ~/ 2 - _lo + bar - 1) ~/ bar * bar;
+      }
+      cols.add(math.min(c, hi));
+    }
+    return cols;
+  }
+
+  /// 响度匹配：计划里的种类按响度从低到高，与槽位（响度加 ±0.1 抖动）按响度从低到高一一对应；结果仍按槽位从左到右排列。
+  static List<SceneKind> _loudnessMatch(List<SceneKind> raw, int world, int level, int salt) {
+    final n = raw.length;
+    final width = _levelWidth(world, level);
+    final rnd = math.Random(world * 1009 + level * 37 + 11 + salt + 1);
+    final loud = [
+      for (final c in _slotColumns(world, level, n, width))
+        SongProfile.levelEnergyAt(world, level, (c - _lo) / (_hi(width) - _lo)) + rnd.nextDouble() * 0.2 - 0.1,
+    ];
+    final slotRank = [for (var i = 0; i < n; i++) i]..sort((a, b) => loud[a].compareTo(loud[b]));
+    final byLoudness = [...raw]..sort((a, b) => kindLoudness[a.index].compareTo(kindLoudness[b.index]));
+    final out = [...raw];
+    for (var r = 0; r < n; r++) {
+      out[slotRank[r]] = byLoudness[r];
+    }
+    return out;
+  }
+
+  static bool _adjacentFree(List<SceneKind> plan) => [for (var i = 1; i < plan.length; i++) plan[i] != plan[i - 1]].every((b) => b);
+
   /// 在 [rows]（已含天空层）上方放置场景。地面站立行 g = rows.length - 3。
-  /// 最高砖行数不够多样（不足 2 种，或 7 个以上不足 3 种）时换种子重放，最多 8 次。
+  /// 最高砖行、种类不够多样，或高潮不够高时换种子重放，最多 4 次，取得分最高的一次。
   static SceneResult compose(List<String> rows, int world, int level) {
     SceneResult? best;
     var bestScore = -1;
     final want = plannedCount(rows.first.length) - 2;
+    final g = rows.length - 3;
     for (var salt = 0; salt < 4; salt++) {
       final r = _composeOnce(rows, world, level, salt);
-      final tops = {for (final s in r.scenes) s.cells.entries.where((e) => '=?'.contains(e.value)).map((e) => e.key.$2).reduce(math.min)};
-      final topOk = tops.length >= (r.scenes.length >= 7 ? 3 : 2);
-      final score = (topOk ? 100 : 0) + math.min<int>(r.scenes.length, want);
+      final n = r.scenes.length;
+      final topOk = r.scenes.map(_topRow).toSet().length >= (n >= 7 ? 3 : 2);
+      final kindOk = r.scenes.map((s) => s.kind).toSet().length >= math.min(n >= 8 ? 5 : 4, n);
+      final climaxOk = r.scenes.every((s) => !s.climax || _topRow(s) <= g - 9);
+      final score = (topOk ? 400 : 0) + (kindOk ? 200 : 0) + (climaxOk ? 100 : 0) + math.min<int>(n, want);
       if (score > bestScore) {
         best = r;
         bestScore = score;
       }
-      if (topOk && r.scenes.length >= want) {
+      if (topOk && kindOk && climaxOk && n >= want) {
         break;
       }
     }
@@ -103,30 +184,29 @@ class LevelScenes {
         }
       }
     }
+    // 地面弹簧的飞行区（左 3、右 11 列，同天空弹簧）：弹起的玩家落在基础台阶上时，这里的砖不能挡住它。
     final springZone = List.filled(w, false);
     for (var c = 0; c < w; c++) {
       if (grid[g][c] == 'S') {
-        for (var x = math.max(0, c - 3); x <= math.min(w - 1, c + 9); x++) {
+        for (var x = math.max(0, c - 3); x <= math.min(w - 1, c + 11); x++) {
           springZone[x] = true;
         }
       }
     }
     final baseCoins = rows.fold(0, (n, r) => n + 'C'.allMatches(r).length);
     final boss = level == GameConstants.levelsPerWorld - 1 ? grid[g].indexOf('B') : -1;
-    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)));
+    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)), SongProfile.of(world).motif);
     final kinds = planKinds(world, level);
     final seed = world * 1009 + level * 37 + 11 + salt * 100003;
-    const lo = 18;
-    final hi = w - 22;
-    final seg = (hi - lo) ~/ kinds.length;
+    final slots = _slotColumns(world, level, kinds.length, w);
+    final seg = (_hi(w) - _lo) ~/ kinds.length;
     final placed = <PlacedScene>[];
     final pending = <int>[];
     for (var i = 0; i < kinds.length; i++) {
       final rnd = math.Random(seed + i * 17);
-      final target = lo + seg * i + seg ~/ 2 + rnd.nextInt(7) - 3;
       final last = placed.isEmpty ? null : placed.last;
-      final minX = last == null ? lo : math.max(lo, last.x + last.width + 2);
-      final s = _fallback(writer, kinds[i], last?.kind, null, rnd, target, seg ~/ 2, minX, w - 20);
+      final minX = last == null ? _lo : math.max(_lo, last.x + last.width + 2);
+      final s = _fallback(writer, kinds[i], last?.kind, null, rnd, slots[i], seg ~/ 2, minX, w - 20, near: 2);
       if (s != null) {
         placed.add(s);
       } else {
@@ -135,8 +215,8 @@ class LevelScenes {
     }
     // 第二轮（实现增补）：段内放不下的，去已放场景之间的空隙里找位置，列表保持从左到右。
     for (final i in pending) {
-      final target = lo + seg * i + seg ~/ 2;
-      int gapLeft(int j) => j == 0 ? lo : placed[j - 1].x + placed[j - 1].width + 2;
+      final target = slots[i];
+      int gapLeft(int j) => j == 0 ? _lo : placed[j - 1].x + placed[j - 1].width + 2;
       int gapRight(int j) => j == placed.length ? w - 20 : placed[j].x - 3;
       final order = [for (var j = 0; j <= placed.length; j++) j]
         ..sort((a, b) => ((gapLeft(a) + gapRight(a)) ~/ 2 - target).abs().compareTo(((gapLeft(b) + gapRight(b)) ~/ 2 - target).abs()));
@@ -160,17 +240,68 @@ class LevelScenes {
         }
       }
     }
+    _climax(writer, placed, world, level, w, g, math.Random(seed + 97));
     return SceneResult([for (final r in grid) r.join()], placed);
   }
 
-  /// 先用本种类，放不下再用糖果波（糖果波本身放不下就返回 null）。
+  /// 离全关响度最高点最近的场景标为高潮。它的最高砖不到 g − 9 时，换成 tower / ziggurat / cloudRoom 中第一个放得下的；都放不下则保留原样。
+  static void _climax(_Writer writer, List<PlacedScene> placed, int world, int level, int width, int g, math.Random rnd) {
+    if (placed.isEmpty) {
+      return;
+    }
+    final hi = _hi(width);
+    var peak = _lo;
+    var peakE = -1.0;
+    for (var x = _lo; x <= hi; x++) {
+      final e = SongProfile.levelEnergyAt(world, level, (x - _lo) / (hi - _lo));
+      if (e > peakE) {
+        peakE = e;
+        peak = x;
+      }
+    }
+    double dist(PlacedScene s) => (s.x + s.width / 2 - peak).abs();
+    var idx = 0;
+    for (var i = 1; i < placed.length; i++) {
+      if (dist(placed[i]) < dist(placed[idx])) {
+        idx = i;
+      }
+    }
+    final old = placed[idx];
+    if (_topRow(old) <= g - 9) {
+      placed[idx] = old.asClimax();
+      return;
+    }
+    final left = idx > 0 ? placed[idx - 1] : null;
+    final right = idx < placed.length - 1 ? placed[idx + 1] : null;
+    final minX = left == null ? _lo : left.x + left.width + 2;
+    final maxX = right == null ? width - 20 : right.x - 3;
+    final cap = (placed.length + 2) ~/ 3 + 1;
+    writer.release(old);
+    for (final kind in const [SceneKind.tower, SceneKind.ziggurat, SceneKind.cloudRoom]) {
+      final used = placed.where((s) => s.kind == kind).length - (old.kind == kind ? 1 : 0);
+      if (used + 1 > cap) {
+        continue;
+      }
+      final taller = writer.place(kind, left?.kind, right?.kind, rnd, old.x + old.width ~/ 2, maxX - minX, minX, maxX);
+      if (taller != null) {
+        placed[idx] = taller.asClimax();
+        return;
+      }
+    }
+    writer.reclaim(old);
+    placed[idx] = old.asClimax();
+  }
+
+  static int _topRow(PlacedScene s) => s.cells.entries.where((e) => '=?'.contains(e.value)).map((e) => e.key.$2).reduce(math.min);
+
+  /// 先试吸附后的列 ±[near]，再用 ±[span] 搜索；都放不下再用糖果波（糖果波本身放不下就返回 null）。
   static PlacedScene? _fallback(_Writer writer, SceneKind kind, SceneKind? left, SceneKind? right, math.Random rnd, int target, int span,
-      int minX, int maxX) {
-    final s = writer.place(kind, left, right, rnd, target, span, minX, maxX);
+      int minX, int maxX, {int near = 0}) {
+    final s = writer.place(kind, left, right, rnd, target, span, minX, maxX, near: near);
     if (s != null || kind == SceneKind.coinWave) {
       return s;
     }
-    return writer.place(SceneKind.coinWave, left, right, rnd, target, span, minX, maxX);
+    return writer.place(SceneKind.coinWave, left, right, rnd, target, span, minX, maxX, near: near);
   }
 
   static List<SceneKind> _rawPlan(int world, int level, int salt, int count) {
@@ -188,6 +319,13 @@ class LevelScenes {
       for (var i = distinct; i < count; i++) {
         final k = _pick(rnd, [for (var j = 0; j < n; j++) if (bag[j] < cap) j], wts);
         bag[k]++;
+      }
+      // 每关至少一个糖果波（标志造型只能摆在糖果波里）：没有就换掉出现最多的一种。
+      final coin = SceneKind.coinWave.index;
+      if (bag[coin] == 0) {
+        final most = bag.reduce(math.max);
+        bag[_pick(rnd, [for (var j = 0; j < n; j++) if (bag[j] == most) j], wts)]--;
+        bag[coin]++;
       }
       final seq = <SceneKind>[];
       for (var i = 0; i < count; i++) {
@@ -231,13 +369,18 @@ class LevelScenes {
 
 /// 一次放置的候选：随机参数和奖励预算都在这里决定。
 class _Pen {
-  _Pen(this.rnd, this.coins, this.mLeft, this.entryCap);
+  _Pen(this.rnd, this.coins, this.mLeft, this.entryCap, this.songMotif);
 
   final math.Random rnd;
   final int entryCap;
+  final List<(int, int)> songMotif;
   int coins;
   int mLeft;
   bool ok = true;
+  bool usedMotif = false;
+
+  /// 留给糖果波标志造型的糖果名额：其他种类不能用掉它。
+  int reserve = 0;
   final List<_Cell> cells = [];
 
   /// 一段砖（k 行，从 start 起 len 块）；dx == q 的那块是 `?`。k=3 的入口段长度不超过 [entryCap]。
@@ -250,7 +393,7 @@ class _Pen {
 
   /// 可选糖果：预算够且随机命中才放。
   void coin(int dx, int k) {
-    if (coins > 0 && rnd.nextBool()) {
+    if (coins > reserve && rnd.nextBool()) {
       coins--;
       cells.add((dx, k, 'C'));
     }
@@ -261,7 +404,7 @@ class _Pen {
     if (mLeft > 0 && rnd.nextBool()) {
       mLeft--;
       cells.add((dx, k, 'M'));
-    } else if (coins > 0) {
+    } else if (coins > reserve) {
       coins--;
       cells.add((dx, k, 'C'));
     }
@@ -441,6 +584,15 @@ void _coinWave(_Pen p) {
     p.ok = false;
     return;
   }
+  final motif = p.songMotif;
+  if (r.nextInt(10) < 7 && p.coins >= motif.length) {
+    for (final (dx, dk) in motif) {
+      p.cells.add((s + 3 + dx, 5 + dk, 'C'));
+    }
+    p.coins -= motif.length;
+    p.usedMotif = true;
+    return;
+  }
   final n = math.min(p.coins, 6 + r.nextInt(5));
   final type = r.nextInt(3);
   for (var i = 0; i < n; i++) {
@@ -456,12 +608,13 @@ void _coinWave(_Pen p) {
 
 /// 一个关卡内的放置状态：按顺序放场景，失败则回滚。
 class _Writer {
-  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins);
+  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins, this.motif);
 
   final List<List<String>> grid;
   final List<bool> banned;
   final List<bool> springZone;
   final int boss;
+  final List<(int, int)> motif;
   int coins;
   int mLeft = 1;
   final Set<int> owned = {};
@@ -470,27 +623,31 @@ class _Writer {
   int get w => grid.first.length;
   int get g => h - 3;
 
-  /// 在 [target] 附近（±[span] 列内）找一个能放下的位置；形状失败时重抽参数。
-  PlacedScene? place(SceneKind kind, SceneKind? left, SceneKind? right, math.Random rnd, int target, int span, int minX, int maxX) {
+  /// 在 [target] 附近找一个能放下的位置：先试 ±[near] 列（吸附小节线），再试 ±[span] 列；形状失败时重抽参数。
+  PlacedScene? place(SceneKind kind, SceneKind? left, SceneKind? right, math.Random rnd, int target, int span, int minX, int maxX,
+      {int near = 0}) {
     if (kind == left || kind == right) {
       return null;
     }
-    for (var attempt = 0; attempt < 24; attempt++) {
-      final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3));
-      _draw(kind, pen);
-      if (!pen.ok) {
-        return null;
-      }
-      final width = pen.cells.map((e) => e.$1).reduce(math.max) + 1;
-      for (var d = 0; d <= span; d++) {
-        for (final x in d == 0 ? [target] : [target - d, target + d]) {
-          if (x < minX || x + width - 1 > maxX) {
-            continue;
-          }
-          for (final mirror in [false, true]) {
-            final s = _commit(kind, pen.cells, width, x, mirror);
-            if (s != null) {
-              return s;
+    for (final reach in [if (near > 0) near, span]) {
+      for (var attempt = 0; attempt < 24; attempt++) {
+        final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3), motif)
+          ..reserve = kind == SceneKind.coinWave ? 0 : motif.length;
+        _draw(kind, pen);
+        if (!pen.ok) {
+          return null;
+        }
+        final width = pen.cells.map((e) => e.$1).reduce(math.max) + 1;
+        for (var d = 0; d <= reach; d++) {
+          for (final x in d == 0 ? [target] : [target - d, target + d]) {
+            if (x < minX || x + width - 1 > maxX) {
+              continue;
+            }
+            for (final mirror in [false, true]) {
+              final s = _commit(kind, pen, width, x, mirror);
+              if (s != null) {
+                return s;
+              }
             }
           }
         }
@@ -499,25 +656,60 @@ class _Writer {
     return null;
   }
 
-  PlacedScene? _commit(SceneKind kind, List<_Cell> shape, int width, int x, bool mirror) {
-    final cells = <(int, int), String>{};
-    for (final (dx, k, ch) in shape) {
-      cells[(x + (mirror ? width - 1 - dx : dx), g - k)] = ch;
-    }
-    for (final e in cells.entries) {
+  /// 撤掉一个已放置的场景（高潮换种类前用）；[reclaim] 把它原样写回。
+  void release(PlacedScene s) {
+    for (final e in s.cells.entries) {
       final (c, r) = e.key;
+      grid[r][c] = ' ';
+      if ('=?'.contains(e.value)) {
+        owned.remove(r * w + c);
+      }
+      if (e.value == 'C') {
+        coins++;
+      }
+      if (e.value == 'M') {
+        mLeft++;
+      }
+    }
+  }
+
+  void reclaim(PlacedScene s) {
+    for (final e in s.cells.entries) {
+      final (c, r) = e.key;
+      grid[r][c] = e.value;
+      if ('=?'.contains(e.value)) {
+        owned.add(r * w + c);
+      }
+      if (e.value == 'C') {
+        coins--;
+      }
+      if (e.value == 'M') {
+        mLeft--;
+      }
+    }
+  }
+
+  PlacedScene? _commit(SceneKind kind, _Pen pen, int width, int x, bool mirror) {
+    int col(int dx) => x + (mirror ? width - 1 - dx : dx);
+    for (final (dx, k, ch) in pen.cells) {
+      final c = col(dx);
+      final r = g - k;
       if (r < 0 || grid[r][c] != ' ' || banned[c] || (r >= g - 5 && r <= g - 3 && _liftShaft(c))) {
         return null;
       }
-      if ('=?'.contains(e.value) && ((r > g - 7 && r != g - 3) || (r >= g - 7 && springZone[c]))) {
+      if ('=?'.contains(ch) && ((r > g - 7 && r != g - 3) || (r >= g - 7 && springZone[c]))) {
         return null;
       }
       if (boss >= 0 && (c - boss).abs() <= 14) {
         return null;
       }
-      if ((e.value == '=' || e.value == '?') && (!_isolated(c, r) || (r == g - 3 && !_entryOk(c)))) {
+      if ((ch == '=' || ch == '?') && (!_isolated(c, r) || (r == g - 3 && !_entryOk(c)))) {
         return null;
       }
+    }
+    final cells = <(int, int), String>{};
+    for (final (dx, k, ch) in pen.cells) {
+      cells[(col(dx), g - k)] = ch;
     }
     for (final e in cells.entries) {
       grid[e.key.$2][e.key.$1] = e.value;
@@ -535,7 +727,7 @@ class _Writer {
     }
     coins -= cells.values.where((v) => v == 'C').length;
     mLeft -= cells.values.where((v) => v == 'M').length;
-    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells);
+    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells, motif: pen.usedMotif);
   }
 
   /// 升降台通道（行 g-5…g-3，列 I-1…I+3）不放场景，免得挡住 stage_platform 的升降路径。

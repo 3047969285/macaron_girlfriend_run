@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/data/synth_wav.dart';
 
 /// 背景音乐与音效（运行时合成 WAV + audioplayers）
@@ -26,11 +27,10 @@ class AudioService {
     (title: '5点20AM', asset: 'audio/bgm_5am20.mp3'),
     (title: 'Lost', asset: 'audio/bgm_lost.mp3'),
   ];
-  static const List<int> _worldSongs = [0, 1, 2, 3, 4, 5, 5, 1, 0];
 
   /// 某个世界普通关配的歌名。
   static String songTitleFor(int worldIndex) =>
-      songs[_worldSongs[worldIndex.clamp(0, 8).toInt()]].title;
+      songs[SongProfile.worldSongs[worldIndex.clamp(0, 8).toInt()]].title;
 
   int _bgmSong = -1;
   int _bgmLevel = 0;
@@ -168,7 +168,7 @@ class AudioService {
     }
     final world = worldIndex.clamp(0, 8).toInt();
     // 普通关按世界配一首真实歌曲；Boss 关用合成的 Boss 主题。
-    final song = boss ? -1 : _worldSongs[world];
+    final song = boss ? -1 : SongProfile.worldSongs[world];
     final synth = song < 0;
     if (_bgmPlaying &&
         _bgmWorld == world &&
