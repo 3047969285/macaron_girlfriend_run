@@ -384,6 +384,20 @@ class SoftEnemy extends PositionComponent {
 
   bool get isGuarding => kind == EnemyKind.shell && _guardTimer > 0;
 
+  @visibleForTesting
+  double get predictedSwoopLandingX {
+    final flightTime = math.min(
+      0.44,
+      (_baseY - position.y).clamp(0.0, _swoopHeight + 4) /
+          GameConstants.enemySwoopSpeedFor(difficulty),
+    );
+    final reach =
+        speed *
+        GameConstants.enemySwoopSpeedMultiplierFor(difficulty) *
+        flightTime;
+    return position.x + (_swoopTargetX - position.x).clamp(-reach, reach);
+  }
+
   /// 镜头外跳过移动，减负长关
   bool simActive = true;
 
@@ -457,9 +471,6 @@ class SoftEnemy extends PositionComponent {
             kind,
           );
         case EnemyKind.swooper:
-          _swoopTargetX = (targetX ?? position.x)
-              .clamp(leftBound, rightBound)
-              .toDouble();
           _swoopTimer = 0.44;
           _skillCooldown = GameConstants.enemySkillCooldownFor(
             difficulty,
@@ -579,6 +590,10 @@ class SoftEnemy extends PositionComponent {
       };
       if (canUseSkill) {
         dir = dx >= 0 ? 1 : -1;
+        if (kind == EnemyKind.swooper) {
+          // 前摇开始时锁定目标，玩家看到提示后可以通过移动躲开。
+          _swoopTargetX = tx.clamp(leftBound, rightBound).toDouble();
+        }
         _warningTimer = GameConstants.enemySkillWarningFor(difficulty, kind);
         onSkillCue?.call(position.clone(), kind);
         return;
@@ -672,6 +687,24 @@ class SoftEnemy extends PositionComponent {
       ),
       Paint()..color = Colors.black.withValues(alpha: 0.18 * shadowScale),
     );
+    if (_warningTimer > 0 && kind == EnemyKind.swooper) {
+      // 俯冲受下落速度和持续时间限制，标记预计落点而非远处目标。
+      final target = Offset(predictedSwoopLandingX - position.x, groundGap);
+      canvas.drawOval(
+        Rect.fromCenter(center: target, width: 54, height: 14),
+        Paint()
+          ..color = _bodyColor.withValues(alpha: 0.75)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
+      );
+      canvas.drawLine(
+        target + const Offset(-10, 0),
+        target + const Offset(10, 0),
+        Paint()
+          ..color = _bodyColor
+          ..strokeWidth = 2,
+      );
+    }
     if (_warningTimer > 0 &&
         (kind == EnemyKind.popper ||
             kind == EnemyKind.bruiser ||
