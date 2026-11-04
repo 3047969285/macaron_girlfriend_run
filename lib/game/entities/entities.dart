@@ -37,10 +37,14 @@ class MacaronCoin extends PositionComponent {
       return;
     }
     final bobY = math.sin(_bob) * 3;
-    final scaleX = (0.55 + 0.45 * (1 + (_spin % 3.14 - 1.57).abs() / 1.57))
-        .clamp(0.35, 1.0);
+    final scaleX = 0.55 + 0.45 * math.cos(_spin).abs();
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + bobY);
+    canvas.drawCircle(
+      Offset.zero,
+      17 + math.sin(_bob * 0.5) * 1.5,
+      Paint()..color = MacaronColors.lemon.withValues(alpha: 0.18),
+    );
     canvas.scale(scaleX, 1);
     canvas.drawCircle(
       Offset.zero,
@@ -51,6 +55,14 @@ class MacaronCoin extends PositionComponent {
       Offset.zero,
       size.x * 0.3,
       Paint()..color = MacaronColors.blush,
+    );
+    canvas.drawCircle(
+      Offset.zero,
+      size.x * 0.37,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.65)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
     );
     canvas.drawCircle(
       const Offset(-4, -4),
@@ -86,6 +98,16 @@ class CoinPopVisual extends PositionComponent {
       15 * (1 + 0.3 * p),
       Paint()..color = MacaronColors.lemon.withValues(alpha: 1 - p),
     );
+    final center = Offset(size.x / 2, size.y / 2 - 20 * p);
+    for (var i = 0; i < 6; i++) {
+      final angle = i * math.pi / 3;
+      final distance = 10 + 24 * p;
+      canvas.drawCircle(
+        center + Offset(math.cos(angle), math.sin(angle)) * distance,
+        2.5 * (1 - p),
+        Paint()..color = MacaronColors.blush.withValues(alpha: 1 - p),
+      );
+    }
   }
 }
 
@@ -650,6 +672,25 @@ class SoftEnemy extends PositionComponent {
       ),
       Paint()..color = Colors.black.withValues(alpha: 0.18 * shadowScale),
     );
+    if (_warningTimer > 0 &&
+        (kind == EnemyKind.popper ||
+            kind == EnemyKind.bruiser ||
+            kind == EnemyKind.roller)) {
+      // 危险落点始终贴地，帮助玩家区分蓄力与普通巡逻。
+      final pulse = 0.5 + 0.5 * math.sin(_wobble * 3);
+      final radius = kind == EnemyKind.popper ? 35.0 : 26.0;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(0, groundGap),
+          width: radius * (1.5 + pulse * 0.2),
+          height: 9 + pulse * 3,
+        ),
+        Paint()
+          ..color = _bodyColor.withValues(alpha: 0.45 + pulse * 0.25)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
     canvas.scale(dir * squash, 1 / squash);
     if (isGuarding) {
       canvas.drawOval(
@@ -1528,6 +1569,15 @@ class VehiclePickup extends PositionComponent {
       return;
     }
     final y = math.sin(_bob) * 2;
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(24, 34), width: 30, height: 5),
+      Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.12),
+    );
+    canvas.drawCircle(
+      Offset(24, 19 + y),
+      22 + math.sin(_bob) * 1.2,
+      Paint()..color = MacaronColors.sky.withValues(alpha: 0.18),
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(5, 14 + y, 38, 15),
@@ -1568,6 +1618,8 @@ TextPainter _labelPainter(String text, double fontSize, Color color) {
       text: TextSpan(
         text: text,
         style: TextStyle(
+          fontFamily: MacaronColors.fontFamily,
+          fontFamilyFallback: MacaronColors.fontFallback,
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
           color: color,
@@ -1615,6 +1667,16 @@ class BonusPickup extends PositionComponent {
     }
     final y = math.sin(_bob) * 3;
     final c = Offset(size.x / 2, size.y / 2 + y);
+    final aura = switch (kind) {
+      BonusKind.superman => MacaronColors.rose,
+      BonusKind.plane => MacaronColors.sky,
+      BonusKind.gum => MacaronColors.blush,
+    };
+    canvas.drawCircle(
+      c,
+      22 + math.sin(_bob) * 1.5,
+      Paint()..color = aura.withValues(alpha: 0.2),
+    );
     canvas.drawCircle(
       c,
       20,
