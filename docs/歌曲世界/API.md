@@ -1,5 +1,7 @@
 # 接口文档：歌曲世界
 
+选关展示不新增外部接口，读取 `SongProfile.of(world)` 和已有存档星级；不改变关卡、存档或游戏输入接口。
+
 需求见 [PRD.md](PRD.md)（W1–W7）。测试：`test/song_world_test.dart`，并调整 `test/level_scenes_test.dart` 里与新行为有关的阈值。
 
 ## 1. 新文件 `lib/data/song_profile.dart`
