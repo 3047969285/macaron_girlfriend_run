@@ -5,9 +5,37 @@ import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/game/effects/fx_layer.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
+import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 
 void main() {
+  test('frame blend keeps the old frame opaque under the new one', () {
+    final animator = HeroPoseAnimator()..advance(HeroPose.stand, 0);
+    animator.advance(HeroPose.jump, 0.07);
+    final layers = animator.layers(1);
+    expect(layers.first, (HeroPose.stand, 1.0));
+    expect(layers.last.$2, closeTo(0.5, 0.0001));
+  });
+
+  test('players animate independently and stride follows distance', () {
+    final first = GirlfriendPlayer(role: PlayerRole.girlfriend)
+      ..onGround = true;
+    final second = GirlfriendPlayer(role: PlayerRole.girlfriend)
+      ..onGround = true;
+    first.velocity.x = 96;
+    first.update(0);
+    for (var i = 0; i < 4; i++) {
+      first.position.x += 24;
+      first.update(0.25);
+    }
+    expect(first.spriteAnimator.stridePhase, closeTo(0, 0.001));
+    expect(first.spriteAnimator.runPose, HeroPose.run1);
+    expect(second.spriteAnimator.current, HeroPose.stand);
+    for (var i = 0; i < 200; i++) {
+      second.update(0.02);
+      expect(second.spriteAnimator.idleScale, inInclusiveRange(0.985, 1.015));
+    }
+  });
   test('pose transitions advance consistently with elapsed time', () {
     HeroPoseAnimator animate(int steps) {
       final animator = HeroPoseAnimator();

@@ -1006,7 +1006,7 @@ class MacaronGame extends FlameGame {
       AudioService.instance.stomp();
       if (killed) {
         fx.stompKill(enemy.position.clone());
-        enemy.removeFromParent();
+        enemy.removeWithFade();
         enemies.remove(enemy);
         _registerEnemyDefeat(enemy);
       } else {
@@ -1721,7 +1721,7 @@ class MacaronGame extends FlameGame {
       );
       if (box.overlaps(c)) {
         coin.collected = true;
-        coin.removeFromParent();
+        coin.removeWithPop();
         collected++;
         player.coins++;
         score += GameConstants.coinScore;
@@ -1919,7 +1919,7 @@ class MacaronGame extends FlameGame {
       while (!victim.dead) {
         victim.takeStomp();
       }
-      victim.removeFromParent();
+      victim.removeWithFade();
       enemies.remove(victim);
       _registerEnemyDefeat(victim);
       fx.stompKill(victim.position.clone());
@@ -2152,7 +2152,7 @@ class MacaronGame extends FlameGame {
         AudioService.instance.stomp();
         if (killed) {
           fx.stompKill(enemy.position.clone());
-          enemy.removeFromParent();
+          enemy.removeWithFade();
           enemies.remove(enemy);
           _registerEnemyDefeat(enemy);
         } else {
@@ -2165,7 +2165,7 @@ class MacaronGame extends FlameGame {
         while (!enemy.dead) {
           enemy.takeStomp();
         }
-        enemy.removeFromParent();
+        enemy.removeWithFade();
         enemies.remove(enemy);
         _registerEnemyDefeat(enemy);
         AudioService.instance.stomp();
@@ -2182,7 +2182,7 @@ class MacaronGame extends FlameGame {
           while (!enemy.dead) {
             enemy.takeStomp();
           }
-          enemy.removeFromParent();
+          enemy.removeWithFade();
           enemies.remove(enemy);
           _registerEnemyDefeat(enemy);
           AudioService.instance.stomp();
@@ -2214,7 +2214,7 @@ class MacaronGame extends FlameGame {
         AudioService.instance.stomp();
         fx.stompKill(enemy.position.clone());
         if (killed) {
-          enemy.removeFromParent();
+          enemy.removeWithFade();
           enemies.remove(enemy);
           _registerEnemyDefeat(enemy);
         } else {
@@ -2316,7 +2316,7 @@ class MacaronGame extends FlameGame {
         final killed = enemy.takeStomp();
         shot.consume();
         if (killed) {
-          enemy.removeFromParent();
+          enemy.removeWithFade();
           enemies.remove(enemy);
           _registerEnemyDefeat(enemy);
           fx.stompKill(enemy.position.clone());
@@ -2520,6 +2520,9 @@ class MacaronGame extends FlameGame {
     double rate,
     double dt,
   ) => current + (target - current) * (1 - math.exp(-rate * math.max(0, dt)));
+
+  @visibleForTesting
+  void updateCameraForTesting(double dt) => _updateCamera(dt);
 
   void _updateCamera(double dt) {
     if (size.x <= 0 || size.y <= 0) {
