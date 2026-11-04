@@ -1,0 +1,38 @@
+name: Build unsigned iOS IPA
+on:
+  push:
+    branches: [build/ios-ipa]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry macaron-unsigned.ipa Payload
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+      - name: Publish IPA to GitHub Pages
+        run: |
+          mkdir -p pages/ios-download
+          cp macaron-unsigned.ipa pages/ios-download/macaron-unsigned.ipa
+          cd pages
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ios-download/macaron-unsigned.ipa
+          git commit -m "Publish unsigned iOS IPA for ${GITHUB_SHA::7}"
+          git pull --rebase origin gh-pages
+          git push origin HEAD:gh-pages
