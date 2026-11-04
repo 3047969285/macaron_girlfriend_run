@@ -14,15 +14,14 @@ class _FxParticle {
     required this.color,
     required this.size,
     required this.life,
-    this.gravity = 520,
-  });
+  }) : gravity = 520;
 
   Vector2 position;
   Vector2 velocity;
   Color color;
   double size;
   double life;
-  final double gravity;
+  double gravity;
 }
 
 /// 马卡龙风格粒子特效层
@@ -30,10 +29,97 @@ class FxLayer extends PositionComponent {
   FxLayer() : super(priority: 200);
 
   final List<_FxParticle> _particles = [];
+  final List<_FxParticle> _particlePool = [];
+  int _particleAllocations = 0;
+  static const int _maxAuxiliaryPerType = 32;
   final List<_FxRing> _rings = [];
   final List<_FxLabel> _labels = [];
   final List<_FxBeam> _beams = [];
+  final List<_FxRing> _ringPool = [];
+  final List<_FxLabel> _labelPool = [];
+  final List<_FxBeam> _beamPool = [];
+  int _auxiliaryAllocations = 0;
   final math.Random _rng = math.Random();
+
+  @visibleForTesting
+  int get particleCount => _particles.length;
+  @visibleForTesting
+  int get particleAllocations => _particleAllocations;
+  @visibleForTesting
+  int get auxiliaryEffectCount =>
+      _rings.length + _labels.length + _beams.length;
+  @visibleForTesting
+  int get auxiliaryAllocations => _auxiliaryAllocations;
+
+  void _addBounded<T extends Object>(List<T> items, T item) {
+    if (items.length >= _maxAuxiliaryPerType) _recycle(items.removeAt(0));
+    items.add(item);
+  }
+
+  void _recycle(Object item) {
+    if (item is _FxRing && _ringPool.length < _maxAuxiliaryPerType) {
+      _ringPool.add(item);
+    } else if (item is _FxLabel && _labelPool.length < _maxAuxiliaryPerType) {
+      _labelPool.add(item);
+    } else if (item is _FxBeam && _beamPool.length < _maxAuxiliaryPerType) {
+      _beamPool.add(item);
+    }
+  }
+
+  _FxRing _makeRing({
+    required Vector2 center,
+    required double life,
+    required double maxRadius,
+  }) {
+    if (_ringPool.isEmpty) _auxiliaryAllocations++;
+    final ring = _ringPool.isEmpty
+        ? _FxRing(center: Vector2.zero(), life: life, maxRadius: maxRadius)
+        : _ringPool.removeLast();
+    ring.center.setFrom(center);
+    ring.life = life;
+    ring.maxRadius = maxRadius;
+    ring.radius = 8;
+    return ring;
+  }
+
+  _FxLabel _makeLabel({
+    required String text,
+    required Vector2 position,
+    required double life,
+    required Color color,
+    double size = 28,
+  }) {
+    if (_labelPool.isEmpty) _auxiliaryAllocations++;
+    final label = _labelPool.isEmpty
+        ? _FxLabel(
+            text: text,
+            position: Vector2.zero(),
+            life: life,
+            color: color,
+          )
+        : _labelPool.removeLast();
+    label.text = text;
+    label.position.setFrom(position);
+    label.life = life;
+    label.color = color;
+    label.size = size;
+    return label;
+  }
+
+  _FxBeam _makeBeam({
+    required Vector2 from,
+    required Vector2 to,
+    required double life,
+  }) {
+    if (_beamPool.isEmpty) _auxiliaryAllocations++;
+    final beam = _beamPool.isEmpty
+        ? _FxBeam(from: Vector2.zero(), to: Vector2.zero(), life: life)
+        : _beamPool.removeLast();
+    beam.from.setFrom(from);
+    beam.to.setFrom(to);
+    beam.life = life;
+    return beam;
+  }
 
   /// 起跳尘土
   void jumpDust(Vector2 at, {Color? tint}) {
@@ -88,17 +174,22 @@ class FxLayer extends PositionComponent {
       life: 0.75,
       gravity: 620,
     );
-    _rings.add(_FxRing(center: at.clone(), life: 0.38, maxRadius: 56));
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _rings,
+      _makeRing(center: at.clone(), life: 0.38, maxRadius: 56),
+    );
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: 'KO!',
         position: at + Vector2(-18, -36),
         life: 0.85,
         color: MacaronColors.rose,
       ),
     );
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: '★',
         position: at + Vector2(12, -48),
         life: 0.7,
@@ -162,9 +253,13 @@ class FxLayer extends PositionComponent {
       life: 0.5,
       gravity: 80,
     );
-    _rings.add(_FxRing(center: at.clone(), life: 0.32, maxRadius: 42));
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _rings,
+      _makeRing(center: at.clone(), life: 0.32, maxRadius: 42),
+    );
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: '咻～',
         position: at + Vector2(-18, -42),
         life: 0.55,
@@ -208,8 +303,9 @@ class FxLayer extends PositionComponent {
       EnemyKind.roller => '滚!',
       EnemyKind.popper => '爆!',
     };
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: label,
         position: at + Vector2(-12, -48),
         life: 0.48,
@@ -233,8 +329,9 @@ class FxLayer extends PositionComponent {
       life: 0.5,
       gravity: 120,
     );
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: '黏住!',
         position: at + Vector2(-24, -48),
         life: 0.72,
@@ -246,8 +343,9 @@ class FxLayer extends PositionComponent {
 
   /// 原创冒险短句：作为角色提示字幕，不使用其他作品的角色台词。
   void heroCallout(String text, Vector2 at) {
-    _labels.add(
-      _FxLabel(
+    _addBounded(
+      _labels,
+      _makeLabel(
         text: text,
         position: at + Vector2(-48, -18),
         life: 1.25,
@@ -259,7 +357,10 @@ class FxLayer extends PositionComponent {
 
   /// 超人模式的眼睛射线：从眼睛到目标的两道红光。
   void eyeBeam(Vector2 from, Vector2 to) {
-    _beams.add(_FxBeam(from: from.clone(), to: to.clone(), life: 0.18));
+    _addBounded(
+      _beams,
+      _makeBeam(from: from.clone(), to: to.clone(), life: 0.18),
+    );
     _spawn(
       to,
       count: 8,
@@ -363,17 +464,28 @@ class FxLayer extends PositionComponent {
     for (var i = 0; i < n; i++) {
       final ang = baseDir + (_rng.nextDouble() - 0.5) * spread;
       final spd = speed * (0.45 + _rng.nextDouble() * 0.75);
-      _particles.add(
-        _FxParticle(
-          position: origin.clone(),
-          velocity: Vector2(math.cos(ang) * spd, math.sin(ang) * spd),
-          color: colors[_rng.nextInt(colors.length)],
-          size: sizeMin + _rng.nextDouble() * (sizeMax - sizeMin),
-          life: life * (0.7 + _rng.nextDouble() * 0.5),
-          gravity: gravity,
-        ),
-      );
+      final p = _particlePool.isEmpty
+          ? _newParticle()
+          : _particlePool.removeLast();
+      p.position.setFrom(origin);
+      p.velocity.setValues(math.cos(ang) * spd, math.sin(ang) * spd);
+      p.color = colors[_rng.nextInt(colors.length)];
+      p.size = sizeMin + _rng.nextDouble() * (sizeMax - sizeMin);
+      p.life = life * (0.7 + _rng.nextDouble() * 0.5);
+      p.gravity = gravity;
+      _particles.add(p);
     }
+  }
+
+  _FxParticle _newParticle() {
+    _particleAllocations++;
+    return _FxParticle(
+      position: Vector2.zero(),
+      velocity: Vector2.zero(),
+      color: Colors.white,
+      size: 0,
+      life: 0,
+    );
   }
 
   @override
@@ -381,23 +493,40 @@ class FxLayer extends PositionComponent {
     for (final p in _particles) {
       p.life -= dt;
       p.velocity.y += p.gravity * dt;
-      p.position += p.velocity * dt;
+      p.position.x += p.velocity.x * dt;
+      p.position.y += p.velocity.y * dt;
     }
-    _particles.removeWhere((p) => p.life <= 0);
+    _particles.removeWhere((p) {
+      if (p.life > 0) return false;
+      _particlePool.add(p);
+      return true;
+    });
     for (final r in _rings) {
       r.life -= dt;
       r.radius += dt * r.maxRadius * 2.8;
     }
-    _rings.removeWhere((r) => r.life <= 0);
+    _rings.removeWhere((r) {
+      if (r.life > 0) return false;
+      _recycle(r);
+      return true;
+    });
     for (final l in _labels) {
       l.life -= dt;
       l.position.y -= dt * 72;
     }
-    _labels.removeWhere((l) => l.life <= 0);
+    _labels.removeWhere((l) {
+      if (l.life > 0) return false;
+      _recycle(l);
+      return true;
+    });
     for (final b in _beams) {
       b.life -= dt;
     }
-    _beams.removeWhere((b) => b.life <= 0);
+    _beams.removeWhere((b) {
+      if (b.life > 0) return false;
+      _recycle(b);
+      return true;
+    });
   }
 
   @override
@@ -474,7 +603,7 @@ class _FxRing {
 
   final Vector2 center;
   double life;
-  final double maxRadius;
+  double maxRadius;
   double radius;
 }
 
@@ -484,14 +613,13 @@ class _FxLabel {
     required this.position,
     required this.life,
     required this.color,
-    this.size = 28,
-  });
+  }) : size = 28;
 
-  final String text;
+  String text;
   Vector2 position;
   double life;
-  final Color color;
-  final double size;
+  Color color;
+  double size;
 }
 
 /// 每个世界的氛围粒子：花瓣飘落、气泡上升、萤火虫游走，或默认的漂浮光点。

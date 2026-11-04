@@ -372,6 +372,37 @@ class _HomeScenePainter extends CustomPainter {
 }
 
 /// 九大世界选关
+class LevelTileFeedback extends StatefulWidget {
+  const LevelTileFeedback({super.key, required this.child, this.onTap});
+  final Widget child;
+  final VoidCallback? onTap;
+  @override
+  State<LevelTileFeedback> createState() => _LevelTileFeedbackState();
+}
+
+class _LevelTileFeedbackState extends State<LevelTileFeedback> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: widget.onTap,
+    onTapDown: widget.onTap == null
+        ? null
+        : (_) => setState(() => _pressed = true),
+    onTapUp: widget.onTap == null
+        ? null
+        : (_) => setState(() => _pressed = false),
+    onTapCancel: widget.onTap == null
+        ? null
+        : () => setState(() => _pressed = false),
+    child: AnimatedScale(
+      scale: _pressed ? 0.96 : 1,
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeOutCubic,
+      child: widget.child,
+    ),
+  );
+}
+
 class WorldMapPage extends StatefulWidget {
   const WorldMapPage({super.key, this.initialWorld = 0});
 
@@ -471,12 +502,16 @@ class _WorldMapPageState extends State<WorldMapPage> {
                     ),
                   ),
                   Expanded(
-                    child: Text(
-                      '${palette.displayName} · 选关',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: MacaronColors.cocoa,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        '${palette.displayName} · 选关',
+                        key: ValueKey(world),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: MacaronColors.cocoa,
+                        ),
                       ),
                     ),
                   ),
@@ -533,7 +568,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                     // 第 12 格：通关本世界 Boss 后解锁的「歌曲深处」（向下的纵向关）。
                     final open =
                         unlocked >= (world + 1) * GameConstants.levelsPerWorld;
-                    return GestureDetector(
+                    return LevelTileFeedback(
                       onTap: open
                           ? () =>
                                 Navigator.push(
@@ -607,7 +642,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   final stars = SaveService.instance.starsOf(global);
                   final best = SaveService.instance.bestScoreOf(global);
                   final name = LevelNames.of(world, level);
-                  return GestureDetector(
+                  return LevelTileFeedback(
                     onTap: locked ? null : () => _openLevel(level),
                     child: Opacity(
                       opacity: locked ? 0.4 : 1,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -23,6 +24,71 @@ class HeroFrame {
 }
 
 enum HeroPose { stand, run1, run2, run3, run4, jump, fall, duck }
+
+class HeroPoseAnimator {
+  HeroPose? current;
+  HeroPose? previous;
+  double _age = 0;
+  double _impulseAge = 1;
+  double _impulse = 0;
+  double _distance = 0;
+  double _elapsed = 0;
+
+  static const double strideLength = 96;
+  double get stridePhase => (_distance % strideLength) / strideLength;
+  double get idleScale => 1 + math.sin(_elapsed * 2.4) * 0.012;
+  double get runBob => math.sin(stridePhase * math.pi * 4) * 1.4;
+  double get runLean => 0.035 + math.sin(stridePhase * math.pi * 2) * 0.012;
+  HeroPose get runPose => const [
+    HeroPose.run1,
+    HeroPose.run2,
+    HeroPose.run3,
+    HeroPose.run4,
+  ][(stridePhase * 4).floor().clamp(0, 3)];
+
+  void move(double distance, double dt, {required bool running}) {
+    _elapsed += math.max(0.0, dt);
+    if (running) _distance += distance.abs();
+  }
+
+  List<(HeroPose, double)> layers(double alpha) => [
+    if (previous != null && previous != current && blend < 1)
+      (previous!, alpha),
+    if (current != null)
+      (current!, previous == current ? alpha : alpha * blend),
+  ];
+
+  double get blend {
+    final t = (_age / 0.14).clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
+
+  double get stretch => 1 + _impulse * math.exp(-_impulseAge * 10);
+
+  void advance(HeroPose pose, double dt) {
+    if (current == null) {
+      current = previous = pose;
+      _age = 0.14;
+    } else if (current != pose) {
+      previous = current;
+      final airborne = current == HeroPose.jump || current == HeroPose.fall;
+      final landing =
+          airborne && pose != HeroPose.jump && pose != HeroPose.fall;
+      if (pose == HeroPose.jump && !airborne) {
+        _impulse = 0.12;
+        _impulseAge = 0;
+      } else if (landing) {
+        _impulse = -0.13;
+        _impulseAge = 0;
+      }
+      current = pose;
+      _age = 0;
+    }
+    final elapsed = math.max(0.0, dt);
+    _age += elapsed;
+    _impulseAge += elapsed;
+  }
+}
 
 class HeroSprites {
   HeroSprites._();
@@ -74,10 +140,24 @@ class HeroSprites {
   /// 画一帧：脚底落在 (0, 0)，身体中心在 x = 0；[standHeight] 是站立时人物的屏幕高度。
   static void draw(
     ui.Canvas canvas,
-    HeroPose pose,
     double standHeight, {
+    required HeroPoseAnimator animator,
     double alpha = 1,
   }) {
+    canvas.save();
+    canvas.scale(1 / animator.stretch, animator.stretch);
+    for (final (frame, opacity) in animator.layers(alpha)) {
+      _drawFrame(canvas, frame, standHeight, opacity);
+    }
+    canvas.restore();
+  }
+
+  static void _drawFrame(
+    ui.Canvas canvas,
+    HeroPose pose,
+    double standHeight,
+    double alpha,
+  ) {
     final image = _images[pose];
     final frame = frames[pose];
     if (image == null || frame == null) {
