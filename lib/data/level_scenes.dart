@@ -163,12 +163,13 @@ class LevelScenes {
       final topOk = r.scenes.map(_topRow).toSet().length >= (n >= 7 ? 3 : 2);
       final kindOk = r.scenes.map((s) => s.kind).toSet().length >= math.min(n >= 8 ? 5 : 4, n);
       final climaxOk = r.scenes.every((s) => !s.climax || _topRow(s) <= g - 9);
-      final score = (topOk ? 400 : 0) + (kindOk ? 200 : 0) + (climaxOk ? 100 : 0) + math.min<int>(n, want);
+      final lyricOk = r.scenes.any((s) => s.lyricRoute != null);
+      final score = (topOk ? 400 : 0) + (kindOk ? 200 : 0) + (climaxOk ? 100 : 0) + (lyricOk ? 20 : 0) + math.min<int>(n, want);
       if (score > bestScore) {
         best = r;
         bestScore = score;
       }
-      if (topOk && kindOk && climaxOk && n >= want) {
+      if (topOk && kindOk && climaxOk && lyricOk && n >= want) {
         break;
       }
     }
@@ -245,8 +246,38 @@ class LevelScenes {
         }
       }
     }
+    _tryLyricRoute(writer, placed, world, w, math.Random(seed + 73));
     _climax(writer, placed, world, level, w, g, math.Random(seed + 97));
     return SceneResult([for (final r in grid) r.join()], placed);
+  }
+
+  static void _tryLyricRoute(
+      _Writer writer, List<PlacedScene> placed, int world, int width, math.Random rnd) {
+    if (placed.any((s) => s.lyricRoute != null)) return;
+    final kind = _lyricKinds[SongProfile.songIndexOf(world)];
+    final n = placed.length;
+    final requiredKinds = math.min(n >= 8 ? 5 : 4, n);
+    final cap = (n + 2) ~/ 3 + 1;
+    for (var i = 0; i < n; i++) {
+      final old = placed[i];
+      final left = i == 0 ? null : placed[i - 1];
+      final right = i == n - 1 ? null : placed[i + 1];
+      if (left?.kind == kind || right?.kind == kind) continue;
+      final kinds = [for (var j = 0; j < n; j++) if (j != i) placed[j].kind, kind];
+      if (kinds.toSet().length < requiredKinds || kinds.where((k) => k == kind).length > cap) {
+        continue;
+      }
+      final minX = left == null ? _lo : left.x + left.width + 2;
+      final maxX = right == null ? width - 20 : right.x - 3;
+      writer.release(old);
+      final route = writer.place(kind, left?.kind, right?.kind, rnd, old.x,
+          maxX - minX, minX, maxX, lyricOnly: true);
+      if (route != null) {
+        placed[i] = route;
+        return;
+      }
+      writer.reclaim(old);
+    }
   }
 
   /// 离全关响度最高点最近的场景标为高潮。它的最高砖不到 g − 9 时，换成 tower / ziggurat / cloudRoom 中第一个放得下的；都放不下则保留原样。
@@ -702,7 +733,7 @@ class _Writer {
 
   /// 在 [target] 附近找一个能放下的位置：先试 ±[near] 列（吸附小节线），再试 ±[span] 列；形状失败时重抽参数。
   PlacedScene? place(SceneKind kind, SceneKind? left, SceneKind? right, math.Random rnd, int target, int span, int minX, int maxX,
-      {int near = 0}) {
+      {int near = 0, bool lyricOnly = false}) {
     if (kind == left || kind == right) {
       return null;
     }
@@ -710,7 +741,9 @@ class _Writer {
       for (var attempt = 0; attempt < 24; attempt++) {
         final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3), motif)
           ..reserve = kind == SceneKind.coinWave ? 0 : motif.length;
+        if (lyricOnly && attempt >= 8) break;
         if (attempt >= 8 || !_drawLyricRoute(song, level, kind, pen)) {
+          if (lyricOnly) return null;
           _draw(kind, pen);
         }
         if (!pen.ok) {
