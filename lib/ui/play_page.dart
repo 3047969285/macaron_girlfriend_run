@@ -639,11 +639,14 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
                       ],
                       if (game.boss != null && !game.boss!.dead) ...[
                         const SizedBox(height: 8),
-                        _BossHpBar(
-                          hp: game.boss!.hp,
-                          maxHp: game.boss!.maxHp,
-                          enraged: game.boss!.enraged,
-                          counterWindow: game.boss!.canReceiveProjectile,
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: BossHpBar(
+                            hp: game.boss!.hp,
+                            maxHp: game.boss!.maxHp,
+                            enraged: game.boss!.enraged,
+                            counterWindow: game.boss!.canReceiveProjectile,
+                          ),
                         ),
                       ],
                     ],
@@ -901,8 +904,9 @@ class _HudChip extends StatelessWidget {
   }
 }
 
-class _BossHpBar extends StatelessWidget {
-  const _BossHpBar({
+class BossHpBar extends StatelessWidget {
+  const BossHpBar({
+    super.key,
     required this.hp,
     required this.maxHp,
     required this.enraged,
@@ -923,33 +927,37 @@ class _BossHpBar extends StatelessWidget {
         ? 'Boss 狂暴中'
         : 'Boss · 踩踏破防';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: const BoxConstraints(maxWidth: 260, maxHeight: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
+        color: Colors.white.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Text(
             status,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               color: enraged ? MacaronColors.rose : MacaronColors.cocoa,
             ),
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 8,
-              backgroundColor: Colors.black12,
-              color: enraged ? MacaronColors.rose : MacaronColors.lilac,
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 8,
+                backgroundColor: Colors.black12,
+                color: enraged ? MacaronColors.rose : MacaronColors.lilac,
+              ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(width: 8),
           Text(
             '$hp / $maxHp',
             style: TextStyle(

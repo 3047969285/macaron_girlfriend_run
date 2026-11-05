@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
@@ -58,32 +60,61 @@ class _GameViewportState extends State<GameViewport> {
               top: media.padding.top + 8,
               left: 0,
               right: 0,
-              child: IgnorePointer(
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: MacaronColors.cream.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      child: Text(
-                        '横置手机或加宽窗口',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: MacaronColors.cocoa,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              child: const _PortraitHint(),
             ),
         ],
       );
     },
+  );
+}
+
+/// 竖屏提示：显示 4 秒后淡出，淡出后仍在树中但不拦截点击。
+class _PortraitHint extends StatefulWidget {
+  const _PortraitHint();
+
+  @override
+  State<_PortraitHint> createState() => _PortraitHintState();
+}
+
+class _PortraitHintState extends State<_PortraitHint> {
+  static const _visibleDuration = Duration(seconds: 4);
+  static const _fadeDuration = Duration(milliseconds: 300);
+
+  late final Timer _fadeTimer;
+  bool _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeTimer = Timer(_visibleDuration, () => setState(() => _visible = false));
+  }
+
+  @override
+  void dispose() {
+    _fadeTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: _fadeDuration,
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: MacaronColors.cream.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              '横置手机或加宽窗口',
+              style: TextStyle(fontSize: 11, color: MacaronColors.cocoa),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }
