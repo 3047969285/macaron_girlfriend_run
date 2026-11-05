@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/data/song_profile.dart';
+import 'package:macaron_girlfriend_run/data/song_music_controller.dart';
 import 'package:macaron_girlfriend_run/data/synth_wav.dart';
 
 /// 背景音乐与音效（运行时合成 WAV + audioplayers）
@@ -12,13 +13,8 @@ class AudioService {
   static final AudioService instance = AudioService._();
 
   static const int _fxPoolSize = 6;
-  static const List<String> _bgmAssets = [
-    'audio/slow_jam.mp3',
-    'audio/smooth_lovin.mp3',
-    'audio/morning.mp3',
-  ];
 
-  /// 用户提供的歌曲，每个世界配一首（世界 0–8 → 下标），Boss 关不用。
+  /// 用户提供的歌曲，每个世界配一首（世界 0–8 → 下标）。
   static const List<({String title, String asset})> songs = [
     (title: '素颜', asset: 'audio/bgm_suyan.mp3'),
     (title: '身骑白马', asset: 'audio/bgm_shenqibaima.mp3'),
@@ -32,19 +28,19 @@ class AudioService {
   static String songTitleFor(int worldIndex) =>
       songs[SongProfile.worldSongs[worldIndex.clamp(0, 8).toInt()]].title;
 
-  int _bgmSong = -1;
-  int _bgmLevel = 0;
   final AudioPlayer _bgm = AudioPlayer();
+  final Object _defaultOwner = Object();
+  late final SongMusicController _music = SongMusicController(
+    player: _AudioSongPlayer(_bgm, init),
+    readPosition: SaveService.instance.songPosition,
+    writePosition: SaveService.instance.setSongPosition,
+    enabled: () => musicOn,
+  );
   final List<AudioPlayer> _fxPool = [];
   int _fxCursor = 0;
   bool _ready = false;
   bool _soundsReady = false;
   Future<void>? _initTask;
-  bool _bgmPlaying = false;
-  int _bgmWorld = -1;
-  bool _bgmBoss = false;
-  Object? _bgmOwner;
-  int _bgmRevision = 0;
   double? _appliedBgmVolume;
   double? _appliedFxVolume;
 
@@ -59,7 +55,6 @@ class AudioService {
   late final Uint8List _wavShoot;
   late final Uint8List _wavVehicle;
   late final Uint8List _wavEnemySkill;
-  final Map<(int, bool, bool), Uint8List> _bgmCache = {};
 
   bool get soundOn => SaveService.instance.soundEnabled;
   bool get musicOn => SaveService.instance.musicEnabled;
@@ -116,7 +111,9 @@ class AudioService {
         _fxPool.add(AudioPlayer());
       }
     }
-    await _bgm.setReleaseMode(ReleaseMode.loop);
+    await _bgm.setReleaseMode(ReleaseMode.stop);
+    _bgm.onPositionChanged.listen(_music.onPosition);
+    _bgm.onPlayerComplete.listen((_) => unawaited(_music.onComplete()));
     await applyVolumes();
     _ready = true;
   }
@@ -137,114 +134,17 @@ class AudioService {
     }
   }
 
-  Uint8List _bgmBytes(int worldIndex, {required bool boss, bool alt = false}) {
-    final world = worldIndex.clamp(0, 8).toInt();
-    return _bgmCache.putIfAbsent(
-      (world, boss, alt),
-      () => boss
-          ? SynthWav.bossLoopForWorld(world)
-          : SynthWav.bgmLoopForWorld(world, alt: alt),
-    );
-  }
-
-  /// 所有关卡播放柔和的钢琴加吉他原创曲：普通关每个世界两种编排（相邻关交替），
-  /// Boss 关用世界专属短主题；授权曲只在合成失败时作为后备。
   Future<void> startBgm({
     int worldIndex = 0,
     int levelIndex = 0,
     bool boss = false,
     Object? owner,
-  }) async {
-    final revision = ++_bgmRevision;
-    _bgmOwner = owner;
-    _bgmLevel = levelIndex;
-    await init();
-    if (!_isBgmRequestCurrent(revision, owner)) {
-      return;
-    }
-    if (!musicOn) {
-      await stopBgm(owner: owner);
-      return;
-    }
-    final world = worldIndex.clamp(0, 8).toInt();
-    // 普通关按世界配一首真实歌曲；Boss 关用合成的 Boss 主题。
-    final song = boss ? -1 : SongProfile.worldSongs[world];
-    final synth = song < 0;
-    if (_bgmPlaying &&
-        _bgmWorld == world &&
-        _bgmBoss == boss &&
-        _bgmSong == song) {
-      await applyVolumes();
-      if (!_isBgmRequestCurrent(revision, owner)) {
-        return;
-      }
-      await resumeBgm();
-      return;
-    }
-    await _bgm.stop();
-    if (!_isBgmRequestCurrent(revision, owner)) {
-      return;
-    }
-    await applyVolumes();
-    if (!_isBgmRequestCurrent(revision, owner)) {
-      return;
-    }
-    final asset = _bgmAssets[(world + (boss ? 1 : 0)) % _bgmAssets.length];
-    var played = false;
-    if (!synth) {
-      try {
-        await _bgm.play(AssetSource(songs[song].asset));
-        played = true;
-      } catch (_) {}
-    }
-    if (!played) {
-      try {
-        await _bgm.play(
-          BytesSource(_bgmBytes(world, boss: boss, alt: levelIndex.isOdd)),
-        );
-      } catch (_) {
-        if (!_isBgmRequestCurrent(revision, owner)) {
-          return;
-        }
-        await _bgm.play(AssetSource(asset));
-      }
-    }
-    if (!_isBgmRequestCurrent(revision, owner)) {
-      return;
-    }
-    _bgmWorld = world;
-    _bgmBoss = boss;
-    _bgmSong = song;
+  }) {
     _unlockPending = true;
-    _bgmPlaying = true;
+    return _music.start(worldIndex, owner ?? _defaultOwner);
   }
 
-  /// 停止 BGM
-  bool _isBgmRequestCurrent(int revision, Object? owner) =>
-      revision == _bgmRevision && identical(_bgmOwner, owner);
-
-  Future<void> stopBgm({Object? owner}) async {
-    if (owner != null && !identical(owner, _bgmOwner)) {
-      return;
-    }
-    _bgmRevision++;
-    _bgmOwner = null;
-    if (_marchPlaying) {
-      _marchPlaying = false;
-      try {
-        await _march.stop();
-      } catch (_) {}
-    }
-    if (!_bgmPlaying && _bgmWorld < 0) {
-      await _bgm.stop();
-      _bgmBoss = false;
-      return;
-    }
-    await _bgm.stop();
-    _bgmPlaying = false;
-    _bgmWorld = -1;
-    _bgmBoss = false;
-  }
+  Future<void> stopBgm({Object? owner}) => _music.leave(owner);
 
   /// 驾驶「理想」时的进行曲：压住普通 BGM，开车结束后再接回来。
   final AudioPlayer _march = AudioPlayer();
@@ -269,9 +169,6 @@ class AudioService {
       return;
     }
     try {
-      if (_bgmPlaying) {
-        await _bgm.pause();
-      }
       await _march.setReleaseMode(ReleaseMode.loop);
       await _march.setVolume(SaveService.instance.musicVolume);
       try {
@@ -305,11 +202,6 @@ class AudioService {
     try {
       await _march.stop();
     } catch (_) {}
-    if (_bgmPlaying && musicOn) {
-      try {
-        await _bgm.resume();
-      } catch (_) {}
-    }
   }
 
   /// 飞机结束的收尾音。
@@ -373,45 +265,9 @@ class AudioService {
   static const Duration _killClipLength = Duration(milliseconds: 2750);
   static const Duration _killGap = Duration(milliseconds: 600);
 
-  /// 暂停 BGM
-  Future<void> pauseBgm() async {
-    if (_marchPlaying) {
-      try {
-        await _march.pause();
-      } catch (_) {}
-    }
-    if (!_bgmPlaying) {
-      return;
-    }
-    await _bgm.pause();
-  }
+  Future<void> pauseBgm() => _music.pause();
 
-  /// 恢复 BGM
-  Future<void> resumeBgm() async {
-    if (!musicOn) {
-      return;
-    }
-    if (_marchPlaying) {
-      try {
-        await _march.resume();
-      } catch (_) {}
-      return;
-    }
-    if (!_bgmPlaying && _bgmWorld >= 0) {
-      await startBgm(
-        worldIndex: _bgmWorld,
-        levelIndex: _bgmLevel,
-        boss: _bgmBoss,
-        owner: _bgmOwner,
-      );
-      return;
-    }
-    if (!_bgmPlaying) {
-      return;
-    }
-    await applyVolumes();
-    await _bgm.resume();
-  }
+  Future<void> resumeBgm() => _music.resume();
 
   /// 每首曲子开始后，等待第一次手势去解锁网页端的自动播放限制。
   bool _unlockPending = true;
@@ -428,8 +284,9 @@ class AudioService {
     _unlockPending = false;
     await init();
     try {
-      if (musicOn && _bgmPlaying) {
-        await _bgm.resume();
+      if (musicOn && _music.needsRetry) {
+        await _music.resume();
+        _unlockPending = _music.needsRetry;
       } else if (soundOn) {
         final p = _fxPool[_fxCursor % _fxPool.length];
         _fxCursor++;
@@ -528,4 +385,25 @@ class AudioService {
   Future<void> enemySkill() async {
     await _playFx(() => _wavEnemySkill);
   }
+}
+
+class _AudioSongPlayer implements SongPlayer {
+  _AudioSongPlayer(this.player, this.ready);
+  final AudioPlayer player;
+  final Future<void> Function() ready;
+
+  @override
+  Future<void> play(int song, Duration position) async {
+    await ready();
+    await player.play(AssetSource(AudioService.songs[song].asset), position: position);
+  }
+
+  @override
+  Future<void> pause() => player.pause();
+  @override
+  Future<void> resume() => player.resume();
+  @override
+  Future<void> stop() async { await ready(); await player.stop(); }
+  @override
+  Future<Duration?> position() => player.getCurrentPosition();
 }

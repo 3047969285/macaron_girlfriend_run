@@ -191,6 +191,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       return KeyEventResult.ignored;
     }
     if (down) {
+      AudioService.instance.unlockAudio();
       _setInputMode(InputMode.keyboard);
     }
     final key = event.logicalKey;
@@ -560,10 +561,9 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   Widget _buildPlayView(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     final levelTitle = LevelNames.of(widget.worldIndex, widget.levelIndex);
-    final isBossLevel = widget.levelIndex == GameConstants.levelsPerWorld - 1;
     final worldName =
         '${WorldCatalog.paletteOf(widget.worldIndex).displayName}'
-        '${isBossLevel ? '' : ' ♪ ${AudioService.songTitleFor(widget.worldIndex)}'}';
+        ' ♪ ${AudioService.songTitleFor(widget.worldIndex)}';
     final sky = WorldCatalog.paletteOf(widget.worldIndex).skyBottom;
 
     return Focus(

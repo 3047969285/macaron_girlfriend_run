@@ -1858,7 +1858,7 @@ class MacaronGame extends FlameGame {
     }
   }
 
-  /// 道具计时、状态同步和音乐切换（理想进行曲 / 口香糖旋律 / 飞机收尾音）。
+  /// 更新道具状态与飞机收尾音。
   void _updateBonusModes(double dt) {
     final hadPlane = planeTimer > 0;
     superTimer = (superTimer - dt).clamp(0.0, superDuration);
@@ -1875,13 +1875,6 @@ class MacaronGame extends FlameGame {
         player.position + Vector2(-30, -player.hitHeight),
       );
       AudioService.instance.mambaOut();
-    }
-    final audio = AudioService.instance;
-    final want = gumTimer > 0 ? 'gum' : (vehicleTimer > 0 ? 'march' : null);
-    if (want != null) {
-      audio.startTheme(want);
-    } else if (audio.marchPlaying) {
-      audio.stopTheme();
     }
     if (superTimer > 0 && _beamCooldown <= 0) {
       _fireEyeBeam();
