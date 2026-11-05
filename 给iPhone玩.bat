@@ -12,6 +12,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+powershell -NoProfile -Command "$hash=(Get-FileHash 'build/web/main.dart.js' -Algorithm SHA256).Hash.ToLower(); [IO.File]::WriteAllText((Join-Path (Get-Location) 'build/web/.last_build_id'), $hash)"
+if errorlevel 1 exit /b 1
 
 set "OUT=%USERPROFILE%\Desktop\马卡龙-iPhone网页版"
 if exist "%OUT%" rmdir /s /q "%OUT%"

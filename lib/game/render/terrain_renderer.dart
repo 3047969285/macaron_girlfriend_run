@@ -110,6 +110,23 @@ class TerrainRenderer extends PositionComponent {
       final y = groundY - 95;
       canvas.save();
       canvas.translate(x, y);
+      // 建筑远景只参与绘制，不改变实体碰撞或可通过路线。
+      final distant = Paint()
+        ..color = palette.groundDark.withValues(alpha: 0.12);
+      final glow = Paint()..color = palette.accent.withValues(alpha: 0.18);
+      final variant = _sceneValue(sceneSeed, i, 29);
+      for (var j = 0; j < 5; j++) {
+        final dx = -160.0 + j * 75 + ((variant + j * 37) % 24);
+        final height = 36.0 + ((variant + j * 53) % 62);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(dx, -height, 48, height),
+            const Radius.circular(8),
+          ),
+          distant,
+        );
+        canvas.drawCircle(Offset(dx + 24, -height + 14), 3, glow);
+      }
       switch (chapter.landmark) {
         case LyricLandmark.street:
           canvas.drawRRect(
@@ -136,7 +153,11 @@ class TerrainRenderer extends PositionComponent {
               ..quadraticBezierTo(center, -175, center + 45, -120)
               ..lineTo(center + 45, 0);
             canvas.drawPath(path, ink..strokeWidth = 10);
-            canvas.drawLine(Offset(center - 55, -118), Offset(center + 55, -118), ink);
+            canvas.drawLine(
+              Offset(center - 55, -118),
+              Offset(center + 55, -118),
+              ink,
+            );
             canvas.drawCircle(Offset(center, -145), 10, light);
           }
           ink.strokeWidth = 6;
@@ -176,6 +197,13 @@ class TerrainRenderer extends PositionComponent {
       }
       if (scene.lyricRoute case final name?) {
         _songText(canvas, name, const Offset(0, -198), 18, palette.groundDark);
+        _songText(
+          canvas,
+          chapter.name,
+          const Offset(0, -221),
+          12,
+          palette.groundDark.withValues(alpha: 0.75),
+        );
       }
       canvas.restore();
     }
@@ -737,7 +765,13 @@ class TerrainRenderer extends PositionComponent {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(fontSize: size, fontWeight: FontWeight.w900, color: c),
+        style: TextStyle(
+          fontFamily: MacaronColors.fontFamily,
+          fontFamilyFallback: MacaronColors.fontFallback,
+          fontSize: size,
+          fontWeight: FontWeight.w900,
+          color: c,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

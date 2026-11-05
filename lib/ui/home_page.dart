@@ -1241,7 +1241,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   await AudioService.instance.applyVolumes();
                   if (wasAudible && !r.enabled) {
                     // ignore: unawaited_futures
-                    AudioService.instance.stopBgm();
+                    AudioService.instance.pauseBgm();
                   } else if (!wasAudible && r.enabled) {
                     // ignore: unawaited_futures
                     AudioService.instance.resumeBgm();
@@ -1283,9 +1283,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '普通关按世界轮换播放这三首授权音乐；Boss 关使用每个世界的原创短曲。\n'
-                    '音频资源不可用时会自动切换备用曲。\n'
-                    '许可：Creative Commons Attribution 4.0 International\n'
+                    '普通关、Boss 关和歌曲深处均播放对应世界的歌曲。\n'
+                    '上列 Kevin MacLeod 曲目许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),
                 ),

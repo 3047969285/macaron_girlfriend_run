@@ -1459,6 +1459,81 @@ void main() {
     }
   });
 
+  test('swooper locks its dive target when warning starts', () {
+    var warned = false;
+    final enemy =
+        SoftEnemy(
+            position: Vector2(200, 120),
+            leftBound: 0,
+            rightBound: 400,
+            difficulty: 1,
+            kind: EnemyKind.swooper,
+            onSkillCue: (_, __) => warned = true,
+          )
+          ..targetX = 320
+          ..targetY = 120;
+    for (var i = 0; i < 400 && !warned; i++) {
+      enemy.update(0.02);
+    }
+    expect(warned, isTrue);
+    final warningX = enemy.position.x;
+    enemy.targetX = 0;
+    final frames =
+        (GameConstants.enemySkillWarningFor(1, EnemyKind.swooper) / 0.02)
+            .ceil() +
+        5;
+    for (var i = 0; i < frames; i++) {
+      enemy.update(0.02);
+    }
+    expect(
+      enemy.position.x,
+      greaterThan(warningX),
+      reason: 'dive follows the warning-time target, not the moved player',
+    );
+  });
+
+  test('swooper landing estimate stays close to actual dive', () {
+    for (final difficulty in [1, 5, 9]) {
+      for (final target in [80.0, 320.0]) {
+        var warned = false;
+        final enemy =
+            SoftEnemy(
+                position: Vector2(200, 120),
+                leftBound: 0,
+                rightBound: 400,
+                difficulty: difficulty,
+                kind: EnemyKind.swooper,
+                onSkillCue: (_, __) => warned = true,
+              )
+              ..targetX = target
+              ..targetY = 120;
+        for (var i = 0; i < 600 && !warned; i++) {
+          enemy.update(0.02);
+        }
+        expect(warned, isTrue, reason: 'difficulty $difficulty target $target');
+        var prediction = enemy.predictedSwoopLandingX;
+        var diving = false;
+        var landed = false;
+        for (var i = 0; i < 100; i++) {
+          final beforeY = enemy.position.y;
+          enemy.update(0.02);
+          if (!diving && enemy.position.y - beforeY > 3) diving = true;
+          if (!diving) prediction = enemy.predictedSwoopLandingX;
+          if (diving && enemy.position.y >= 119.9) {
+            landed = true;
+            break;
+          }
+        }
+        expect(landed, isTrue);
+        expect(
+          enemy.position.x,
+          closeTo(prediction, 8),
+          reason: 'difficulty $difficulty target $target',
+        );
+      }
+    }
+  });
+
   test('popper shockwave is low, jumpable, and finite', () {
     const groundY = 240.0;
     final wave = CandyShockwave(

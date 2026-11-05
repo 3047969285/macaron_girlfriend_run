@@ -88,6 +88,7 @@ class MacaronGame extends FlameGame {
   MacaronBoss? boss;
   late FxLayer fx;
   ParallaxLayer? parallax;
+  AmbientSparkles? ambient;
 
   bool leftPressed = false;
   bool rightPressed = false;
@@ -280,19 +281,18 @@ class MacaronGame extends FlameGame {
       WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
         ..position.y = skyShift,
     );
-    world.add(
-      AmbientSparkles(
-        mapWidth: mapWidth,
-        tint: palette.accent,
-        groundY: groundY,
-        kind: switch (palette.name) {
-          '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
-          '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
-          '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
-          _ => AmbientKind.sparkle,
-        },
-      ),
+    ambient = AmbientSparkles(
+      mapWidth: mapWidth,
+      tint: palette.accent,
+      groundY: groundY,
+      kind: switch (palette.name) {
+        '草莓甜点' || '玫瑰城堡' || '蜜月彩虹' => AmbientKind.petal,
+        '薄荷汽水' || '柠檬沙滩' => AmbientKind.bubble,
+        '香芋星空' || '蓝莓峡谷' => AmbientKind.firefly,
+        _ => AmbientKind.sparkle,
+      },
     );
+    world.add(ambient!);
     fx = FxLayer();
     world.add(fx);
 
@@ -1104,6 +1104,7 @@ class MacaronGame extends FlameGame {
       cy.clamp(minY, maxY),
     );
     parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
+    ambient?.syncViewport(camera.viewfinder.position.x, size.x);
   }
 
   @override
@@ -1857,7 +1858,7 @@ class MacaronGame extends FlameGame {
     }
   }
 
-  /// 道具计时、状态同步和音乐切换（理想进行曲 / 口香糖旋律 / 飞机收尾音）。
+  /// 更新道具状态与飞机收尾音。
   void _updateBonusModes(double dt) {
     final hadPlane = planeTimer > 0;
     superTimer = (superTimer - dt).clamp(0.0, superDuration);
@@ -1874,13 +1875,6 @@ class MacaronGame extends FlameGame {
         player.position + Vector2(-30, -player.hitHeight),
       );
       AudioService.instance.mambaOut();
-    }
-    final audio = AudioService.instance;
-    final want = gumTimer > 0 ? 'gum' : (vehicleTimer > 0 ? 'march' : null);
-    if (want != null) {
-      audio.startTheme(want);
-    } else if (audio.marchPlaying) {
-      audio.stopTheme();
     }
     if (superTimer > 0 && _beamCooldown <= 0) {
       _fireEyeBeam();
@@ -1909,11 +1903,15 @@ class MacaronGame extends FlameGame {
     final bossDx = currentBoss == null
         ? double.infinity
         : (currentBoss.position.x - player.position.x) * dir;
-    if (target == null &&
-        (currentBoss == null ||
-            currentBoss.dead ||
-            bossDx < 0 ||
-            bossDx > 420)) {
+    final bossInRange =
+        currentBoss != null &&
+        !currentBoss.dead &&
+        bossDx >= 0 &&
+        bossDx <= 420;
+    if (bossInRange && bossDx < best) {
+      target = null;
+    }
+    if (target == null && !bossInRange) {
       return;
     }
     _beamCooldown = 0.45;
@@ -2563,6 +2561,7 @@ class MacaronGame extends FlameGame {
       dampCamera(cur.y, cy, 8, dt),
     );
     parallax?.syncCamera(camera.viewfinder.position.x, viewportWidth: size.x);
+    ambient?.syncViewport(camera.viewfinder.position.x, size.x);
   }
 
   int starRating() {
