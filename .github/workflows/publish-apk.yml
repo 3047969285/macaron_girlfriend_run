@@ -17,12 +17,12 @@ jobs:
         with:
           name: macaron-android-apk
           path: android-download
-          run-id: 41981323960
+          run-id: 41983362348
           github-token: ${{ github.token }}
       - run: |
           mv android-download/app-release.apk android-download/macaron.apk
           git config user.name github-actions\[bot\]
           git config user.email 41898282+github-actions\[bot\]@users.noreply.github.com
           git add android-download/macaron.apk
-          git commit -m 'Publish ARM64 Android APK for 6a94e54'
+          git commit -m 'Publish ARM64 Android APK for 54cc11d'
           git push origin HEAD:gh-pages
