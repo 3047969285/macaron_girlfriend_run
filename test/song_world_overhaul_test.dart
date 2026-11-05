@@ -32,6 +32,162 @@ Future<String> imageOf(void Function(Canvas) draw) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('all song backdrops decode successfully', () async {
+    for (final theme in SongWorldTheme.values) {
+      final world = SongProfile.worldSongs.indexOf(theme.index);
+      final backdrop = WorldBackdrop(
+        palette: WorldCatalog.paletteOf(world),
+        mapWidth: 1000,
+        sceneSeed: 1,
+        songTheme: theme,
+      );
+      await backdrop.onLoad();
+      await backdrop.backgroundLoading;
+      expect(backdrop.songBackgroundLoaded, isTrue, reason: theme.name);
+      backdrop.onRemove();
+    }
+  });
+
+  test('song projectiles have bounded, frame-independent flight patterns', () {
+    final paths = <String>{};
+    for (final theme in SongWorldTheme.values) {
+      final slow = EnemyCandyShot(
+        position: Vector2.zero(),
+        direction: 1,
+        speed: 200,
+        theme: theme,
+      );
+      final fast = EnemyCandyShot(
+        position: Vector2.zero(),
+        direction: 1,
+        speed: 200,
+        theme: theme,
+      );
+      final samples = <String>[];
+      for (var i = 0; i < 60; i++) {
+        slow.update(1 / 60);
+        fast.update(1 / 120);
+        fast.update(1 / 120);
+        expect((slow.position.y - fast.position.y).abs(), lessThan(0.001));
+        expect(slow.position.y.abs(), lessThanOrEqualTo(10));
+        if (i % 10 == 9) samples.add(slow.position.y.toStringAsFixed(2));
+      }
+      paths.add(samples.join(','));
+      expect(slow.position.x, closeTo(200, 0.001));
+      expect(slow.hitbox.height, lessThan(18));
+    }
+    expect(paths, hasLength(6));
+  });
+
+  test(
+    'mirror and clock chapters add a reachable upper path inside the tower',
+    () {
+      for (final world in [2, 4]) {
+        final chapters = <int>{};
+        for (var level = 0; level < 11; level++) {
+          final map = LevelCatalog.load(world, level);
+          final ground = map.height - 3;
+          final phase = level * 3 ~/ 11;
+          for (final scene in LevelCatalog.scenesOf(world, level)) {
+            if (scene.lyricRoute == null || !scene.storyExpansion) continue;
+            expect(scene.width, lessThanOrEqualTo(14));
+            int col(int dx) =>
+                scene.x + (scene.mirrored ? scene.width - 1 - dx : dx);
+            final start = phase == 0 ? 12 : 7 + phase;
+            final height = phase == 0 ? 9 : 7;
+            for (var dx = start; dx < start + 2; dx++) {
+              expect(map.tileAt(col(dx), ground - height), '=');
+              expect(
+                map.tileAt(col(dx), ground - height - 1),
+                isNot(anyOf('=', '?')),
+              );
+              expect(
+                map.tileAt(col(dx), ground - height - 2),
+                isNot(anyOf('=', '?')),
+              );
+            }
+            chapters.add(phase);
+          }
+        }
+        expect(chapters, {0, 1, 2}, reason: 'world $world');
+      }
+    },
+  );
+
+  testWidgets('the player can reach both new tower paths in every chapter', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+    for (final world in [2, 4]) {
+      for (var phase = 0; phase < 3; phase++) {
+        final level = List.generate(11, (i) => i).firstWhere(
+          (i) =>
+              i * 3 ~/ 11 == phase &&
+              LevelCatalog.scenesOf(
+                world,
+                i,
+              ).any((s) => s.lyricRoute != null && s.storyExpansion),
+        );
+        final map = LevelCatalog.load(world, level);
+        final scene = LevelCatalog.scenesOf(
+          world,
+          level,
+        ).firstWhere((s) => s.lyricRoute != null && s.storyExpansion);
+        int col(int dx) =>
+            scene.x + (scene.mirrored ? scene.width - 1 - dx : dx);
+        final startDx = phase == 0 ? 9 : 9 + phase;
+        final targetDx = phase == 0 ? 12 : 8 + phase;
+        final startHeight = 7;
+        final targetHeight = phase == 0 ? 9 : 7;
+        final game = MacaronGame(
+          worldIndex: world,
+          levelIndex: level,
+          role: PlayerRole.girlfriend,
+        );
+        await tester.pumpWidget(GameWidget(game: game));
+        await tester.pump(const Duration(milliseconds: 100));
+        game.pauseEngine();
+        final startX = (col(startDx) + .5) * GameConstants.tileSize;
+        final targetX = (col(targetDx) + .5) * GameConstants.tileSize;
+        final targetY =
+            (map.height - 3 - targetHeight) * GameConstants.tileSize;
+        game.player
+          ..position.setValues(
+            startX,
+            (map.height - 3 - startHeight) * GameConstants.tileSize,
+          )
+          ..velocity.setZero()
+          ..onGround = true;
+        game.rightPressed = targetX > startX;
+        game.leftPressed = targetX < startX;
+        if (phase == 0) game.setJumpHeld(true);
+        var reached = false;
+        for (var i = 0; i < 120; i++) {
+          if ((game.player.position.x - targetX).abs() < 8) {
+            game.rightPressed = false;
+            game.leftPressed = false;
+          }
+          if (i == 30) game.setJumpHeld(false);
+          game.update(1 / 60);
+          if (game.player.onGround &&
+              (game.player.position.y - targetY).abs() < 1 &&
+              (game.player.position.x - targetX).abs() <
+                  GameConstants.tileSize / 2) {
+            reached = true;
+            break;
+          }
+        }
+        expect(reached, isTrue, reason: 'world $world chapter $phase');
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+
   test('mounted rider images are available', () async {
     await HeroSprites.preload();
     expect(HeroSprites.horseIdle, isNotNull);

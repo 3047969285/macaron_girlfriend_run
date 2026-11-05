@@ -581,11 +581,19 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
     final length = song == 2 || song == 4 ? 2 : 2 + ((world + level) % 2);
     p.bricks(height, x, length);
     p.coin(x + length ~/ 2, height + 1);
-    if (expansion && song != 2 && song != 4) {
-      final nextX = x + length + 2;
-      final nextHeight = height == 7 ? 9 : (song.isEven ? 7 : 10);
-      p.bricks(nextHeight, nextX, 2);
-      p.coin(nextX, nextHeight + 1);
+    if (expansion) {
+      if (song == 2 || song == 4) {
+        if (phase == 0) {
+          p.bricks(9, 12, 2);
+        } else {
+          p.bricks(7, 7 + phase, 2);
+        }
+      } else {
+        final nextX = x + length + 2;
+        final nextHeight = height == 7 ? 9 : (song.isEven ? 7 : 10);
+        p.bricks(nextHeight, nextX, 2);
+        p.coin(nextX, nextHeight + 1);
+      }
       p.storyExpansion = true;
     }
   }
