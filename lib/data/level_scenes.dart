@@ -164,12 +164,13 @@ class LevelScenes {
       final kindOk = r.scenes.map((s) => s.kind).toSet().length >= math.min(n >= 8 ? 5 : 4, n);
       final climaxOk = r.scenes.every((s) => !s.climax || _topRow(s) <= g - 9);
       final lyricOk = r.scenes.any((s) => s.lyricRoute != null);
-      final score = (topOk ? 400 : 0) + (kindOk ? 200 : 0) + (climaxOk ? 100 : 0) + (lyricOk ? 20 : 0) + math.min<int>(n, want);
+      final branchOk = r.scenes.any((s) => _hasThemeBranch(s, world, level, g));
+      final score = (topOk ? 400 : 0) + (kindOk ? 200 : 0) + (climaxOk ? 100 : 0) + (lyricOk ? 20 : 0) + (branchOk ? 15 : 0) + math.min<int>(n, want);
       if (score > bestScore) {
         best = r;
         bestScore = score;
       }
-      if (topOk && kindOk && climaxOk && lyricOk && n >= want) {
+      if (topOk && kindOk && climaxOk && lyricOk && branchOk && n >= want) {
         break;
       }
     }
@@ -201,7 +202,7 @@ class LevelScenes {
     }
     final baseCoins = rows.fold(0, (n, r) => n + 'C'.allMatches(r).length);
     final boss = level == GameConstants.levelsPerWorld - 1 ? grid[g].indexOf('B') : -1;
-    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)), SongProfile.of(world).motif, SongProfile.songIndexOf(world), level);
+    final writer = _Writer(grid, banned, springZone, boss, math.max(0, math.min(12, 96 - baseCoins)), SongProfile.of(world).motif, SongProfile.songIndexOf(world), world, level);
     final kinds = planKinds(world, level);
     final seed = world * 1009 + level * 37 + 11 + salt * 100003;
     final slots = _slotColumns(world, level, kinds.length, w);
@@ -253,7 +254,8 @@ class LevelScenes {
 
   static void _tryLyricRoute(
       _Writer writer, List<PlacedScene> placed, int world, int width, math.Random rnd) {
-    if (placed.any((s) => s.lyricRoute != null)) return;
+    final hasLyric = placed.any((s) => s.lyricRoute != null);
+    if (placed.any((s) => _hasThemeBranch(s, world, writer.level, writer.g))) return;
     final kind = _lyricKinds[SongProfile.songIndexOf(world)];
     final n = placed.length;
     final requiredKinds = math.min(n >= 8 ? 5 : 4, n);
@@ -271,7 +273,7 @@ class LevelScenes {
       final maxX = right == null ? width - 20 : right.x - 3;
       writer.release(old);
       final route = writer.place(kind, left?.kind, right?.kind, rnd, old.x,
-          maxX - minX, minX, maxX, lyricOnly: true);
+          maxX - minX, minX, maxX, lyricOnly: true, branchOnly: hasLyric);
       if (route != null) {
         placed[i] = route;
         return;
@@ -500,7 +502,22 @@ void _draw(SceneKind kind, _Pen p) {
 const _lyricKinds = [SceneKind.cloudRoom, SceneKind.skyBridge, SceneKind.tower,
   SceneKind.hangingGarden, SceneKind.tower, SceneKind.valley];
 
-bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
+int _themeBranchOffset(int song, int phase) => switch (song) {
+  0 => phase == 0 ? 14 : 19,
+  1 || 3 => phase == 0 ? 16 : 20,
+  2 || 4 => phase == 0 ? 9 : 12,
+  _ => phase == 0 ? 18 : 22 + phase,
+};
+
+bool _hasThemeBranch(PlacedScene scene, int world, int level, int ground) {
+  if (scene.lyricRoute == null) return false;
+  final phase = (level.clamp(0, 10) * 3 ~/ 11).clamp(0, 2);
+  final dx = _themeBranchOffset(SongProfile.songIndexOf(world), phase);
+  final x = scene.x + (scene.mirrored ? scene.width - 1 - dx : dx);
+  return scene.cells[(x, ground - (phase == 0 ? 7 : 9))] == '=';
+}
+
+bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bool branch = false}) {
   final phase = (level.clamp(0, 10) * 3 ~/ 11).clamp(0, 2);
   if (kind != _lyricKinds[song]) return false;
   p.lyricRoute = ['街角屋檐', '白马三关', '倒影双塔', '心跳花园', '时钟街区', '夜行归路'][song];
@@ -554,6 +571,13 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(10, 14 + phase, 2);
       p.coin(10, 8);
       if (phase > 0) p.landing(18 + phase);
+  }
+  if (branch) {
+    final x = _themeBranchOffset(song, phase);
+    final height = phase == 0 ? 7 : 9;
+    final length = song == 2 || song == 4 ? 2 : 2 + ((world + level) % 2);
+    p.bricks(height, x, length);
+    p.coin(x + length ~/ 2, height + 1);
   }
   return true;
 }
@@ -732,7 +756,7 @@ void _coinWave(_Pen p) {
 
 /// 一个关卡内的放置状态：按顺序放场景，失败则回滚。
 class _Writer {
-  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins, this.motif, this.song, this.level);
+  _Writer(this.grid, this.banned, this.springZone, this.boss, this.coins, this.motif, this.song, this.world, this.level);
 
   final List<List<String>> grid;
   final List<bool> banned;
@@ -740,6 +764,7 @@ class _Writer {
   final int boss;
   final List<(int, int)> motif;
   final int song;
+  final int world;
   final int level;
   int coins;
   int mLeft = 1;
@@ -751,7 +776,7 @@ class _Writer {
 
   /// 在 [target] 附近找一个能放下的位置：先试 ±[near] 列（吸附小节线），再试 ±[span] 列；形状失败时重抽参数。
   PlacedScene? place(SceneKind kind, SceneKind? left, SceneKind? right, math.Random rnd, int target, int span, int minX, int maxX,
-      {int near = 0, bool lyricOnly = false}) {
+      {int near = 0, bool lyricOnly = false, bool branchOnly = false}) {
     if (kind == left || kind == right) {
       return null;
     }
@@ -759,8 +784,8 @@ class _Writer {
       for (var attempt = 0; attempt < 24; attempt++) {
         final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3), motif)
           ..reserve = kind == SceneKind.coinWave ? 0 : motif.length;
-        if (lyricOnly && attempt >= 8) break;
-        if (attempt >= 8 || !_drawLyricRoute(song, level, kind, pen)) {
+        if ((branchOnly && attempt >= 4) || (lyricOnly && attempt >= 8)) break;
+        if (attempt >= 8 || !_drawLyricRoute(song, world, level, kind, pen, branch: attempt < 4)) {
           if (lyricOnly) return null;
           _draw(kind, pen);
         }

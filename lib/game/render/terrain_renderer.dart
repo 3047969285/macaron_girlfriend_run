@@ -110,6 +110,7 @@ class TerrainRenderer extends PositionComponent {
       final y = groundY - 95;
       canvas.save();
       canvas.translate(x, y);
+      if (scene.lyricRoute != null) _drawWorldSetPiece(canvas);
       // 建筑远景只参与绘制，不改变实体碰撞或可通过路线。
       final distant = Paint()
         ..color = palette.groundDark.withValues(alpha: 0.12);
@@ -206,6 +207,160 @@ class TerrainRenderer extends PositionComponent {
         );
       }
       canvas.restore();
+    }
+  }
+
+  void _drawWorldSetPiece(Canvas canvas) {
+    final silhouette = Paint()
+      ..color = palette.groundDark.withValues(alpha: 0.18);
+    final accent = Paint()..color = palette.accent.withValues(alpha: 0.32);
+    final line = Paint()
+      ..color = palette.groundDark.withValues(alpha: 0.38)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    switch (palette.name) {
+      case '奶油草地':
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(-150, -175, 300, 175),
+            const Radius.circular(8),
+          ),
+          silhouette,
+        );
+        for (final x in [-105.0, -35.0, 35.0, 105.0]) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(x - 20, -145, 40, 52),
+              const Radius.circular(18),
+            ),
+            accent,
+          );
+          canvas.drawLine(Offset(x, -142), Offset(x, -96), line);
+        }
+      case '草莓甜点':
+        for (final x in [-120.0, 0.0, 120.0]) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(x - 38, 0)
+              ..lineTo(x - 38, -135)
+              ..quadraticBezierTo(x, -185, x + 38, -135)
+              ..lineTo(x + 38, 0),
+            line,
+          );
+          canvas.drawPath(
+            Path()
+              ..moveTo(x - 40, -142)
+              ..lineTo(x, -168)
+              ..lineTo(x + 40, -142)
+              ..close(),
+            accent,
+          );
+        }
+      case '薄荷汽水':
+        for (final x in [-90.0, 90.0]) {
+          canvas.drawOval(
+            Rect.fromCenter(center: Offset(x, -110), width: 105, height: 150),
+            silhouette,
+          );
+          canvas.drawOval(
+            Rect.fromCenter(center: Offset(x, -110), width: 105, height: 150),
+            line,
+          );
+          canvas.drawLine(Offset(x - 20, -100), Offset(x + 15, -140), line);
+        }
+      case '香芋星空':
+        for (final x in [-125.0, 0.0, 125.0]) {
+          canvas.drawLine(Offset(x, 0), Offset(x, -160), line);
+          canvas.drawCircle(Offset(x, -160), 26, accent);
+          canvas.drawLine(Offset(x - 12, -160), Offset(x + 12, -160), line);
+          canvas.drawLine(Offset(x, -172), Offset(x, -148), line);
+        }
+      case '柠檬沙滩':
+        for (var i = 0; i < 5; i++) {
+          final x = -145.0 + i * 62;
+          final h = 90.0 + (i % 3) * 35;
+          canvas.drawRect(Rect.fromLTWH(x, -h, 50, h), silhouette);
+          for (var row = 0; row < 3; row++) {
+            canvas.drawRect(
+              Rect.fromLTWH(x + 10, -h + 18 + row * 20, 8, 10),
+              accent,
+            );
+            canvas.drawRect(
+              Rect.fromLTWH(x + 30, -h + 18 + row * 20, 8, 10),
+              accent,
+            );
+          }
+        }
+      case '玫瑰城堡':
+        canvas.drawRect(const Rect.fromLTWH(-110, -130, 220, 130), silhouette);
+        for (final x in [-100.0, 100.0]) {
+          canvas.drawRect(Rect.fromLTWH(x - 26, -175, 52, 175), silhouette);
+          canvas.drawPath(
+            Path()
+              ..moveTo(x - 34, -175)
+              ..lineTo(x, -220)
+              ..lineTo(x + 34, -175)
+              ..close(),
+            accent,
+          );
+        }
+      case '蓝莓峡谷':
+        canvas.drawPath(
+          Path()
+            ..moveTo(-170, 0)
+            ..lineTo(-100, -180)
+            ..lineTo(-20, -45)
+            ..lineTo(55, -210)
+            ..lineTo(170, 0)
+            ..close(),
+          silhouette,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(-115, -145)
+            ..lineTo(-100, -180)
+            ..lineTo(-75, -138)
+            ..moveTo(35, -160)
+            ..lineTo(55, -210)
+            ..lineTo(85, -155),
+          line,
+        );
+      case '焦糖矿山':
+        for (final x in [-95.0, 95.0]) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(x - 65, 0)
+              ..lineTo(x - 65, -150)
+              ..lineTo(x + 65, -150)
+              ..lineTo(x + 65, 0),
+            line,
+          );
+          canvas.drawLine(Offset(x - 65, -150), Offset(x + 65, 0), line);
+          canvas.drawLine(Offset(x + 65, -150), Offset(x - 65, 0), line);
+        }
+      case '蜜月彩虹':
+        for (var i = 0; i < 4; i++) {
+          canvas.drawArc(
+            Rect.fromCenter(
+              center: const Offset(0, 0),
+              width: 300 - i * 25,
+              height: 300 - i * 25,
+            ),
+            math.pi,
+            math.pi,
+            false,
+            Paint()
+              ..color = [
+                palette.accent,
+                MacaronColors.rose,
+                MacaronColors.lemon,
+                MacaronColors.sky,
+              ][i].withValues(alpha: 0.28)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 10,
+          );
+        }
     }
   }
 

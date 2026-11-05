@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
@@ -21,6 +25,54 @@ Future<MacaronGame> _boot(WidgetTester tester, {int level = 0}) async {
 }
 
 void main() {
+  test(
+    'pickups render distinct artwork and keep their collection bounds',
+    () async {
+      final coin = MacaronCoin(position: Vector2.zero());
+      final power = PowerMacaron(position: Vector2.zero());
+      final heart = LifeHeart(position: Vector2.zero());
+      final gun = GunPickup(position: Vector2.zero());
+      final seed = PeaSeed(position: Vector2.zero());
+      final car = VehiclePickup(position: Vector2.zero());
+      final bonuses = [
+        for (final kind in BonusKind.values)
+          BonusPickup(position: Vector2.zero(), kind: kind),
+      ];
+      final items = <PositionComponent>[
+        coin,
+        power,
+        heart,
+        gun,
+        seed,
+        car,
+        ...bonuses,
+      ];
+      final signatures = <String>{};
+      for (final item in items) {
+        final originalSize = item.size.clone();
+        final recorder = ui.PictureRecorder();
+        item.render(ui.Canvas(recorder)..translate(12, 12));
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(80, 80);
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        final pixels = bytes!.buffer.asUint8List();
+        expect(
+          [
+            for (var i = 3; i < pixels.length; i += 4)
+              if (pixels[i] > 0) i,
+          ].length,
+          greaterThan(100),
+        );
+        signatures.add(base64Encode(pixels));
+        expect(item.size, originalSize);
+        image.dispose();
+        picture.dispose();
+      }
+      expect(signatures.length, items.length);
+    },
+  );
   setUp(() async {
     SharedPreferences.setMockInitialValues({
       'sound_on': false,

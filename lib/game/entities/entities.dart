@@ -6,6 +6,50 @@ import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
+final Paint _pickupSheen = Paint()
+  ..shader = const LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xAAFFFFFF), Color(0x00FFFFFF), Color(0x44000000)],
+    stops: [0, 0.5, 1],
+  ).createShader(const Rect.fromLTWH(-20, -20, 40, 40));
+
+void _drawPickupBadge(Canvas canvas, Offset center, double radius, Color tint) {
+  canvas.save();
+  canvas.translate(center.dx, center.dy);
+  canvas.drawCircle(
+    const Offset(0, 2),
+    radius,
+    Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.12),
+  );
+  canvas.drawCircle(
+    Offset.zero,
+    radius,
+    Paint()..color = Color.lerp(Colors.white, tint, 0.16)!,
+  );
+  canvas.drawCircle(Offset.zero, radius, _pickupSheen);
+  canvas.drawCircle(
+    Offset.zero,
+    radius - 0.8,
+    Paint()
+      ..color = tint.withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4,
+  );
+  canvas.drawArc(
+    Rect.fromCircle(center: Offset.zero, radius: radius - 3),
+    3.6,
+    1.25,
+    false,
+    Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round,
+  );
+  canvas.restore();
+}
+
 /// 马卡龙金币
 class MacaronCoin extends PositionComponent {
   MacaronCoin({required Vector2 position})
@@ -56,6 +100,7 @@ class MacaronCoin extends PositionComponent {
       size.x * 0.3,
       Paint()..color = MacaronColors.blush,
     );
+    canvas.drawCircle(Offset.zero, size.x * 0.44, _pickupSheen);
     canvas.drawCircle(
       Offset.zero,
       size.x * 0.37,
@@ -206,9 +251,45 @@ class PowerMacaron extends PositionComponent {
     }
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + math.sin(_spin) * 4);
-    canvas.drawCircle(Offset.zero, 16, Paint()..color = MacaronColors.lilac);
-    canvas.drawCircle(Offset.zero, 10, Paint()..color = Colors.white);
-    canvas.drawCircle(Offset.zero, 6, Paint()..color = MacaronColors.rose);
+    canvas.rotate(math.sin(_spin * 0.7) * 0.08);
+    canvas.drawOval(
+      const Rect.fromLTWH(-16, -9, 32, 25),
+      Paint()..color = const Color(0xFF8D6AAB),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-15, -2, 30, 10),
+        const Radius.circular(5),
+      ),
+      Paint()..color = const Color(0xFFFFF2E9),
+    );
+    canvas.drawOval(
+      const Rect.fromLTWH(-16, -14, 32, 23),
+      Paint()..color = MacaronColors.lilac,
+    );
+    canvas.drawOval(const Rect.fromLTWH(-16, -14, 32, 23), _pickupSheen);
+    canvas.drawArc(
+      const Rect.fromLTWH(-12, -12, 24, 16),
+      3.5,
+      1.1,
+      false,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+    final sparkle = Path()
+      ..moveTo(0, -8)
+      ..lineTo(2, -3)
+      ..lineTo(6, -2)
+      ..lineTo(2, 0)
+      ..lineTo(0, 4)
+      ..lineTo(-2, 0)
+      ..lineTo(-6, -2)
+      ..lineTo(-2, -3)
+      ..close();
+    canvas.drawPath(sparkle, Paint()..color = const Color(0xFFFFF9DC));
     canvas.restore();
   }
 }
@@ -243,6 +324,11 @@ class LifeHeart extends PositionComponent {
       ..cubicTo(-14, -6, -8, -16, 0, -8)
       ..cubicTo(8, -16, 14, -6, 0, 6);
     canvas.drawPath(p, Paint()..color = MacaronColors.rose);
+    canvas.drawPath(p, _pickupSheen);
+    canvas.drawOval(
+      const Rect.fromLTWH(-7, -12, 5, 3),
+      Paint()..color = Colors.white.withValues(alpha: 0.75),
+    );
     canvas.restore();
   }
 }
@@ -1484,10 +1570,11 @@ class GunPickup extends PositionComponent {
       return;
     }
     final y = math.sin(_bob) * 3;
-    canvas.drawCircle(
+    _drawPickupBadge(
+      canvas,
       Offset(size.x / 2, size.y / 2 + y),
       19,
-      Paint()..color = Colors.white.withValues(alpha: 0.8),
+      const Color(0xFF98A6B7),
     );
     // AK-47：木托、金属机匣、长枪管、弧形弹匣。
     final wood = Paint()..color = const Color(0xFF9A5B35);
@@ -1502,6 +1589,19 @@ class GunPickup extends PositionComponent {
     canvas.drawRect(Rect.fromLTWH(13, 17 + y, 14, 6), steel);
     canvas.drawRect(Rect.fromLTWH(26, 18 + y, 14, 3), steel);
     canvas.drawRect(Rect.fromLTWH(24, 21 + y, 9, 3), wood);
+    canvas.drawLine(
+      Offset(14, 18 + y),
+      Offset(27, 18 + y),
+      Paint()
+        ..color = const Color(0xFFADB5C0)
+        ..strokeWidth = 1,
+    );
+    canvas.drawLine(
+      Offset(31, 17 + y),
+      Offset(31, 14 + y),
+      steel..strokeWidth = 1.5,
+    );
+    canvas.drawLine(Offset(36, 18 + y), Offset(36, 16 + y), steel);
     canvas.drawPath(
       Path()
         ..moveTo(18, 23 + y)
@@ -1511,6 +1611,15 @@ class GunPickup extends PositionComponent {
         ..close(),
       Paint()..color = const Color(0xFF55565E),
     );
+    for (var i = 0; i < 3; i++) {
+      canvas.drawLine(
+        Offset(20 + i * 1.5, 25 + y),
+        Offset(21 + i * 1.5, 31 + y),
+        Paint()
+          ..color = const Color(0xFF858791)
+          ..strokeWidth = 0.7,
+      );
+    }
   }
 }
 
@@ -1538,10 +1647,11 @@ class PeaSeed extends PositionComponent {
       return;
     }
     final lift = math.sin(_bob) * 3;
-    canvas.drawCircle(
+    _drawPickupBadge(
+      canvas,
       Offset(size.x / 2, size.y / 2 + lift),
       19,
-      Paint()..color = Colors.white.withValues(alpha: 0.82),
+      MacaronColors.mint,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1549,6 +1659,13 @@ class PeaSeed extends PositionComponent {
         const Radius.circular(4),
       ),
       Paint()..color = const Color(0xFFB57A66),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(11, 23 + lift, 21, 4),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xFFE2A792),
     );
     canvas.drawLine(
       Offset(21, 27 + lift),
@@ -1574,6 +1691,18 @@ class PeaSeed extends PositionComponent {
       Offset(23, 10 + lift),
       1.2,
       Paint()..color = MacaronColors.cocoa,
+    );
+    canvas.drawLine(
+      Offset(20, 18 + lift),
+      Offset(15, 16 + lift),
+      Paint()
+        ..color = const Color(0xFF377C50)
+        ..strokeWidth = 0.8,
+    );
+    canvas.drawCircle(
+      Offset(19, 9 + lift),
+      1.4,
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
   }
 }
@@ -1627,6 +1756,32 @@ class VehiclePickup extends PositionComponent {
         ..close(),
       Paint()..color = MacaronColors.sky,
     );
+    canvas.drawLine(
+      Offset(26, 8 + y),
+      Offset(26, 15 + y),
+      Paint()
+        ..color = const Color(0xFF8AAEC0)
+        ..strokeWidth = 1.5,
+    );
+    canvas.drawLine(
+      Offset(17, 9 + y),
+      Offset(14, 14 + y),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.8)
+        ..strokeWidth = 1.5,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(7, 16 + y, 34, 6),
+        const Radius.circular(3),
+      ),
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+    canvas.drawCircle(
+      Offset(40, 20 + y),
+      2,
+      Paint()..color = const Color(0xFFFFE8A6),
+    );
     drawCarLabel(canvas, const Offset(24, 21.5), 7.5, y);
     canvas.drawCircle(
       Offset(14, 29 + y),
@@ -1640,6 +1795,16 @@ class VehiclePickup extends PositionComponent {
     );
     canvas.drawCircle(Offset(14, 29 + y), 2, Paint()..color = Colors.white);
     canvas.drawCircle(Offset(34, 29 + y), 2, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      Offset(14, 29 + y),
+      1,
+      Paint()..color = const Color(0xFF8A9AAB),
+    );
+    canvas.drawCircle(
+      Offset(34, 29 + y),
+      1,
+      Paint()..color = const Color(0xFF8A9AAB),
+    );
   }
 }
 
@@ -1710,11 +1875,7 @@ class BonusPickup extends PositionComponent {
       22 + math.sin(_bob) * 1.5,
       Paint()..color = aura.withValues(alpha: 0.2),
     );
-    canvas.drawCircle(
-      c,
-      20,
-      Paint()..color = Colors.white.withValues(alpha: 0.85),
-    );
+    _drawPickupBadge(canvas, c, 20, aura);
     switch (kind) {
       case BonusKind.superman:
         canvas.drawPath(
@@ -1725,6 +1886,13 @@ class BonusPickup extends PositionComponent {
             ..lineTo(c.dx - 8, c.dy + 14)
             ..close(),
           Paint()..color = const Color(0xFFE8484F),
+        );
+        canvas.drawLine(
+          c + const Offset(-9, -6),
+          c + const Offset(9, -6),
+          Paint()
+            ..color = const Color(0xFFFFB1A4)
+            ..strokeWidth = 1.5,
         );
         final s = _labelPainter('S', 15, const Color(0xFFFFE066));
         s.paint(canvas, Offset(c.dx - s.width / 2, c.dy - s.height / 2 + 1));
@@ -1745,6 +1913,18 @@ class BonusPickup extends PositionComponent {
             ..close(),
           Paint()..color = const Color(0xFF6FB4E8),
         );
+        canvas.drawCircle(
+          c + const Offset(7, -1),
+          1.6,
+          Paint()..color = Colors.white.withValues(alpha: 0.9),
+        );
+        canvas.drawLine(
+          c + const Offset(-10, 2),
+          c + const Offset(10, 0),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.7)
+            ..strokeWidth = 1,
+        );
         canvas.drawPath(
           Path()
             ..moveTo(c.dx - 4, c.dy - 1)
@@ -1759,6 +1939,10 @@ class BonusPickup extends PositionComponent {
           13,
           Paint()..color = MacaronColors.rose.withValues(alpha: 0.85),
         );
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.drawCircle(Offset.zero, 13, _pickupSheen);
+        canvas.restore();
         canvas.drawCircle(
           c + const Offset(-4, -4),
           4,
