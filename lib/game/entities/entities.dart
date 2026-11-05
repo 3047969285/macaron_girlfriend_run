@@ -1,3 +1,4 @@
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
@@ -32,6 +33,10 @@ class MacaronCoin extends PositionComponent {
       return;
     }
     final bobY = math.sin(_bob) * 3;
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 0, 7, Rect.fromLTWH(0, bobY, size.x, size.y));
+      return;
+    }
     final scaleX = (0.55 + 0.45 * (1 + (_spin % 3.14 - 1.57).abs() / 1.57))
         .clamp(0.35, 1.0);
     canvas.save();
@@ -151,6 +156,11 @@ class PowerMacaron extends PositionComponent {
     }
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + math.sin(_spin) * 4);
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 2, 7, const Rect.fromLTWH(-18, -18, 36, 36));
+      canvas.restore();
+      return;
+    }
     canvas.drawCircle(Offset.zero, 16, Paint()..color = MacaronColors.lilac);
     canvas.drawCircle(Offset.zero, 10, Paint()..color = Colors.white);
     canvas.drawCircle(Offset.zero, 6, Paint()..color = MacaronColors.rose);
@@ -183,6 +193,11 @@ class LifeHeart extends PositionComponent {
     }
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + math.sin(_bob) * 3);
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 1, 7, const Rect.fromLTWH(-16, -16, 32, 32));
+      canvas.restore();
+      return;
+    }
     final p = Path()
       ..moveTo(0, 6)
       ..cubicTo(-14, -6, -8, -16, 0, -8)
@@ -246,6 +261,7 @@ class SoftEnemy extends PositionComponent {
     required this.rightBound,
     required this.difficulty,
     this.speed = 88,
+    this.worldIndex,
     this.onSkillCue,
     this.onShoot,
     this.onLayTrap,
@@ -272,6 +288,7 @@ class SoftEnemy extends PositionComponent {
   final int difficulty;
   final double speed;
   final EnemyKind kind;
+  final int? worldIndex;
 
   static Vector2 _bodySize(EnemyKind kind) => switch (kind) {
     EnemyKind.bruiser => Vector2(52, 44),
@@ -577,6 +594,26 @@ class SoftEnemy extends PositionComponent {
       return;
     }
     if (_flash > 0 && (_flash * 18).floor().isOdd) {
+      return;
+    }
+    if (WorldArt.ready &&
+        worldIndex != null &&
+        (kind == EnemyKind.hopper || kind == EnemyKind.bruiser)) {
+      WorldArt.enemy(
+        canvas,
+        worldIndex!,
+        (kind == EnemyKind.bruiser ? 2 : 0) + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
+      );
+      return;
+    }
+    if (WorldArt.ready && worldIndex != null && kind == EnemyKind.walker) {
+      WorldArt.draw(
+        canvas,
+        worldIndex!,
+        3 + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
+      );
       return;
     }
     final squash = 1 + math.sin(_wobble) * 0.06;
@@ -1948,6 +1985,20 @@ class MacaronBoss extends PositionComponent {
       return;
     }
     if (_flash > 0 && (_flash * 20).floor().isOdd) {
+      return;
+    }
+    if (WorldArt.ready) {
+      WorldArt.draw(
+        canvas,
+        worldIndex,
+        5,
+        Rect.fromLTWH(
+          -size.x * 0.15,
+          -size.y * 0.3,
+          size.x * 1.3,
+          size.y * 1.3,
+        ),
+      );
       return;
     }
     final squash = 1 + math.sin(_wobble) * 0.05;

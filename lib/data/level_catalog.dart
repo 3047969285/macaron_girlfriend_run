@@ -596,7 +596,8 @@ class LevelCatalog {
           }
         }
         for (var i = 0; i < len; i++) {
-          if (grid[y][x + i] != ' ') {
+          if (grid[y][x + i] != ' ' &&
+              !(openingTutorial && grid[y][x + i] == '=')) {
             return false;
           }
           if ('#?D'.contains(grid[y + 1][x + i])) {
@@ -1219,6 +1220,13 @@ class LevelCatalog {
       for (final direction in offset == 0 ? const [0] : const [-1, 1]) {
         final candidate = preferredStart + offset * direction;
         if (candidate < 6 || candidate + length > width - 6) {
+          continue;
+        }
+        // 屋顶也是落脚点，上方不能紧贴另一层平台形成死角。
+        if (List.generate(length + 4, (i) => candidate - 2 + i).any(
+          (x) => '#=?D'.contains(grid[ground - 3][x]) ||
+              '#=?D'.contains(grid[ground - 4][x]),
+        )) {
           continue;
         }
         final runwayOverlapsBossPatrol =

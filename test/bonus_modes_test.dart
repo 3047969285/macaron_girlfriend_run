@@ -62,6 +62,7 @@ void main() {
     final game = await _boot(tester);
     final enemy = game.enemies.first;
     enemy.position = game.player.position + Vector2(160, 0);
+    enemy.simActive = false; // 固定攻击靶，避免旧出生高度的跳跃轨迹改变测试位置。
     final before = game.enemies.length;
     game.superTimer = 5;
     game.update(0.02);
@@ -108,7 +109,7 @@ void main() {
     expect(hover.$2.abs(), lessThan(40));
 
     // 先放到一块开阔的空地（天空层以下、地面以上），再依次试四个方向。
-    game.player.position.setFrom(plane.position + Vector2(0, -20));
+    game.player.position.setValues(144, 240); // 空旷天空，四方向控制与地形碰撞分别验收。
     final u = await fly(up: true);
     expect(u.$2, lessThan(-20), reason: 'up climbs');
     final d = await fly(down: true);

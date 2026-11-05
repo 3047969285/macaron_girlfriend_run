@@ -1,4 +1,5 @@
 import 'package:flame/components.dart';
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
@@ -8,11 +9,13 @@ class ParallaxLayer extends PositionComponent {
     required this.mapWidth,
     required this.farColor,
     required this.midColor,
+    this.worldIndex,
   }) : _farPaint = Paint()..color = farColor,
        _midPaint = Paint()..color = midColor,
        super(priority: -20);
 
   final double mapWidth;
+  final int? worldIndex;
   final Color farColor;
   final Color midColor;
   final Paint _farPaint;
@@ -28,6 +31,24 @@ class ParallaxLayer extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    if (WorldArt.ready && worldIndex != null) {
+      const width = 1536.0;
+      final left = scrollX - (viewportWidth > 0 ? viewportWidth : width);
+      final right = scrollX + (viewportWidth > 0 ? viewportWidth : width);
+      for (var layer = 0; layer < 3; layer++) {
+        final offset = scrollX * [0.15, 0.35, 0.08][layer];
+        final start = ((left + offset) / width).floor() * width - offset;
+        for (var x = start; x < right; x += width) {
+          WorldArt.background(
+            canvas,
+            worldIndex!,
+            layer,
+            Rect.fromLTWH(x, layer == 2 ? 40 : 128, width, 512),
+          );
+        }
+      }
+      return;
+    }
     final farShift = scrollX * 0.15;
     final midShift = scrollX * 0.35;
     _drawFarHills(canvas, -farShift);

@@ -51,7 +51,7 @@ class EnemyPatrol {
     var patrolRight = enemyTile;
 
     bool hasSafePatrolTile(int x) {
-      if (x < 2 || x >= level.width - 2) {
+      if (x < 2 || x > level.width - 5) {
         return false;
       }
       if (level.tileAt(x, level.height - 2) != '#' &&

@@ -1,3 +1,4 @@
+import 'world_art.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -29,6 +30,7 @@ class TerrainRenderer extends PositionComponent {
     required this.mapWidth,
     required this.groundY,
     required this.sceneSeed,
+    this.worldIndex,
   }) : super(priority: 0);
 
   final List<TerrainTile> solids;
@@ -36,6 +38,7 @@ class TerrainRenderer extends PositionComponent {
   final double mapWidth;
   final double groundY;
   final int sceneSeed;
+  final int? worldIndex;
 
   ui.Picture? _picture;
 
@@ -73,6 +76,17 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawTerrain(Canvas canvas) {
+    if (WorldArt.ready && worldIndex != null) {
+      for (final tile in solids) {
+        WorldArt.draw(
+          canvas,
+          worldIndex!,
+          tile.isGround ? (tile.rect.bottom <= groundY + 0.5 ? 0 : 1) : 2,
+          tile.rect,
+        );
+      }
+      return;
+    }
     final platformRows = <double, List<Rect>>{};
     final duckCeilingRows = <double, List<Rect>>{};
     for (final tile in solids) {
@@ -516,6 +530,20 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawScenery(Canvas canvas) {
+    if (WorldArt.ready && worldIndex != null) {
+      for (final tile in solids) {
+        if (!tile.isGround || tile.rect.bottom > groundY + 0.5) continue;
+        final lane = (tile.rect.left / tile.rect.width).round();
+        if (_sceneValue(sceneSeed, lane, 47) % 13 != 0) continue;
+        WorldArt.draw(
+          canvas,
+          worldIndex!,
+          6,
+          Rect.fromLTWH(tile.rect.left, tile.rect.top - 52, 52, 52),
+        );
+      }
+      return;
+    }
     switch (palette.name) {
       case '奶油草地':
         _drawMeadowSet(canvas);
@@ -1222,11 +1250,13 @@ class WorldBackdrop extends PositionComponent {
     required this.palette,
     required this.mapWidth,
     required this.sceneSeed,
+    this.worldIndex,
   }) : super(priority: -10);
 
   final WorldPalette palette;
   final double mapWidth;
   final int sceneSeed;
+  final int? worldIndex;
   ui.Picture? _picture;
 
   @override

@@ -270,6 +270,7 @@ class MacaronGame extends FlameGame {
     // 上面留给渐变天空。
     final skyShift = (level.height - 14) * tile;
     parallax = ParallaxLayer(
+      worldIndex: worldIndex,
       mapWidth: mapWidth,
       farColor: palette.parallaxFar,
       midColor: palette.parallaxMid,
@@ -428,6 +429,7 @@ class MacaronGame extends FlameGame {
     world.add(
       TerrainRenderer(
         solids: terrain,
+        worldIndex: worldIndex,
         palette: palette,
         mapWidth: mapWidth,
         groundY: groundY,
@@ -541,6 +543,31 @@ class MacaronGame extends FlameGame {
     if (enemies.length >= GameConstants.maxActiveEnemies) {
       return;
     }
+    // 高层手工敌人同样需要避开终点跑道，保留数量与种类并寻找独立巡逻空间。
+    if (px > (level.width - 7) * tile) {
+      int? destination;
+      for (var x = level.width - 8; x >= 10 && destination == null; x--) {
+        var safe = true;
+        for (var near = x - 6; near <= x + 6 && safe; near++) {
+          if (near < 0 || near >= level.width) {
+            safe = false;
+            break;
+          }
+          for (var row = 0; row < level.height - 2; row++) {
+            if ('AEGRTLYJBSKD'.contains(level.tileAt(near, row))) {
+              safe = false;
+              break;
+            }
+          }
+          if ((near - x).abs() <= 4 &&
+              level.tileAt(near, level.height - 2) != '#')
+            safe = false;
+        }
+        if (safe) destination = x;
+      }
+      if (destination == null) throw StateError('终点敌人缺少安全巡逻位置');
+      px = destination * tile;
+    }
     // 巡逻边界统一由 EnemyPatrol 计算（纯逻辑，可单测），
     // 其中包含相邻敌人之间的反应间距收紧。
     final (patrolLeftX, patrolRightX) = EnemyPatrol.boundsFor(
@@ -551,6 +578,7 @@ class MacaronGame extends FlameGame {
     enemies.add(
       SoftEnemy(
         position: Vector2(px + tile / 2, py + tile),
+        worldIndex: worldIndex,
         leftBound: patrolLeftX,
         rightBound: patrolRightX,
         difficulty: level.difficulty,
@@ -1365,8 +1393,8 @@ class MacaronGame extends FlameGame {
       player.jumpBufferTimer = 0;
     }
 
-    player.velocity.y += GameConstants.gravity * dt;
     final flying = planeTimer > 0;
+    if (!flying) player.velocity.y += GameConstants.gravity * dt;
     if (flying) {
       // 飞机：完全自由飞行。摇杆 / 方向键控制四个方向，也可以按住「跳」上升、
       // 按住「蹲」下降；什么都不按就停在原地悬停。
