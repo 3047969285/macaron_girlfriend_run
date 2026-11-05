@@ -453,6 +453,15 @@ class _Pen {
     }
   }
 
+  /// 支线路标：有剩余预算时放一颗可拾取的糖果，不挤占主题造型。
+  void landing(int dx) {
+    bricks(7, dx, 2);
+    if (coins > reserve) {
+      coins--;
+      cells.add((dx, 8, 'C'));
+    }
+  }
+
   /// 顶部奖励：有 M 名额时随机放马卡龙，否则放糖果。
   void top(int dx, int k) {
     if (mLeft > 0 && rnd.nextBool()) {
@@ -502,6 +511,8 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 4, length, q: 7);
       p.bricks(10, 5, length - 2);
       p.top(4, 8);
+      // 后段屋檐提供独立的回落点，玩家可选择高处奖励或继续前行。
+      if (phase > 0) p.landing(16);
     case 1:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -509,12 +520,15 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.coin(7, 10);
       p.coin(10, 10);
       p.coin(13, 10);
+      // 归途末段有一座低于主桥的驿站，给跳跃失误留出恢复空间。
+      if (phase > 0) p.landing(17);
     case 2:
       p.bricks(3, 0, 3);
       p.bricks(7, 3, 2 + phase % 2);
       p.bricks(9, 0, 2 + phase % 2);
       p.bricks(10, 5, 2 + phase);
       p.top(6, 11);
+      if (phase > 0) p.landing(9 + phase);
     case 3:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -523,12 +537,15 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 12, 1);
       p.coin(10, 5);
       p.coin(13, 5);
+      // 花园出口设置下层分支，不改变地面保底路线。
+      if (phase > 0) p.landing(17);
     case 4:
       p.bricks(3, 0, 3);
       p.bricks(7, 4, 2);
       p.bricks(9, 1, 3);
       p.bricks(10, 5, 2 + phase);
       p.top(5, 11);
+      if (phase > 0) p.landing(9 + phase);
     case 5:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
@@ -536,6 +553,7 @@ bool _drawLyricRoute(int song, int level, SceneKind kind, _Pen p) {
       p.bricks(7, 10, 2 + phase);
       p.bricks(10, 14 + phase, 2);
       p.coin(10, 8);
+      if (phase > 0) p.landing(18 + phase);
   }
   return true;
 }

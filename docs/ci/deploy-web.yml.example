@@ -33,6 +33,7 @@ jobs:
         run: |
           flutter pub get
           flutter build web --release --base-href "/${{ github.event.repository.name }}/" --no-web-resources-cdn --no-wasm-dry-run
+          sha256sum build/web/main.dart.js | cut -d ' ' -f 1 > build/web/.last_build_id
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
