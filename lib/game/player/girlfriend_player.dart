@@ -41,6 +41,9 @@ class GirlfriendPlayer extends PositionComponent {
   bool skillDashing = false;
   bool pounding = false;
   bool isDriving = false;
+  bool hasWhiteHorse = false;
+  bool get ridingWhiteHorse =>
+      hasWhiteHorse && !ducking && !isDriving && !flying && !dead;
   bool vehicleBoosting = false;
   bool holdingCandyGun = false;
   bool superMode = false;
@@ -290,10 +293,35 @@ class GirlfriendPlayer extends PositionComponent {
       Paint()..color = Colors.black.withValues(alpha: 0.18),
     );
 
+    final horse = running
+        ? HeroSprites.horseRun ?? HeroSprites.horseIdle
+        : HeroSprites.horseIdle;
+    if (ridingWhiteHorse && role == PlayerRole.girlfriend && horse != null) {
+      canvas.drawImageRect(
+        horse,
+        Rect.fromLTWH(0, 0, horse.width.toDouble(), horse.height.toDouble()),
+        const Rect.fromLTWH(-62, -118, 128, 117),
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+      if (hasPlantBuddy) _drawPeaBuddy(canvas);
+      if (cosmeticId == 'sunflower_buddy') _drawSunflowerBuddy(canvas);
+      if (holdingCandyGun) {
+        canvas.save();
+        canvas.translate(12, -65);
+        _drawCandyGun(canvas);
+        canvas.restore();
+      }
+      if (gumBubble) _drawGumBubble(canvas);
+      canvas.restore();
+      return;
+    }
+
     if (superMode) {
       _drawCape(canvas);
     }
-    if (flying) {
+    if (ridingWhiteHorse) {
+      _drawWhiteHorse(canvas, running: running, airborne: !grounded);
+    } else if (flying) {
       _drawPlane(canvas);
     } else if (isDriving) {
       _drawVehicle(canvas);
@@ -304,12 +332,18 @@ class GirlfriendPlayer extends PositionComponent {
         final fit = (crouchVisualClearance / _duckSpriteHeight).clamp(0.0, 1.0);
         canvas.scale(fit / squash, fit / stretch);
       }
+      canvas.save();
+      if (ridingWhiteHorse) {
+        canvas.translate(-8, -30);
+        canvas.scale(.64);
+      }
       _drawHeroSprite(
         canvas,
         running: running,
         falling: falling,
         rising: rising,
       );
+      canvas.restore();
       if (hasPlantBuddy) _drawPeaBuddy(canvas);
       if (cosmeticId == 'sunflower_buddy') _drawSunflowerBuddy(canvas);
       if (holdingCandyGun) {
@@ -334,7 +368,6 @@ class GirlfriendPlayer extends PositionComponent {
           );
         }
       }
-      canvas.restore();
       if (gumBubble) {
         _drawGumBubble(canvas);
       }
@@ -343,6 +376,10 @@ class GirlfriendPlayer extends PositionComponent {
     }
 
     canvas.save();
+    if (ridingWhiteHorse) {
+      canvas.translate(-8, -30);
+      canvas.scale(.64);
+    }
     canvas.scale(1.1, 1.1);
     final faceCenter = Offset(0, -size.y * 0.78);
     // 半写实比例：头缩小、躯干和手臂拉长（碰撞盒尺寸不变）。
@@ -419,6 +456,103 @@ class GirlfriendPlayer extends PositionComponent {
       );
     }
     canvas.restore();
+  }
+
+  void _drawWhiteHorse(
+    Canvas canvas, {
+    required bool running,
+    required bool airborne,
+  }) {
+    final coat = Paint()..color = const Color(0xFFF9F5EA);
+    final shade = Paint()..color = const Color(0xFFD7D3CF);
+    final outline = Paint()
+      ..color = const Color(0xFF766A68)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final legPhase = running ? math.sin(_anim * .8) * 8 : 0.0;
+    for (final x in [-27.0, -15.0, 12.0, 24.0]) {
+      final swing = airborne
+          ? (x < 0 ? 7.0 : -7.0)
+          : (x == -27 || x == 12 ? legPhase : -legPhase);
+      final leg = Path()
+        ..moveTo(x, -20)
+        ..lineTo(x + swing * .4, -10)
+        ..lineTo(x + swing, -2);
+      canvas.drawPath(
+        leg,
+        Paint()
+          ..color = const Color(0xFFEAE6DF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        Offset(x + swing - 3, -2),
+        Offset(x + swing + 3, -2),
+        outline..strokeWidth = 3,
+      );
+    }
+    outline.strokeWidth = 2;
+    final tail = Path()
+      ..moveTo(-34, -38)
+      ..quadraticBezierTo(-52, -48, -48, -20)
+      ..quadraticBezierTo(-44, -27, -36, -27)
+      ..close();
+    canvas.drawPath(tail, shade);
+    canvas.drawPath(tail, outline);
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(-36, -49, 68, 30),
+      const Radius.circular(15),
+    );
+    canvas.drawRRect(body, coat);
+    canvas.drawRRect(body, outline);
+    final neck = Path()
+      ..moveTo(16, -30)
+      ..lineTo(28, -60)
+      ..lineTo(39, -65)
+      ..lineTo(44, -50)
+      ..lineTo(35, -38)
+      ..lineTo(30, -23)
+      ..close();
+    canvas.drawPath(neck, coat);
+    canvas.drawPath(neck, outline);
+    canvas.drawPath(
+      Path()
+        ..moveTo(29, -57)
+        ..lineTo(25, -72)
+        ..lineTo(34, -66),
+      shade,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(28, -57)
+        ..quadraticBezierTo(15, -67, 16, -45)
+        ..lineTo(22, -39),
+      shade,
+    );
+    canvas.drawCircle(
+      const Offset(37, -56),
+      2,
+      Paint()..color = const Color(0xFF4D4140),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(-16, -47)
+        ..quadraticBezierTo(-5, -55, 10, -47)
+        ..lineTo(12, -37)
+        ..lineTo(-17, -37)
+        ..close(),
+      Paint()..color = const Color(0xFF9E5D4A),
+    );
+    canvas.drawLine(
+      const Offset(31, -46),
+      const Offset(9, -39),
+      Paint()
+        ..color = const Color(0xFF9E5D4A)
+        ..strokeWidth = 2,
+    );
   }
 
   /// 立绘里站立的人物在屏幕上的高度（含头发）。
