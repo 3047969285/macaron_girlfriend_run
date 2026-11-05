@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
+import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('plant buddy turns toward its shot and its recoil settles', () async {
     GirlfriendPlayer makePlayer() =>
         GirlfriendPlayer(role: PlayerRole.girlfriend, cosmeticId: 'pea_buddy')
@@ -119,4 +121,41 @@ void main() {
       expect(pound, isNot(equals(fall)));
     },
   );
+  test('crouching preserves sprite proportions and collision sizes', () async {
+    await HeroSprites.preload();
+    expect(HeroSprites.ready, isTrue);
+    final player = GirlfriendPlayer(role: PlayerRole.girlfriend)
+      ..onGround = true;
+
+    Future<int> visibleHeight() async {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)..translate(80, 160 - player.size.y);
+      player.render(canvas);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(160, 170);
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final pixels = data!.buffer.asUint8List();
+      var top = 160;
+      for (var y = 0; y < 155; y++) {
+        for (var x = 0; x < 160; x++) {
+          if (pixels[(y * 160 + x) * 4 + 3] > 30 && y < top) top = y;
+        }
+      }
+      image.dispose();
+      picture.dispose();
+      return 160 - top;
+    }
+
+    player.update(0.2);
+    final standing = await visibleHeight();
+    player.applyDuck(true);
+    player.update(0.2);
+    final crouching = await visibleHeight();
+    expect(crouching / standing, inInclusiveRange(0.6, 0.75));
+    expect(player.hitHeight, GirlfriendPlayer.duckHeight);
+    player.crouchVisualClearance = 48;
+    expect(await visibleHeight(), lessThanOrEqualTo(49));
+    player.applyDuck(false);
+    expect(player.hitHeight, GirlfriendPlayer.standHeight);
+  });
 }

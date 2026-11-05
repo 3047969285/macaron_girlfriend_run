@@ -15,7 +15,120 @@ int landingOffset(int song, int phase) => switch (song) {
   _ => 18 + phase,
 };
 
+int branchOffset(int song, int phase) => switch (song) {
+  0 => phase == 0 ? 14 : 19,
+  1 || 3 => phase == 0 ? 16 : 20,
+  2 || 4 => phase == 0 ? 9 : 12,
+  _ => phase == 0 ? 18 : 22 + phase,
+};
+
 void main() {
+  test('every world has a playable themed branch', () {
+    for (var world = 0; world < 9; world++) {
+      var branches = 0;
+      for (var level = 0; level < 11; level++) {
+        final ground = LevelCatalog.load(world, level).height - 3;
+        final phase = level * 3 ~/ 11;
+        final dx = branchOffset(SongProfile.songIndexOf(world), phase);
+        if (dx < 0) continue;
+        for (final scene in LevelCatalog.scenesOf(world, level)) {
+          if (scene.lyricRoute == null) continue;
+          final col = scene.x + (scene.mirrored ? scene.width - 1 - dx : dx);
+          if (scene.cells[(col, ground - (phase == 0 ? 7 : 9))] == '=') {
+            branches++;
+          }
+        }
+      }
+      expect(branches, greaterThan(0), reason: 'world $world');
+    }
+  });
+
+  testWidgets('the player can jump onto a themed branch in each world', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'sound_on': false,
+      'music_on': false,
+      'haptic_on': false,
+    });
+    await SaveService.instance.init();
+    for (var world = 0; world < 9; world++) {
+      final song = SongProfile.songIndexOf(world);
+      var checked = false;
+      for (var level = 0; level < 11 && !checked; level++) {
+        final phase = level * 3 ~/ 11;
+        final dx = branchOffset(song, phase);
+        if (dx < 0) continue;
+        final ground = LevelCatalog.load(world, level).height - 3;
+        for (final scene in LevelCatalog.scenesOf(world, level)) {
+          if (scene.lyricRoute == null) continue;
+          int col(int x) =>
+              scene.x + (scene.mirrored ? scene.width - 1 - x : x);
+          final targetHeight = phase == 0 ? 7 : 9;
+          if (scene.cells[(col(dx), ground - targetHeight)] != '=') continue;
+          final startDx = phase > 0
+              ? landingOffset(song, phase)
+              : switch (song) {
+                  0 => 11,
+                  1 || 3 => 13,
+                  2 || 4 => 6,
+                  _ => 15,
+                };
+          final startHeight = phase > 0
+              ? 7
+              : switch (song) {
+                  0 => 7,
+                  1 => 9,
+                  3 => 8,
+                  _ => 10,
+                };
+          final game = MacaronGame(
+            worldIndex: world,
+            levelIndex: level,
+            role: PlayerRole.girlfriend,
+          );
+          await tester.pumpWidget(GameWidget(game: game));
+          await tester.pump(const Duration(milliseconds: 100));
+          game.pauseEngine();
+          final startX = (col(startDx) + 0.5) * GameConstants.tileSize;
+          final targetX = (col(dx) + 0.5) * GameConstants.tileSize;
+          final targetY = (ground - targetHeight) * GameConstants.tileSize;
+          game.player
+            ..position.setValues(
+              startX,
+              (ground - startHeight) * GameConstants.tileSize,
+            )
+            ..velocity.setZero()
+            ..onGround = true;
+          game.runPressed = true;
+          game.rightPressed = targetX > startX;
+          game.leftPressed = targetX < startX;
+          game.setJumpHeld(true);
+          var landed = false;
+          for (var i = 0; i < 150; i++) {
+            if ((game.player.position.x - targetX).abs() < 18) {
+              game.rightPressed = false;
+              game.leftPressed = false;
+            }
+            if (i == 35) game.setJumpHeld(false);
+            game.update(1 / 60);
+            if (game.player.onGround &&
+                (game.player.position.y - targetY).abs() < 1 &&
+                (game.player.position.x - targetX).abs() <
+                    GameConstants.tileSize) {
+              landed = true;
+              break;
+            }
+          }
+          expect(landed, isTrue, reason: 'world $world level $level');
+          await tester.pumpWidget(const SizedBox.shrink());
+          checked = true;
+          break;
+        }
+      }
+      expect(checked, isTrue, reason: 'world $world');
+    }
+  });
   testWidgets('a jump from the main lyric route can reach its new landing', (
     tester,
   ) async {
