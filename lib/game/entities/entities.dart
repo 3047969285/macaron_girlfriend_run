@@ -1545,6 +1545,7 @@ class EnemyCandyShot extends PositionComponent {
     required Vector2 position,
     required this.direction,
     required this.speed,
+    this.theme,
   }) : super(
          position: position,
          size: Vector2.all(24),
@@ -1554,8 +1555,10 @@ class EnemyCandyShot extends PositionComponent {
 
   final double direction;
   final double speed;
+  final SongWorldTheme? theme;
   double _life = 2.8;
   double _wobble = 0;
+  double _flightTime = 0;
   bool spent = false;
 
   Rect get hitbox => Rect.fromCenter(
@@ -1580,11 +1583,27 @@ class EnemyCandyShot extends PositionComponent {
     _life -= dt;
     _wobble += dt * 12;
     position.x += direction * speed * dt;
-    position.y += math.sin(_wobble) * 16 * dt;
+    if (theme case final song?) {
+      final previous = _songFlightOffset(song, _flightTime);
+      _flightTime += dt;
+      position.y += _songFlightOffset(song, _flightTime) - previous;
+    } else {
+      position.y += math.sin(_wobble) * 16 * dt;
+    }
     if (_life <= 0) {
       consume();
     }
   }
+
+  static double _songFlightOffset(SongWorldTheme theme, double time) =>
+      switch (theme) {
+        SongWorldTheme.firstLove => 4 * math.sin(time * 3),
+        SongWorldTheme.whiteHorse => 0,
+        SongWorldTheme.reflection => 8 * math.sin(time * 6),
+        SongWorldTheme.quietLove => 6 * math.sin(time * 2),
+        SongWorldTheme.dawn => 4 * math.sin(time * 7),
+        SongWorldTheme.lost => -5 * (1 - math.cos(time * 2.5)),
+      };
 
   @override
   void render(Canvas canvas) {
@@ -1595,6 +1614,23 @@ class EnemyCandyShot extends PositionComponent {
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(squash, 1 / squash);
+    if (theme case final song?) {
+      canvas.drawCircle(Offset.zero, 11, Paint()..color = song.dark);
+      canvas.drawCircle(
+        Offset.zero,
+        11,
+        Paint()
+          ..color = const Color(0xFFE3454C)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      canvas.save();
+      canvas.scale(.56);
+      _drawSongToken(canvas, song);
+      canvas.restore();
+      canvas.restore();
+      return;
+    }
     canvas.drawCircle(Offset.zero, 9, Paint()..color = MacaronColors.rose);
     canvas.drawCircle(
       const Offset(-3, -4),

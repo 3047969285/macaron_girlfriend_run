@@ -603,6 +603,7 @@ class MacaronGame extends FlameGame {
       position: at,
       direction: direction,
       speed: GameConstants.enemyProjectileSpeedFor(level.difficulty),
+      theme: songTheme,
     );
     _enemyShots.add(shot);
     world.add(shot);
