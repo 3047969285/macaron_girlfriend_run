@@ -283,7 +283,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
         title: '${List.filled(result.stars, '★').join()} 到底了',
         body:
             '${WorldCatalog.paletteOf(widget.worldIndex).displayName} · 歌曲深处\n'
-            '分数 ${result.score} · 糖果 ${result.coins}/${game.totalCoins}',
+            '分数 ${result.score} · ${game.songTheme.collectibleName} ${result.coins}/${game.totalCoins}',
         actions: [
           MacaronDialogAction(
             label: '选关',
@@ -400,7 +400,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
       body:
           '${LevelNames.of(widget.worldIndex, widget.levelIndex)}\n'
           '分数 ${result.score}\n'
-          '糖果 ${result.coins}/${game.totalCoins} · 踩怪 ${result.kills}\n'
+          '${game.songTheme.collectibleName} ${result.coins}/${game.totalCoins} · 踩怪 ${result.kills}\n'
           '剩余 ${result.timeLeft} 秒\n'
           '${game.starTips()}',
       actions: [
@@ -772,7 +772,19 @@ class _GameHudHeader extends StatelessWidget {
           _HudChip(child: Text(equipment.join(' '), style: style)),
         _HudChip(child: Text('❤️×${game.lives}', style: style)),
         _HudChip(
-          child: Text('🍬${game.collected}/${game.totalCoins}', style: style),
+          child: Text(
+            '${game.songTheme.collectibleName} ${game.collected}/${game.totalCoins}',
+            style: style,
+          ),
+        ),
+        Tooltip(
+          message: game.songTheme.rewardDescription,
+          child: _HudChip(
+            child: Text(
+              '${game.songTheme.rewardName} ${game.songRewardProgress}/${MacaronGame.songRewardThreshold}',
+              style: style,
+            ),
+          ),
         ),
         _HudChip(child: Text('${game.score}', style: style)),
         _HudChip(
