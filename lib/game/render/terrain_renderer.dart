@@ -110,7 +110,10 @@ class TerrainRenderer extends PositionComponent {
       final y = groundY - 95;
       canvas.save();
       canvas.translate(x, y);
-      if (scene.lyricRoute != null) _drawWorldSetPiece(canvas);
+      if (scene.lyricRoute != null) {
+        _drawWorldSetPiece(canvas);
+        _drawChapterStory(canvas, chapter, scene.mirrored);
+      }
       // 建筑远景只参与绘制，不改变实体碰撞或可通过路线。
       final distant = Paint()
         ..color = palette.groundDark.withValues(alpha: 0.12);
@@ -208,6 +211,187 @@ class TerrainRenderer extends PositionComponent {
       }
       canvas.restore();
     }
+  }
+
+  void _drawChapterStory(Canvas canvas, LyricChapter chapter, bool mirrored) {
+    final song = LyricWorld.chapters.indexWhere(
+      (chapters) => chapters.any((item) => item.name == chapter.name),
+    );
+    if (song < 0) return;
+    final phase = LyricWorld.chapters[song].indexWhere(
+      (item) => item.name == chapter.name,
+    );
+    final line = Paint()
+      ..color = palette.groundDark.withValues(alpha: 0.58)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final fill = Paint()..color = palette.accent.withValues(alpha: 0.55);
+    canvas.save();
+    if (mirrored) canvas.scale(-1, 1);
+    canvas.translate(-115, -30);
+    switch (song) {
+      case 0:
+        // 旧街的信箱、雨伞与相片，对应相遇、雨中和回望。
+        if (phase == 0) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(-15, -46, 30, 36),
+              const Radius.circular(5),
+            ),
+            fill,
+          );
+          canvas.drawLine(const Offset(-10, -36), const Offset(10, -36), line);
+          canvas.drawLine(const Offset(0, -10), const Offset(0, 0), line);
+        } else if (phase == 1) {
+          canvas.drawPath(
+            Path()
+              ..moveTo(-30, -26)
+              ..quadraticBezierTo(0, -65, 30, -26),
+            line,
+          );
+          canvas.drawLine(const Offset(0, -45), const Offset(0, -7), line);
+          canvas.drawArc(
+            const Rect.fromLTWH(0, -13, 12, 12),
+            0,
+            math.pi,
+            false,
+            line,
+          );
+          for (final x in [-40.0, -25.0, 24.0, 40.0]) {
+            canvas.drawLine(Offset(x, -60), Offset(x - 4, -50), line);
+          }
+        } else {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(-25, -65, 50, 55),
+              const Radius.circular(4),
+            ),
+            line,
+          );
+          canvas.drawCircle(const Offset(-8, -46), 6, fill);
+          canvas.drawPath(
+            Path()
+              ..moveTo(-20, -20)
+              ..lineTo(-5, -35)
+              ..lineTo(4, -27)
+              ..lineTo(13, -38)
+              ..lineTo(21, -20),
+            line,
+          );
+        }
+      case 1:
+        // 驿旗、三关与归处的灯。
+        if (phase == 0) {
+          canvas.drawLine(const Offset(-12, 0), const Offset(-12, -70), line);
+          canvas.drawPath(
+            Path()
+              ..moveTo(-12, -68)
+              ..lineTo(26, -59)
+              ..lineTo(-12, -48)
+              ..close(),
+            fill,
+          );
+        } else if (phase == 1) {
+          for (final x in [-36.0, 0.0, 36.0]) {
+            canvas.drawPath(
+              Path()
+                ..moveTo(x - 12, 0)
+                ..lineTo(x - 12, -40)
+                ..quadraticBezierTo(x, -56, x + 12, -40)
+                ..lineTo(x + 12, 0),
+              line,
+            );
+          }
+        } else {
+          canvas.drawLine(const Offset(0, 0), const Offset(0, -58), line);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(-13, -70, 26, 24),
+              const Radius.circular(5),
+            ),
+            fill,
+          );
+          canvas.drawCircle(const Offset(0, -58), 5, line);
+        }
+      case 2:
+        // 两面镜子从相对、拉远到交叠。
+        final distance = [12.0, 28.0, 5.0][phase];
+        for (final x in [-distance, distance]) {
+          canvas.drawOval(
+            Rect.fromCenter(center: Offset(x, -42), width: 28, height: 46),
+            line,
+          );
+          canvas.drawLine(Offset(x - 6, -40), Offset(x + 4, -51), line);
+          canvas.drawLine(Offset(x, -19), Offset(x, 0), line);
+        }
+      case 3:
+        // 花蕾、并肩的花与相连的花冠。
+        for (var i = 0; i <= phase; i++) {
+          final x = (i - phase / 2) * 25;
+          canvas.drawLine(Offset(x, 0), Offset(x, -36), line);
+          for (var petal = 0; petal < 5; petal++) {
+            final a = petal * math.pi * 2 / 5;
+            canvas.drawCircle(
+              Offset(x + math.cos(a) * 8, -40 + math.sin(a) * 8),
+              5,
+              fill,
+            );
+          }
+          canvas.drawCircle(Offset(x, -40), 3, line);
+        }
+      case 4:
+        // 清晨闹钟、街巷窗户与留在长椅上的回忆。
+        if (phase == 0) {
+          canvas.drawCircle(const Offset(0, -39), 23, line);
+          canvas.drawLine(const Offset(0, -39), const Offset(-10, -48), line);
+          canvas.drawLine(const Offset(0, -39), const Offset(14, -32), line);
+          canvas.drawCircle(const Offset(-17, -60), 7, fill);
+          canvas.drawCircle(const Offset(17, -60), 7, fill);
+        } else if (phase == 1) {
+          for (final x in [-20.0, 12.0]) {
+            canvas.drawRect(Rect.fromLTWH(x, -64, 24, 38), line);
+            canvas.drawLine(Offset(x + 12, -64), Offset(x + 12, -26), line);
+            canvas.drawLine(Offset(x, -45), Offset(x + 24, -45), line);
+          }
+        } else {
+          canvas.drawLine(const Offset(-35, -25), const Offset(35, -25), line);
+          canvas.drawLine(const Offset(-30, -39), const Offset(30, -39), line);
+          canvas.drawLine(const Offset(-25, -39), const Offset(-25, 0), line);
+          canvas.drawLine(const Offset(25, -39), const Offset(25, 0), line);
+          canvas.drawCircle(const Offset(0, -49), 8, fill);
+        }
+      case 5:
+        // 夜路的方向牌、岔路和远方灯火。
+        if (phase < 2) {
+          canvas.drawLine(const Offset(0, 0), const Offset(0, -70), line);
+          for (var i = 0; i <= phase; i++) {
+            final y = -62.0 + i * 22;
+            final sign = Path()
+              ..moveTo(-27, y)
+              ..lineTo(18, y)
+              ..lineTo(29, y + 7)
+              ..lineTo(18, y + 14)
+              ..lineTo(-27, y + 14)
+              ..close();
+            canvas.save();
+            if (i == 1) canvas.scale(-1, 1);
+            canvas.drawPath(sign, fill);
+            canvas.drawPath(sign, line);
+            canvas.restore();
+          }
+        } else {
+          for (final x in [-28.0, 0.0, 28.0]) {
+            canvas.drawLine(
+              Offset(x, 0),
+              Offset(x, -45 - (x == 0 ? 14 : 0)),
+              line,
+            );
+            canvas.drawCircle(Offset(x, -49 - (x == 0 ? 14 : 0)), 8, fill);
+          }
+        }
+    }
+    canvas.restore();
   }
 
   void _drawWorldSetPiece(Canvas canvas) {

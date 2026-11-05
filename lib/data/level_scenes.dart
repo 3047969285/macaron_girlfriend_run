@@ -526,14 +526,14 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
       p.bricks(3, 0, 3);
       final length = 8 + phase;
       p.bricks(7, 4, length, q: 7);
-      p.bricks(10, 5, length - 2);
+      p.bricks(10, phase == 2 ? 6 : 5, length - (phase == 2 ? 3 : 2));
       p.top(4, 8);
       // 后段屋檐提供独立的回落点，玩家可选择高处奖励或继续前行。
       if (phase > 0) p.landing(16);
     case 1:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
-      p.bricks(9, 6, 8 + phase);
+      p.bricks(9, phase == 1 ? 5 : 6, 8 + phase + (phase == 1 ? 1 : 0));
       p.coin(7, 10);
       p.coin(10, 10);
       p.coin(13, 10);
@@ -542,7 +542,7 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
     case 2:
       p.bricks(3, 0, 3);
       p.bricks(7, 3, 2 + phase % 2);
-      p.bricks(9, 0, 2 + phase % 2);
+      p.bricks(9, phase == 2 ? 1 : 0, 2 + phase % 2);
       p.bricks(10, 5, 2 + phase);
       p.top(6, 11);
       if (phase > 0) p.landing(9 + phase);
@@ -550,8 +550,8 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
       p.bricks(8, 6, 8 + phase);
-      p.bricks(7, 8, 1);
-      p.bricks(7, 12, 1);
+      p.bricks(7, phase == 2 ? 7 : 8, 1);
+      p.bricks(7, phase == 2 ? 11 : 12, 1);
       p.coin(10, 5);
       p.coin(13, 5);
       // 花园出口设置下层分支，不改变地面保底路线。
@@ -559,14 +559,14 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
     case 4:
       p.bricks(3, 0, 3);
       p.bricks(7, 4, 2);
-      p.bricks(9, 1, 3);
+      p.bricks(9, phase == 2 ? 0 : 1, 3);
       p.bricks(10, 5, 2 + phase);
       p.top(5, 11);
       if (phase > 0) p.landing(9 + phase);
     case 5:
       p.bricks(3, 0, 2);
       p.bricks(7, 3, 2);
-      p.bricks(10, 6, 2);
+      p.bricks(10, 6, phase == 2 ? 3 : 2);
       p.bricks(7, 10, 2 + phase);
       p.bricks(10, 14 + phase, 2);
       p.coin(10, 8);
