@@ -33,7 +33,7 @@ extension HeroSkillPresentation on HeroSkill {
 class GameConstants {
   GameConstants._();
 
-  static const int worldCount = 9;
+  static const int worldCount = 6;
   static const int levelsPerWorld = 11;
 
   /// 每个世界在 11 关之外的「歌曲深处」：从高处一路往下走的纵向关卡。
@@ -430,39 +430,6 @@ class WorldCatalog {
       accent: MacaronColors.lilac,
       parallaxFar: Color(0x55D4C4F5),
       parallaxMid: Color(0x66FFB4C8),
-    ),
-    WorldPalette(
-      name: '蓝莓峡谷',
-      title: '迷途蓝谷',
-      skyTop: Color(0xFFB3D4FF),
-      skyBottom: Color(0xFFE8F4FF),
-      ground: Color(0xFF7E9FE0),
-      groundDark: Color(0xFF5A7BC4),
-      accent: MacaronColors.blush,
-      parallaxFar: Color(0x557E9FE0),
-      parallaxMid: Color(0x66B8E0FF),
-    ),
-    WorldPalette(
-      name: '焦糖矿山',
-      title: '追风矿道',
-      skyTop: Color(0xFFFFE8D6),
-      skyBottom: Color(0xFFFFF6F0),
-      ground: Color(0xFFD4A574),
-      groundDark: Color(0xFFB8844F),
-      accent: MacaronColors.lemon,
-      parallaxFar: Color(0x55D4A574),
-      parallaxMid: Color(0x66FFE6A7),
-    ),
-    WorldPalette(
-      name: '蜜月彩虹',
-      title: '素颜彩虹',
-      skyTop: Color(0xFFFFD6F0),
-      skyBottom: Color(0xFFD6F5FF),
-      ground: Color(0xFFFFB4C8),
-      groundDark: Color(0xFFE891B0),
-      accent: MacaronColors.mint,
-      parallaxFar: Color(0x55D4C4F5),
-      parallaxMid: Color(0x66B8F0D8),
     ),
   ];
 

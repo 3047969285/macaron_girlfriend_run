@@ -439,14 +439,8 @@ class LevelCatalog {
       case 5:
         _worldRoseCastle(grid, level);
         break;
-      case 6:
-        _worldBlueberry(grid, level);
-        break;
-      case 7:
-        _worldCaramelMine(grid, level);
-        break;
       default:
-        _worldHoneymoon(grid, level);
+        _worldRoseCastle(grid, level);
         break;
     }
 
@@ -494,9 +488,6 @@ class LevelCatalog {
     7.5,
     7.8,
     8.6,
-    7.5,
-    9.0,
-    7.0,
   ];
   static const densityRampPerLevel = 0.1;
   static const minWalkersKept = 2;
@@ -2012,60 +2003,6 @@ class LevelCatalog {
     for (var gx = 15; gx < g.first.length - 15; gx += 10) {
       _gap(g, gx, 2);
       _enemy(g, gx - 1, ground);
-    }
-  }
-
-  static void _worldBlueberry(List<List<String>> g, int level) {
-    final ground = g.length - 3;
-    for (var i = 0; i < 10 + level; i++) {
-      final x = 6 + i * 3;
-      final y = ground - 2 - ((i + level) % 4);
-      _platform(g, x, y, 1 + (i % 2));
-      if (i % 3 == 0) {
-        _coin(g, x, y - 1);
-      }
-      if (i % 4 == 0) {
-        _enemy(g, x + 4, ground);
-      }
-    }
-    for (var x = 8; x < g.first.length - 8; x += 8) {
-      _gap(g, x, 2);
-    }
-  }
-
-  static void _worldCaramelMine(List<List<String>> g, int level) {
-    final ground = g.length - 3;
-    for (var x = 5; x < g.first.length - 5; x += 4) {
-      if ((x ~/ 4 + level).isOdd) {
-        _platform(g, x, ground - 2, 3);
-        _platform(g, x + 1, ground - 4, 2);
-        _coin(g, x + 1, ground - 5);
-      } else {
-        _gap(g, x, 2);
-        _enemy(g, x - 1, ground);
-      }
-    }
-    if (level >= 8) {
-      _platform(g, g.first.length ~/ 3, ground - 5, 6);
-      for (var i = 0; i < 6; i++) {
-        _coin(g, g.first.length ~/ 3 + i, ground - 6);
-      }
-    }
-  }
-
-  static void _worldHoneymoon(List<List<String>> g, int level) {
-    final ground = g.length - 3;
-    for (var i = 0; i < 12 + level; i++) {
-      final x = 5 + i * 3;
-      final y = ground - 2 - ((i + level) % 4);
-      _platform(g, x, y, 2);
-      _coin(g, x, y - 1);
-      if (i % 5 == 0) {
-        _enemy(g, x + 2, ground);
-      }
-    }
-    for (var x = 12; x < g.first.length - 12; x += 6 + level ~/ 3) {
-      _gap(g, x, 2);
     }
   }
 

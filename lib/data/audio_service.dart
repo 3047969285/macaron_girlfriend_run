@@ -10,7 +10,7 @@ class AudioService {
   AudioService._();
   static final AudioService instance = AudioService._();
 
-  static const int _fxPoolSize = 6;
+  static const int _fxPoolSize = 12;
   static const List<String> _bgmAssets = [
     'audio/slow_jam.mp3',
     'audio/smooth_lovin.mp3',
@@ -26,11 +26,11 @@ class AudioService {
     (title: '5点20AM', asset: 'audio/bgm_5am20.mp3'),
     (title: 'Lost', asset: 'audio/bgm_lost.mp3'),
   ];
-  static const List<int> _worldSongs = [0, 1, 2, 3, 4, 5, 5, 1, 0];
+  static const List<int> _worldSongs = [0, 1, 2, 3, 4, 5];
 
   /// 某个世界普通关配的歌名。
   static String songTitleFor(int worldIndex) =>
-      songs[_worldSongs[worldIndex.clamp(0, 8).toInt()]].title;
+      songs[_worldSongs[worldIndex.clamp(0, 5).toInt()]].title;
 
   int _bgmSong = -1;
   int _bgmLevel = 0;
@@ -138,7 +138,7 @@ class AudioService {
   }
 
   Uint8List _bgmBytes(int worldIndex, {required bool boss, bool alt = false}) {
-    final world = worldIndex.clamp(0, 8).toInt();
+    final world = worldIndex.clamp(0, 5).toInt();
     return _bgmCache.putIfAbsent(
       (world, boss, alt),
       () => boss
@@ -166,7 +166,7 @@ class AudioService {
       await stopBgm(owner: owner);
       return;
     }
-    final world = worldIndex.clamp(0, 8).toInt();
+    final world = worldIndex.clamp(0, 5).toInt();
     // 普通关按世界配一首真实歌曲；Boss 关用合成的 Boss 主题。
     final song = boss ? -1 : _worldSongs[world];
     final synth = song < 0;
@@ -368,10 +368,10 @@ class AudioService {
     } catch (_) {}
   }
 
-  /// 只播原片里能量最高的一段（整段约 8 秒，2.75 秒起到 5.5 秒的那句最响）。
+  /// 播放高能段并在连杀时延长：每次击杀刷新计时器而不重播。
   static const Duration _killClipStart = Duration(milliseconds: 2750);
-  static const Duration _killClipLength = Duration(milliseconds: 2750);
-  static const Duration _killGap = Duration(milliseconds: 600);
+  static const Duration _killClipLength = Duration(milliseconds: 5500);
+  static const Duration _killGap = Duration(milliseconds: 200);
 
   /// 暂停 BGM
   Future<void> pauseBgm() async {
@@ -451,8 +451,18 @@ class AudioService {
     if (_fxPool.isEmpty) {
       return;
     }
-    final player = _fxPool[_fxCursor % _fxPool.length];
-    _fxCursor++;
+    // 优先找空闲的 player，避免打断正在播放的音效
+    AudioPlayer? player;
+    for (var i = 0; i < _fxPool.length; i++) {
+      final idx = (_fxCursor + i) % _fxPool.length;
+      if (_fxPool[idx].state != PlayerState.playing) {
+        player = _fxPool[idx];
+        _fxCursor = idx + 1;
+        break;
+      }
+    }
+    // 全满时回退到轮转策略
+    player ??= _fxPool[_fxCursor++ % _fxPool.length];
     try {
       await player.stop();
       await player.play(BytesSource(loadBytes()));

@@ -293,9 +293,6 @@ class SynthWav {
     [0, 3, 7, 3, 8, 7, 3, 0, 7, 8, 10, 8, 7, 3, 0, -1],
     [7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 0, -1, 0, 2],
     [0, 5, 7, 9, 7, 5, 4, 2, 0, 2, 4, 5, 4, 2, 0, -1],
-    [4, 4, 7, 9, 11, 9, 7, 4, 2, 4, 7, 4, 2, 0, -1, 0],
-    [0, 2, 3, 7, 3, 2, 0, -1, 7, 5, 3, 2, 3, 5, 7, 8],
-    [0, 4, 7, 11, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0, -1],
   ];
   static const List<List<int>> _worldRootsA = [
     [60, 67, 69, 65],
@@ -304,9 +301,6 @@ class SynthWav {
     [57, 60, 65, 62],
     [62, 69, 67, 60],
     [60, 65, 67, 69],
-    [64, 69, 62, 67],
-    [55, 60, 65, 58],
-    [60, 69, 65, 67],
   ];
   static const List<List<int>> _worldRootsB = [
     [62, 65, 67, 69],
@@ -315,9 +309,6 @@ class SynthWav {
     [55, 62, 57, 60],
     [65, 60, 67, 62],
     [62, 67, 60, 65],
-    [57, 64, 67, 62],
-    [62, 55, 60, 65],
-    [64, 60, 67, 69],
   ];
   static const List<List<int>> _worldScales = [
     [0, 2, 4, 5, 7, 9, 11],
@@ -326,9 +317,6 @@ class SynthWav {
     [0, 2, 3, 5, 7, 8, 11],
     [0, 2, 4, 5, 7, 9, 10],
     [0, 2, 4, 5, 7, 9, 11],
-    [0, 2, 3, 5, 7, 9, 10],
-    [0, 2, 3, 5, 7, 8, 10],
-    [0, 2, 4, 6, 7, 9, 11],
   ];
   static const List<List<int>> _bossMotifs = [
     [0, -1, 4, 7, 6, -1, 4, 2, 0, -1, 3, 5, 4, -1, 2, -1],
@@ -337,9 +325,6 @@ class SynthWav {
     [0, -1, 3, 7, 5, -1, 3, 2, 0, 2, -1, 5, 3, -1, 0, -1],
     [7, -1, 4, 2, 6, -1, 4, 0, 2, -1, 5, 7, 4, -1, 2, -1],
     [0, 2, -1, 5, 7, -1, 4, 2, 0, -1, 4, 5, 3, -1, 2, -1],
-    [4, -1, 7, 9, 6, -1, 4, 2, 0, 2, -1, 5, 4, -1, 2, -1],
-    [0, -1, 3, 5, 7, -1, 3, 2, 0, -1, 5, 7, 4, -1, 2, -1],
-    [0, -1, 4, 7, 6, -1, 4, 2, 0, 2, -1, 5, 3, -1, 0, -1],
   ];
   static const List<List<int>> _bossRoots = [
     [57, 62, 55, 60],
@@ -348,9 +333,6 @@ class SynthWav {
     [53, 57, 62, 58],
     [55, 62, 57, 60],
     [57, 60, 53, 62],
-    [52, 57, 60, 55],
-    [55, 58, 62, 53],
-    [57, 60, 55, 62],
   ];
 
   static double _midi(int note) =>
@@ -590,7 +572,7 @@ class SynthWav {
   /// 每个世界 16 小节原创循环，后半更换和弦走向并变奏旋律。
   /// [alt] 为 true 时换一种和弦走向与旋律起点，同一世界的相邻关卡不重复。
   static Uint8List bgmLoopForWorld(int worldIndex, {bool alt = false}) {
-    final world = worldIndex.clamp(0, 8).toInt();
+    final world = worldIndex.clamp(0, 5).toInt();
     final motif = _worldMotifs[world];
     final shift = alt ? 4 : 0;
     return _composeLoop(
@@ -609,7 +591,7 @@ class SynthWav {
   /// 只规划旋律不合成音频，返回每个八分位的 MIDI 音高（null 表示不起音）。
   @visibleForTesting
   static List<int?> melodyPlanForWorld(int worldIndex, {bool alt = false}) {
-    final world = worldIndex.clamp(0, 8).toInt();
+    final world = worldIndex.clamp(0, 5).toInt();
     final motif = _worldMotifs[world];
     final shift = alt ? 4 : 0;
     final plan = <int?>[];
@@ -631,7 +613,7 @@ class SynthWav {
 
   /// Boss 专用四小节主题，保留世界音阶但使用另一段旋律与和弦。
   static Uint8List bossLoopForWorld(int worldIndex) {
-    final world = worldIndex.clamp(0, 8).toInt();
+    final world = worldIndex.clamp(0, 5).toInt();
     return _composeLoop(
       motif: _bossMotifs[world],
       rootsA: _bossRoots[world],
