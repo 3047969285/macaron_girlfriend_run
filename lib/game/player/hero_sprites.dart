@@ -129,6 +129,8 @@ class HeroSprites {
 
   static final Map<HeroPose, ui.Image> _images = {};
   static Future<void>? _loading;
+  static ui.Image? horseIdle;
+  static ui.Image? horseRun;
 
   static bool get ready => _images.length == frames.length;
 
@@ -144,6 +146,23 @@ class HeroSprites {
         final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
         final frame = await codec.getNextFrame();
         _images[entry.key] = frame.image;
+      }
+      for (final asset in ['white_horse_idle.png', 'white_horse_run.png']) {
+        try {
+          final data = await rootBundle.load('assets/character/$asset');
+          final codec = await ui.instantiateImageCodec(
+            data.buffer.asUint8List(),
+          );
+          final image = (await codec.getNextFrame()).image;
+          codec.dispose();
+          if (asset == 'white_horse_idle.png') {
+            horseIdle = image;
+          } else {
+            horseRun = image;
+          }
+        } catch (_) {
+          // The normal player frames remain available if a mount image fails.
+        }
       }
     } catch (_) {
       _images.clear();

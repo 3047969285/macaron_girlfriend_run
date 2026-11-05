@@ -3,9 +3,11 @@ import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_scenes.dart';
 import 'package:macaron_girlfriend_run/data/lyric_world.dart';
+import 'package:macaron_girlfriend_run/data/song_world_theme.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 int _sceneValue(int seed, int lane, int salt) =>
@@ -34,6 +36,7 @@ class TerrainRenderer extends PositionComponent {
     required this.sceneSeed,
     this.lyricChapter,
     this.scenes = const [],
+    this.songTheme,
   }) : super(priority: 0);
 
   final List<TerrainTile> solids;
@@ -43,6 +46,7 @@ class TerrainRenderer extends PositionComponent {
   final int sceneSeed;
   final LyricChapter? lyricChapter;
   final List<PlacedScene> scenes;
+  final SongWorldTheme? songTheme;
 
   ui.Picture? _picture;
 
@@ -603,6 +607,10 @@ class TerrainRenderer extends PositionComponent {
     }
     if (!isSurface) return;
 
+    if (songTheme != null) {
+      _drawSongSurface(canvas, r, songTheme!);
+      return;
+    }
     if (_drawThemedSurface(canvas, r)) {
       return;
     }
@@ -704,6 +712,10 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawPlatformMaterial(Canvas canvas, Rect r) {
+    if (songTheme != null) {
+      _drawSongPlatform(canvas, r, songTheme!);
+      return;
+    }
     final seam = Paint()
       ..color = palette.groundDark.withValues(alpha: 0.42)
       ..strokeWidth = 1.5
@@ -874,6 +886,139 @@ class TerrainRenderer extends PositionComponent {
     }
   }
 
+  void _drawSongSurface(Canvas canvas, Rect r, SongWorldTheme theme) {
+    canvas.drawRect(
+      Rect.fromLTWH(r.left, r.top, r.width, 7),
+      Paint()..color = theme.light,
+    );
+    final ink = Paint()
+      ..color = theme.dark.withValues(alpha: .6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    for (var x = r.left + 8; x < r.right; x += 16) {
+      switch (theme) {
+        case SongWorldTheme.firstLove:
+          canvas.drawArc(
+            Rect.fromCenter(center: Offset(x, r.top + 6), width: 11, height: 7),
+            0,
+            math.pi,
+            false,
+            ink,
+          );
+        case SongWorldTheme.whiteHorse:
+          canvas.drawLine(
+            Offset(x - 5, r.top + 12),
+            Offset(x + 5, r.top + 12),
+            ink,
+          );
+        case SongWorldTheme.reflection:
+          canvas.drawPath(
+            Path()
+              ..moveTo(x, r.top + 8)
+              ..lineTo(x + 4, r.top + 13)
+              ..lineTo(x, r.top + 18)
+              ..lineTo(x - 4, r.top + 13)
+              ..close(),
+            ink,
+          );
+        case SongWorldTheme.quietLove:
+          canvas.drawCircle(Offset(x, r.top + 11), 3, ink);
+        case SongWorldTheme.dawn:
+          canvas.drawLine(Offset(x, r.top + 7), Offset(x, r.top + 15), ink);
+        case SongWorldTheme.lost:
+          canvas.drawCircle(
+            Offset(x, r.top + 12),
+            2,
+            Paint()..color = theme.light,
+          );
+      }
+    }
+  }
+
+  void _drawSongPlatform(Canvas canvas, Rect r, SongWorldTheme theme) {
+    final ink = Paint()
+      ..color = theme.dark.withValues(alpha: .55)
+      ..strokeWidth = 1.7
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(
+      Rect.fromLTWH(r.left, r.top, r.width, 7),
+      Paint()..color = theme.light.withValues(alpha: .85),
+    );
+    for (var x = r.left + 12; x < r.right - 4; x += 28) {
+      switch (theme) {
+        case SongWorldTheme.firstLove:
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: Offset(x, r.center.dy),
+              width: 19,
+              height: 13,
+            ),
+            ink,
+          );
+          canvas.drawLine(
+            Offset(x - 9, r.center.dy - 6),
+            Offset(x, r.center.dy + 1),
+            ink,
+          );
+          canvas.drawLine(
+            Offset(x, r.center.dy + 1),
+            Offset(x + 9, r.center.dy - 6),
+            ink,
+          );
+        case SongWorldTheme.whiteHorse:
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: Offset(x, r.center.dy),
+              width: 25,
+              height: 16,
+            ),
+            ink,
+          );
+          canvas.drawLine(
+            Offset(x, r.center.dy - 8),
+            Offset(x, r.center.dy + 8),
+            ink,
+          );
+        case SongWorldTheme.reflection:
+          canvas.drawLine(
+            Offset(x - 10, r.bottom - 7),
+            Offset(x + 8, r.top + 8),
+            ink,
+          );
+        case SongWorldTheme.quietLove:
+          canvas.drawCircle(Offset(x, r.center.dy), 5, ink);
+          for (final dx in [-7.0, 7.0]) {
+            canvas.drawCircle(Offset(x + dx, r.center.dy), 3, ink);
+          }
+        case SongWorldTheme.dawn:
+          canvas.drawCircle(Offset(x, r.center.dy), 8, ink);
+          canvas.drawLine(
+            Offset(x, r.center.dy),
+            Offset(x, r.center.dy - 6),
+            ink,
+          );
+          canvas.drawLine(
+            Offset(x, r.center.dy),
+            Offset(x + 5, r.center.dy + 3),
+            ink,
+          );
+        case SongWorldTheme.lost:
+          canvas.drawPath(
+            Path()
+              ..moveTo(x - 8, r.center.dy - 5)
+              ..lineTo(x, r.center.dy)
+              ..lineTo(x - 8, r.center.dy + 5),
+            ink,
+          );
+          canvas.drawLine(
+            Offset(x, r.center.dy),
+            Offset(x + 8, r.center.dy),
+            ink,
+          );
+      }
+    }
+  }
+
   void _drawMeadowTurf(Canvas canvas, Rect r) {
     canvas.drawRect(
       Rect.fromLTWH(r.left, r.top, r.width, 10),
@@ -977,6 +1122,24 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawScenery(Canvas canvas) {
+    if (songTheme case final theme?) {
+      switch (theme) {
+        case SongWorldTheme.firstLove:
+          _alongGround(canvas, 240, _drawFlowerGarden);
+        case SongWorldTheme.whiteHorse:
+          _alongGround(canvas, 330, _drawHorseshoeLamp);
+        case SongWorldTheme.reflection:
+          _alongGround(canvas, 360, _drawCloudQuestion);
+        case SongWorldTheme.quietLove:
+          _alongGround(canvas, 240, _drawTaroLantern);
+        case SongWorldTheme.dawn:
+          _alongGround(canvas, 400, _drawDawnClock);
+        case SongWorldTheme.lost:
+          _alongGround(canvas, 360, _drawForkSign);
+      }
+      if (groundY > 700) _drawSkySong(canvas);
+      return;
+    }
     switch (palette.name) {
       case '奶油草地':
         _drawMeadowSet(canvas);
@@ -1689,23 +1852,63 @@ class WorldBackdrop extends PositionComponent {
     required this.palette,
     required this.mapWidth,
     required this.sceneSeed,
+    this.songTheme,
+    this.skyShift = 0,
   }) : super(priority: -10);
 
   final WorldPalette palette;
   final double mapWidth;
   final int sceneSeed;
+  final SongWorldTheme? songTheme;
+  final double skyShift;
   ui.Picture? _picture;
+  ui.Image? _songBackground;
+  static final Map<SongWorldTheme, Future<ui.Image?>> _backgrounds = {};
+  Future<void>? _backgroundLoading;
+  bool _removed = false;
+  @visibleForTesting
+  bool get songBackgroundLoaded => _songBackground != null;
+  @visibleForTesting
+  Future<void> get backgroundLoading => _backgroundLoading ?? Future.value();
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuild();
+    if (songTheme case final theme?) {
+      _backgroundLoading = _loadSongBackground(theme);
+    }
+  }
+
+  static Future<ui.Image?> _decodeBackground(SongWorldTheme theme) async {
+    try {
+      final bytes = await rootBundle.load('assets/worlds/${theme.name}.png');
+      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+      final image = (await codec.getNextFrame()).image;
+      codec.dispose();
+      return image;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadSongBackground(SongWorldTheme theme) async {
+    final image = await _backgrounds.putIfAbsent(
+      theme,
+      () => _decodeBackground(theme),
+    );
+    if (_removed || image == null) return;
+    _songBackground = image.clone();
+    _rebuild();
   }
 
   @override
   void onRemove() {
+    _removed = true;
     _picture?.dispose();
     _picture = null;
+    _songBackground?.dispose();
+    _songBackground = null;
     super.onRemove();
   }
 
@@ -1713,9 +1916,12 @@ class WorldBackdrop extends PositionComponent {
     _picture?.dispose();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    _drawSongBackground(canvas);
     _drawSceneTints(canvas);
-    _drawHills(canvas);
-    _drawClouds(canvas);
+    if (_songBackground == null) {
+      _drawHills(canvas);
+      _drawClouds(canvas);
+    }
     _picture = recorder.endRecording();
   }
 
@@ -1726,9 +1932,34 @@ class WorldBackdrop extends PositionComponent {
       canvas.drawPicture(pic);
       return;
     }
+    _drawSongBackground(canvas);
     _drawSceneTints(canvas);
     _drawHills(canvas);
     _drawClouds(canvas);
+  }
+
+  void _drawSongBackground(Canvas canvas) {
+    final background = _songBackground;
+    if (background == null) return;
+    final height = 640.0 + math.max(0.0, skyShift);
+    final width = height * background.width / background.height;
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      background.width.toDouble(),
+      background.height.toDouble(),
+    );
+    final paint = Paint()
+      ..color = const Color(0xCCFFFFFF)
+      ..filterQuality = FilterQuality.medium;
+    for (var x = 0.0; x < mapWidth; x += width) {
+      canvas.drawImageRect(
+        background,
+        src,
+        Rect.fromLTWH(x, -math.max(0.0, skyShift), width, height),
+        paint,
+      );
+    }
   }
 
   void _drawSceneTints(Canvas canvas) {

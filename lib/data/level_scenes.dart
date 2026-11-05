@@ -18,6 +18,7 @@ class PlacedScene {
     this.climax = false,
     this.motif = false,
     this.lyricRoute,
+    this.storyExpansion = false,
   });
 
   /// 种类。
@@ -41,9 +42,10 @@ class PlacedScene {
   /// 糖果波摆成了歌的标志造型。
   final bool motif;
   final String? lyricRoute;
+  final bool storyExpansion;
 
   /// 同一个场景，标为高潮。
-  PlacedScene asClimax() => PlacedScene(kind: kind, x: x, width: width, mirrored: mirrored, cells: cells, climax: true, motif: motif, lyricRoute: lyricRoute);
+  PlacedScene asClimax() => PlacedScene(kind: kind, x: x, width: width, mirrored: mirrored, cells: cells, climax: true, motif: motif, lyricRoute: lyricRoute, storyExpansion: storyExpansion);
 }
 
 /// 带场景的关卡行数据，场景按 x 从左到右。
@@ -434,6 +436,7 @@ class _Pen {
   bool ok = true;
   bool usedMotif = false;
   String? lyricRoute;
+  bool storyExpansion = false;
 
   /// 留给糖果波标志造型的糖果名额：其他种类不能用掉它。
   int reserve = 0;
@@ -517,7 +520,7 @@ bool _hasThemeBranch(PlacedScene scene, int world, int level, int ground) {
   return scene.cells[(x, ground - (phase == 0 ? 7 : 9))] == '=';
 }
 
-bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bool branch = false}) {
+bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bool branch = false, bool expansion = false}) {
   final phase = (level.clamp(0, 10) * 3 ~/ 11).clamp(0, 2);
   if (kind != _lyricKinds[song]) return false;
   p.lyricRoute = ['街角屋檐', '白马三关', '倒影双塔', '心跳花园', '时钟街区', '夜行归路'][song];
@@ -578,6 +581,13 @@ bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bo
     final length = song == 2 || song == 4 ? 2 : 2 + ((world + level) % 2);
     p.bricks(height, x, length);
     p.coin(x + length ~/ 2, height + 1);
+    if (expansion && song != 2 && song != 4) {
+      final nextX = x + length + 2;
+      final nextHeight = height == 7 ? 9 : (song.isEven ? 7 : 10);
+      p.bricks(nextHeight, nextX, 2);
+      p.coin(nextX, nextHeight + 1);
+      p.storyExpansion = true;
+    }
   }
   return true;
 }
@@ -785,7 +795,7 @@ class _Writer {
         final pen = _Pen(rnd, coins, mLeft, attempt % 3 == 2 ? 1 : (attempt % 3 == 1 ? 2 : 3), motif)
           ..reserve = kind == SceneKind.coinWave ? 0 : motif.length;
         if ((branchOnly && attempt >= 4) || (lyricOnly && attempt >= 8)) break;
-        if (attempt >= 8 || !_drawLyricRoute(song, world, level, kind, pen, branch: attempt < 4)) {
+        if (attempt >= 8 || !_drawLyricRoute(song, world, level, kind, pen, branch: attempt < 4, expansion: attempt < 2)) {
           if (lyricOnly) return null;
           _draw(kind, pen);
         }
@@ -882,7 +892,7 @@ class _Writer {
     }
     coins -= cells.values.where((v) => v == 'C').length;
     mLeft -= cells.values.where((v) => v == 'M').length;
-    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells, motif: pen.usedMotif, lyricRoute: pen.lyricRoute);
+    return PlacedScene(kind: kind, x: x, width: width, mirrored: mirror, cells: cells, motif: pen.usedMotif, lyricRoute: pen.lyricRoute, storyExpansion: pen.storyExpansion);
   }
 
   /// 升降台通道（行 g-5…g-3，列 I-1…I+3）不放场景，免得挡住 stage_platform 的升降路径。
