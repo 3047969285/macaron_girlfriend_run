@@ -58,7 +58,11 @@ class HeroPoseAnimator {
       pose == HeroPose.run4;
 
   List<(HeroPose, double)> layers(double alpha) => [
-    if (current != null && (_isRunning(current) || _isRunning(previous)))
+    if (current != null &&
+        (_isRunning(current) ||
+            _isRunning(previous) ||
+            current == HeroPose.duck ||
+            previous == HeroPose.duck))
       (current!, alpha)
     else ...[
       if (previous != null && previous != current && blend < 1)
