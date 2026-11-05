@@ -523,7 +523,7 @@ bool _hasThemeBranch(PlacedScene scene, int world, int level, int ground) {
 bool _drawLyricRoute(int song, int world, int level, SceneKind kind, _Pen p, {bool branch = false, bool expansion = false}) {
   final phase = (level.clamp(0, 10) * 3 ~/ 11).clamp(0, 2);
   if (kind != _lyricKinds[song]) return false;
-  p.lyricRoute = ['街角屋檐', '白马三关', '倒影双塔', '心跳花园', '时钟街区', '夜行归路'][song];
+  p.lyricRoute = ['街角房顶', '白马三关', '倒影双塔', '心跳花园', '时钟街区', '夜行归路'][song];
   switch (song) {
     case 0:
       p.bricks(3, 0, 3);

@@ -738,6 +738,64 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
   );
 }
 
+class GameHudTitle extends StatelessWidget {
+  const GameHudTitle({
+    super.key,
+    required this.worldName,
+    required this.levelTitle,
+    required this.difficulty,
+  });
+
+  final String worldName;
+  final String levelTitle;
+  final String difficulty;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.6),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            worldName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _worldStyle,
+          ),
+          Text(
+            levelTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _levelStyle,
+          ),
+          Text(difficulty, style: _difficultyStyle),
+        ],
+      ),
+    ),
+  );
+
+  static const _worldStyle = TextStyle(
+    fontSize: 11,
+    color: MacaronColors.cocoa,
+  );
+  static const _levelStyle = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w800,
+    color: MacaronColors.cocoa,
+  );
+  static const _difficultyStyle = TextStyle(
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: MacaronColors.cocoa,
+  );
+}
+
 class _GameHudHeader extends StatelessWidget {
   const _GameHudHeader({
     required this.game,
@@ -807,39 +865,15 @@ class _GameHudHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      worldName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: MacaronColors.cocoa.withValues(alpha: 0.6),
-                      ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GameHudTitle(
+                    worldName: worldName,
+                    levelTitle: levelTitle,
+                    difficulty: GameConstants.difficultyLabel(
+                      game.levelReady ? game.level.difficulty : 1,
                     ),
-                    Text(
-                      levelTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: MacaronColors.cocoa,
-                      ),
-                    ),
-                    Text(
-                      GameConstants.difficultyLabel(
-                        game.levelReady ? game.level.difficulty : 1,
-                      ),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: MacaronColors.rose.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               if (!compact)

@@ -13,22 +13,22 @@ class LyricWorld {
 
   static const chapters = <List<LyricChapter>>[
     [
-      LyricChapter('旧时街角', LyricLandmark.street),
-      LyricChapter('雨中的约定', LyricLandmark.street),
-      LyricChapter('回望那一天', LyricLandmark.mirror),
+      LyricChapter('往日街角', LyricLandmark.street),
+      LyricChapter('风中的约定', LyricLandmark.street),
+      LyricChapter('回首那一天', LyricLandmark.mirror),
     ],
     [
       LyricChapter('踏上归途', LyricLandmark.gate),
       LyricChapter('风沙三关', LyricLandmark.gate),
-      LyricChapter('寻回相见', LyricLandmark.gate),
+      LyricChapter('找回相见', LyricLandmark.gate),
     ],
     [
       LyricChapter('你的眼中', LyricLandmark.mirror),
-      LyricChapter('彼此的距离', LyricLandmark.mirror),
+      LyricChapter('两人的距离', LyricLandmark.mirror),
       LyricChapter('未说的答案', LyricLandmark.heartbeat),
     ],
     [
-      LyricChapter('悄悄喜欢', LyricLandmark.heartbeat),
+      LyricChapter('悄悄心动', LyricLandmark.heartbeat),
       LyricChapter('靠近的心跳', LyricLandmark.heartbeat),
       LyricChapter('温柔相拥', LyricLandmark.heartbeat),
     ],
@@ -39,7 +39,7 @@ class LyricWorld {
     ],
     [
       LyricChapter('夜色里的路', LyricLandmark.streetlight),
-      LyricChapter('徘徊与迷失', LyricLandmark.streetlight),
+      LyricChapter('游走与迷失', LyricLandmark.streetlight),
       LyricChapter('远去的灯光', LyricLandmark.streetlight),
     ],
   ];

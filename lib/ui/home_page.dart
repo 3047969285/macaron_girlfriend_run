@@ -1283,7 +1283,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '普通关、Boss 关和歌曲深处均播放对应世界的歌曲。\n'
+                    '普通关、Boss 关和歌曲深处都播放对应世界的歌曲。\n'
                     '上列 Kevin MacLeod 曲目许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),
