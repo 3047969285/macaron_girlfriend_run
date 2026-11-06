@@ -93,6 +93,9 @@ flutter:
         - asset: assets/fonts/NotoSansSC-Regular.ttf
         - asset: assets/fonts/NotoSansSC-Bold.ttf
           weight: 700
+    - family: NotoSansSCFull
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Full.ttf
     # 彩色 emoji（Noto Color Emoji，SIL OFL），只含应用用到的 23 个符号。
     - family: NotoColorEmoji
       fonts:

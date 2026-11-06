@@ -1,5 +1,6 @@
 // 字体覆盖验收测试，对应 docs/字体与标题/需求与接口.md 的 F1。
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -219,6 +220,23 @@ void main() {
           .where((f) => f.path.endsWith('.dart'))
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
+
+  test('源码是有效 UTF-8 且没有替换字符，完整字体覆盖额外汉字', () {
+    for (final file in sources) {
+      final content = utf8.decode(file.readAsBytesSync());
+      expect(
+        content.contains(String.fromCharCode(0xfffd)),
+        isFalse,
+        reason: file.path,
+      );
+    }
+    final full = _TtfCmap.parse(
+      File('assets/fonts/NotoSansSC-Full.ttf').readAsBytesSync(),
+    );
+    for (final rune in '龘麤齉'.runes) {
+      expect(full.covers(rune), isTrue, reason: String.fromCharCode(rune));
+    }
+  });
 
   test('字符串扫描跳过注释并解码转义和插值', () {
     expect(

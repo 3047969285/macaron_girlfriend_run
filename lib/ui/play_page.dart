@@ -1,3 +1,4 @@
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -367,7 +368,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
               _goToLevelSelect();
             },
           ),
-          if (widget.worldIndex < GameConstants.worldCount - 1)
+          if (widget.worldIndex < SongProfile.songs.length - 1)
             MacaronDialogAction(
               label: '下一世界',
               primary: true,
@@ -411,7 +412,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
           },
         ),
         if (widget.levelIndex < GameConstants.levelsPerWorld - 1 ||
-            widget.worldIndex < GameConstants.worldCount - 1)
+            widget.worldIndex < SongProfile.songs.length - 1)
           MacaronDialogAction(
             label: '下一关',
             primary: true,

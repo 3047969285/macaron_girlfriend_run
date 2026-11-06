@@ -19,7 +19,7 @@ class MacaronColors {
 
   /// 内置的中文字体族，见 pubspec.yaml。
   static const String fontFamily = 'NotoSansSC';
-  static const List<String> fontFallback = ['NotoColorEmoji'];
+  static const List<String> fontFallback = ['NotoSansSCFull', 'NotoColorEmoji'];
 
   static ThemeData get theme {
     final base = ColorScheme.fromSeed(

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
+import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
@@ -216,7 +217,7 @@ void main() {
       expect(find.textContaining('$third · 选关'), findsOneWidget);
 
       final last = WorldCatalog.paletteOf(
-        GameConstants.worldCount - 1,
+        AudioService.songs.length - 1,
       ).displayName;
       await tester.pumpWidget(
         const MaterialApp(home: WorldMapPage(initialWorld: 99)),
@@ -300,6 +301,18 @@ void main() {
   });
 
   group('R8 商店', () {
+    testWidgets('购买后立即穿戴并保存', (tester) async {
+      await _initSave({'wallet_coins': 1000});
+      await _useTallView(tester);
+      await tester.pumpWidget(const MaterialApp(home: ShopPage()));
+      await tester.pump();
+      await tester.tap(find.text('兑换').first);
+      await tester.pumpAndSettle();
+      expect(SaveService.instance.equippedCosmeticId, 'ribbon');
+      expect(SaveService.instance.ownedCosmeticIds, contains('ribbon'));
+      expect(find.text('穿戴中'), findsOneWidget);
+    });
+
     testWidgets('「穿戴中」按钮禁用', (tester) async {
       await _initSave();
       await _useTallView(tester);

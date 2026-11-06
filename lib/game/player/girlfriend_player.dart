@@ -305,6 +305,12 @@ class GirlfriendPlayer extends PositionComponent {
       );
       if (hasPlantBuddy) _drawPeaBuddy(canvas);
       if (cosmeticId == 'sunflower_buddy') _drawSunflowerBuddy(canvas);
+      if (cosmeticId != 'pea_buddy' && cosmeticId != 'sunflower_buddy') {
+        canvas.save();
+        canvas.scale(_spriteHeight / size.y);
+        _drawCosmetic(canvas);
+        canvas.restore();
+      }
       if (holdingCandyGun) {
         canvas.save();
         canvas.translate(12, -65);
@@ -346,6 +352,12 @@ class GirlfriendPlayer extends PositionComponent {
       canvas.restore();
       if (hasPlantBuddy) _drawPeaBuddy(canvas);
       if (cosmeticId == 'sunflower_buddy') _drawSunflowerBuddy(canvas);
+      if (cosmeticId != 'pea_buddy' && cosmeticId != 'sunflower_buddy') {
+        canvas.save();
+        canvas.scale(_spriteHeight / size.y);
+        _drawCosmetic(canvas);
+        canvas.restore();
+      }
       if (holdingCandyGun) {
         // 枪举在胸前：跟着站姿高度放，贴着身体前方。
         canvas.save();
@@ -2079,6 +2091,8 @@ class GirlfriendPlayer extends PositionComponent {
       Paint()..color = MacaronColors.mint,
     );
   }
+
+  void paintCosmeticOverlay(Canvas canvas) => _drawCosmetic(canvas);
 
   void _drawCosmetic(Canvas canvas) {
     switch (cosmeticId) {

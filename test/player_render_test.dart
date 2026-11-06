@@ -8,6 +8,48 @@ import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('purchased cosmetics appear on sprite and mounted character', () async {
+    await HeroSprites.preload();
+    expect(HeroSprites.ready, isTrue);
+    Future<List<int>> render(String cosmetic, bool horse) async {
+      final player =
+          GirlfriendPlayer(role: PlayerRole.girlfriend, cosmeticId: cosmetic)
+            ..onGround = true
+            ..hasWhiteHorse = horse;
+      player.update(.2);
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)..translate(120, 150 - player.size.y);
+      player.render(canvas);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(240, 200);
+      final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final bytes = List<int>.of(data!.buffer.asUint8List());
+      image.dispose();
+      picture.dispose();
+      return bytes;
+    }
+
+    for (final horse in [false, true]) {
+      final classic = await render('classic', horse);
+      for (final cosmetic in [
+        'ribbon',
+        'mint_trail',
+        'crown',
+        'lilac_glow',
+        'sparkle_shoes',
+        'strawberry_cape',
+        'pea_buddy',
+        'sunflower_buddy',
+      ]) {
+        expect(
+          await render(cosmetic, horse),
+          isNot(equals(classic)),
+          reason: '$cosmetic horse=$horse',
+        );
+      }
+    }
+  });
+
   test('plant buddy turns toward its shot and its recoil settles', () async {
     GirlfriendPlayer makePlayer() =>
         GirlfriendPlayer(role: PlayerRole.girlfriend, cosmeticId: 'pea_buddy')

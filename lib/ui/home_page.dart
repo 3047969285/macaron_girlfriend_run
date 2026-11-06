@@ -4,6 +4,7 @@ import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
@@ -44,7 +45,10 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) {
       return;
     }
-    final pos = SaveService.instance.continuePlayTarget();
+    final target = SaveService.instance.continuePlayTarget();
+    final pos = target.$1 < SongProfile.songs.length
+        ? target
+        : (SongProfile.songs.length - 1, GameConstants.levelsPerWorld - 1);
     await Navigator.push(
       context,
       CupertinoPageRoute<void>(
@@ -61,13 +65,10 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
-    final unlockedLevels = unlocked >= GameConstants.totalLevels
-        ? GameConstants.totalLevels
-        : unlocked + 1;
-    final progress = (unlockedLevels / GameConstants.totalLevels).clamp(
-      0.0,
-      1.0,
-    );
+    final visibleLevels =
+        SongProfile.songs.length * GameConstants.levelsPerWorld;
+    final unlockedLevels = (unlocked + 1).clamp(0, visibleLevels);
+    final progress = (unlockedLevels / visibleLevels).clamp(0.0, 1.0);
 
     return Scaffold(
       body: LayoutBuilder(
@@ -283,6 +284,19 @@ class _HeroFigureState extends State<_HeroFigure> {
   }
 
   @override
+  void didUpdateWidget(covariant _HeroFigure oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.role != widget.role) {
+      _player =
+          GirlfriendPlayer(role: widget.role, cosmeticId: widget.cosmeticId)
+            ..onGround = true
+            ..update(0.6);
+    } else {
+      _player.cosmeticId = widget.cosmeticId;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (widget.role != PlayerRole.girlfriend) {
       return CustomPaint(
@@ -316,11 +330,40 @@ class _HeroFigureState extends State<_HeroFigure> {
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _HomeCosmeticPainter(_player, widget.cosmeticId, h),
+                ),
+              ),
+            ),
           ],
         );
       },
     );
   }
+}
+
+class _HomeCosmeticPainter extends CustomPainter {
+  _HomeCosmeticPainter(this.player, this.cosmeticId, this.height);
+  final GirlfriendPlayer player;
+  final String cosmeticId;
+  final double height;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(size.width / 2, (size.height - height) * .965 + height);
+    canvas.scale(height / player.size.y);
+    player.paintCosmeticOverlay(canvas);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HomeCosmeticPainter old) =>
+      old.cosmeticId != cosmeticId ||
+      old.height != height ||
+      old.player != player;
 }
 
 class _HeroPainter extends CustomPainter {
@@ -342,7 +385,7 @@ class _HeroPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HeroPainter oldDelegate) => false;
+  bool shouldRepaint(_HeroPainter oldDelegate) => true;
 }
 
 /// 极简背景：奶油色到极淡粉色的竖向渐变，加一个只露出一角的粉色大圆。
@@ -416,7 +459,7 @@ class WorldMapPage extends StatefulWidget {
 class _WorldMapPageState extends State<WorldMapPage> {
   late int world;
 
-  int _clampWorld(int index) => index.clamp(0, GameConstants.worldCount - 1);
+  int _clampWorld(int index) => index.clamp(0, SongProfile.songs.length - 1);
 
   @override
   void initState() {
@@ -523,7 +566,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: GameConstants.worldCount,
+                itemCount: SongProfile.songs.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) {
                   final selected = i == world;
@@ -840,7 +883,14 @@ class AchievementsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = SaveService.instance.achievements();
+    final list = SaveService.instance
+        .achievements()
+        .where(
+          (item) =>
+              SongProfile.songs.length >= GameConstants.worldCount ||
+              item.title != '蜜月终章',
+        )
+        .toList();
     final done = list.where((e) => e.unlocked).length;
     return Scaffold(
       body: Container(
@@ -1052,7 +1102,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SimplePage(
       title: '关于',
-      children: const [
+      children: [
         Text(
           '马卡龙跑酷',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
@@ -1060,7 +1110,7 @@ class AboutPage extends StatelessWidget {
         Text('版本 1.5.0 · 完全体'),
         SizedBox(height: 10),
         Text(
-          '原创甜蜜平台跳跃单机。99 关、真暂停、Boss 血条、检查点、狂暴 Boss、'
+          '原创甜蜜平台跳跃单机。${SongProfile.songs.length * GameConstants.levelsPerWorld} 关、真暂停、Boss 血条、检查点、狂暴 Boss、'
           '耐打红胖怪、糖果商店、真拖尾外观、视差、分世界 BGM、键盘操作、'
           '关卡预览与通关仪式、本地存档，无联网无广告。'
           '已优化继续冒险、粘键、超时续时、问号砖三星、触控反馈、'
@@ -1211,8 +1261,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '普通关按世界轮换播放这三首授权音乐；Boss 关使用每个世界的原创短曲。\n'
-                    '音频资源不可用时会自动切换备用曲。\n'
+                    '每个世界循环播放对应歌曲，进关后可在设置中调整音量。\n'
                     '许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),

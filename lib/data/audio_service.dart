@@ -37,6 +37,8 @@ class AudioService {
     enabled: () => musicOn,
   );
   final List<AudioPlayer> _fxPool = [];
+  AudioPool? _coinPool;
+  AudioPool? _powerPool;
   int _fxCursor = 0;
   bool _ready = false;
   bool _soundsReady = false;
@@ -110,6 +112,20 @@ class AudioService {
       for (var i = 0; i < _fxPoolSize; i++) {
         _fxPool.add(AudioPlayer());
       }
+    }
+    try {
+      _coinPool ??= await AudioPool.create(
+        source: BytesSource(_wavCoin),
+        minPlayers: 2,
+        maxPlayers: 4,
+      );
+      _powerPool ??= await AudioPool.create(
+        source: BytesSource(_wavPower),
+        minPlayers: 2,
+        maxPlayers: 4,
+      );
+    } catch (_) {
+      // 预加载不可用时继续使用普通播放器。
     }
     await _bgm.setReleaseMode(ReleaseMode.stop);
     _bgm.onPositionChanged.listen(_music.onPosition);
@@ -298,12 +314,22 @@ class AudioService {
     } catch (_) {}
   }
 
-  Future<void> _playFx(Uint8List Function() loadBytes) async {
+  Future<void> _playFx(
+    Uint8List Function() loadBytes, {
+    AudioPool? Function()? pool,
+  }) async {
     if (!soundOn) {
       return;
     }
     if (!_ready) {
       await init();
+    }
+    final readyPool = pool?.call();
+    if (readyPool != null) {
+      try {
+        await readyPool.start(volume: SaveService.instance.soundVolume);
+        return;
+      } catch (_) {}
     }
     if (_fxPool.isEmpty) {
       return;
@@ -328,7 +354,7 @@ class AudioService {
   }
 
   Future<void> coin() async {
-    await _playFx(() => _wavCoin);
+    await _playFx(() => _wavCoin, pool: () => _coinPool);
     if (hapticOn) {
       await HapticFeedback.lightImpact();
     }
@@ -357,7 +383,7 @@ class AudioService {
   }
 
   Future<void> powerUp() async {
-    await _playFx(() => _wavPower);
+    await _playFx(() => _wavPower, pool: () => _powerPool);
     if (hapticOn) {
       await HapticFeedback.mediumImpact();
     }
