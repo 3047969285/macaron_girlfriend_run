@@ -32,6 +32,7 @@ class GirlfriendPlayer extends PositionComponent {
   bool wantsRight = false;
   bool wantsRun = false;
   bool ducking = false;
+  double crouchVisualClearance = double.infinity;
 
   int coins = 0;
   bool reachedGoal = false;
@@ -327,6 +328,10 @@ class GirlfriendPlayer extends PositionComponent {
     }
 
     if (role == PlayerRole.girlfriend && HeroSprites.ready) {
+      if (ducking) {
+        final fit = (crouchVisualClearance / _duckSpriteHeight).clamp(0.0, 1.0);
+        canvas.scale(fit / squash, fit / stretch);
+      }
       canvas.save();
       if (ridingWhiteHorse) {
         canvas.translate(-8, -30);
@@ -339,6 +344,8 @@ class GirlfriendPlayer extends PositionComponent {
         rising: rising,
       );
       canvas.restore();
+      if (hasPlantBuddy) _drawPeaBuddy(canvas);
+      if (cosmeticId == 'sunflower_buddy') _drawSunflowerBuddy(canvas);
       if (holdingCandyGun) {
         // 枪举在胸前：跟着站姿高度放，贴着身体前方。
         canvas.save();
@@ -348,9 +355,12 @@ class GirlfriendPlayer extends PositionComponent {
       }
       if (superMode) {
         // 眼睛发红光（头部在站立高度的约 92% 处）。
+        final eyeHeight = ducking
+            ? _duckSpriteHeight * 0.9
+            : _spriteHeight * 0.925;
         for (final dx in const [-1.0, 4.0]) {
           canvas.drawCircle(
-            Offset(dx + 3, -_spriteHeight * 0.925),
+            Offset(dx + 3, -eyeHeight),
             3.0,
             Paint()
               ..color = const Color(0xFFFF4040).withValues(alpha: 0.75)
@@ -546,7 +556,14 @@ class GirlfriendPlayer extends PositionComponent {
   }
 
   /// 立绘里站立的人物在屏幕上的高度（含头发）。
-  double get _spriteHeight => size.y * 1.85;
+  double get _spriteHeight => standHeight * 1.85;
+
+  double get _duckSpriteHeight {
+    final frame = HeroSprites.frames[HeroPose.duck]!;
+    return _spriteHeight *
+        (frame.height + frame.bottomGap) /
+        HeroSprites.standImageHeight;
+  }
 
   void _drawHeroSprite(
     Canvas canvas, {

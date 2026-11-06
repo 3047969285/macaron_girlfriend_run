@@ -1240,6 +1240,7 @@ class MacaronGame extends FlameGame {
     }
     final previousPlayerBottom = _playerHitbox().bottom;
     _simulatePlayer(clampedDt);
+    _updateCrouchVisualClearance();
     if (shootPressed) {
       _firePlayerShot();
     }
@@ -1267,6 +1268,19 @@ class MacaronGame extends FlameGame {
     if (_hudAcc >= 0.1) {
       _hudAcc = 0;
       _notifyHud();
+    }
+  }
+
+  void _updateCrouchVisualClearance() {
+    player.crouchVisualClearance = double.infinity;
+    if (!player.ducking) return;
+    final box = _playerHitbox();
+    for (final solid in _nearbySolids(box)) {
+      if (solid.right > player.position.x - player.size.x / 2 &&
+          solid.left < player.position.x + player.size.x / 2 &&
+          solid.bottom <= box.top) {
+        player.crouchVisualClearance = math.min(player.crouchVisualClearance, box.bottom - solid.bottom);
+      }
     }
   }
 
