@@ -1,3 +1,5 @@
+import 'package:macaron_girlfriend_run/data/lyric_world.dart';
+import 'package:macaron_girlfriend_run/data/song_world_theme.dart';
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
@@ -435,6 +437,11 @@ class MacaronGame extends FlameGame {
       TerrainRenderer(
         solids: terrain,
         worldIndex: worldIndex,
+        lyricChapter: levelIndex < GameConstants.depthLevelIndex
+            ? LyricWorld.chapterFor(worldIndex, levelIndex)
+            : null,
+        songTheme: SongWorldTheme.forWorld(worldIndex),
+        scenes: LevelCatalog.scenesOf(worldIndex, levelIndex),
         palette: palette,
         mapWidth: mapWidth,
         groundY: groundY,

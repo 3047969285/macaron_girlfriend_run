@@ -1710,7 +1710,7 @@ void main() {
   test('solid platforms stay in reachable band', () {
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
-        final level = LevelCatalog.load(w, l);
+        final level = LevelCatalog.loadBase(w, l);
         // 天空层（最上面 skyRows 行）不受地面可达带限制。
         final off = level.height > 14 ? LevelCatalog.skyRows : 0;
         final base = level.height - off;
