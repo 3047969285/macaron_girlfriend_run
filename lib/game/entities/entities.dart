@@ -1,59 +1,15 @@
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
-import 'package:macaron_girlfriend_run/data/song_world_theme.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
-
-final Paint _pickupSheen = Paint()
-  ..shader = const LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xAAFFFFFF), Color(0x00FFFFFF), Color(0x44000000)],
-    stops: [0, 0.5, 1],
-  ).createShader(const Rect.fromLTWH(-20, -20, 40, 40));
-
-void _drawPickupBadge(Canvas canvas, Offset center, double radius, Color tint) {
-  canvas.save();
-  canvas.translate(center.dx, center.dy);
-  canvas.drawCircle(
-    const Offset(0, 2),
-    radius,
-    Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.12),
-  );
-  canvas.drawCircle(
-    Offset.zero,
-    radius,
-    Paint()..color = Color.lerp(Colors.white, tint, 0.16)!,
-  );
-  canvas.drawCircle(Offset.zero, radius, _pickupSheen);
-  canvas.drawCircle(
-    Offset.zero,
-    radius - 0.8,
-    Paint()
-      ..color = tint.withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4,
-  );
-  canvas.drawArc(
-    Rect.fromCircle(center: Offset.zero, radius: radius - 3),
-    3.6,
-    1.25,
-    false,
-    Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round,
-  );
-  canvas.restore();
-}
 
 /// 马卡龙金币
 class MacaronCoin extends PositionComponent {
-  MacaronCoin({required Vector2 position, this.theme})
+  MacaronCoin({required Vector2 position})
     : super(
         position: position,
         size: Vector2.all(34),
@@ -61,7 +17,6 @@ class MacaronCoin extends PositionComponent {
         priority: 50,
       );
 
-  final SongWorldTheme? theme;
   bool collected = false;
   double _spin = 0;
   double _bob = 0;
@@ -83,20 +38,15 @@ class MacaronCoin extends PositionComponent {
       return;
     }
     final bobY = math.sin(_bob) * 3;
-    final scaleX = 0.55 + 0.45 * math.cos(_spin).abs();
-    canvas.save();
-    canvas.translate(size.x / 2, size.y / 2 + bobY);
-    canvas.drawCircle(
-      Offset.zero,
-      17 + math.sin(_bob * 0.5) * 1.5,
-      Paint()..color = MacaronColors.lemon.withValues(alpha: 0.18),
-    );
-    canvas.scale(scaleX, 1);
-    if (theme != null) {
-      _drawSongToken(canvas, theme!);
-      canvas.restore();
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 0, 7, Rect.fromLTWH(0, bobY, size.x, size.y));
       return;
     }
+    final scaleX = (0.55 + 0.45 * (1 + (_spin % 3.14 - 1.57).abs() / 1.57))
+        .clamp(0.35, 1.0);
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2 + bobY);
+    canvas.scale(scaleX, 1);
     canvas.drawCircle(
       Offset.zero,
       size.x * 0.44,
@@ -107,107 +57,12 @@ class MacaronCoin extends PositionComponent {
       size.x * 0.3,
       Paint()..color = MacaronColors.blush,
     );
-    canvas.drawCircle(Offset.zero, size.x * 0.44, _pickupSheen);
-    canvas.drawCircle(
-      Offset.zero,
-      size.x * 0.37,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.65)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
     canvas.drawCircle(
       const Offset(-4, -4),
       3,
       Paint()..color = Colors.white.withValues(alpha: 0.6),
     );
     canvas.restore();
-  }
-}
-
-void _drawSongToken(Canvas canvas, SongWorldTheme theme) {
-  final base = Paint()..color = theme.light;
-  final ink = Paint()
-    ..color = theme.dark
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2.4
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round;
-  final white = Paint()..color = Colors.white.withValues(alpha: 0.72);
-  switch (theme) {
-    case SongWorldTheme.firstLove:
-      final heart = Path()
-        ..moveTo(0, 13)
-        ..cubicTo(-25, -1, -14, -19, 0, -9)
-        ..cubicTo(14, -19, 25, -1, 0, 13)
-        ..close();
-      canvas.drawPath(heart, base);
-      canvas.drawPath(heart, ink);
-      canvas.drawCircle(const Offset(-6, -6), 2.5, white);
-    case SongWorldTheme.whiteHorse:
-      final horseshoe = Path()
-        ..moveTo(-11, -12)
-        ..lineTo(-11, 1)
-        ..cubicTo(-11, 17, 11, 17, 11, 1)
-        ..lineTo(11, -12);
-      canvas.drawPath(
-        horseshoe,
-        Paint()
-          ..color = theme.light
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 8
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawPath(horseshoe, ink);
-      for (final x in [-10.0, 10.0]) {
-        canvas.drawCircle(Offset(x, -6), 1.5, white);
-      }
-    case SongWorldTheme.reflection:
-      final shard = Path()
-        ..moveTo(0, -15)
-        ..lineTo(12, -6)
-        ..lineTo(9, 8)
-        ..lineTo(-2, 15)
-        ..lineTo(-11, 4)
-        ..lineTo(-8, -10)
-        ..close();
-      canvas.drawPath(shard, base);
-      canvas.drawPath(shard, ink);
-      canvas.drawLine(
-        const Offset(-5, 2),
-        const Offset(4, -9),
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 2,
-      );
-    case SongWorldTheme.quietLove:
-      for (var i = 0; i < 5; i++) {
-        final a = i * math.pi * 2 / 5;
-        canvas.drawCircle(Offset(math.cos(a) * 8, math.sin(a) * 8), 7, base);
-      }
-      canvas.drawCircle(
-        Offset.zero,
-        5,
-        Paint()..color = const Color(0xFFFFE4A8),
-      );
-      canvas.drawCircle(Offset.zero, 4, ink);
-    case SongWorldTheme.dawn:
-      canvas.drawCircle(Offset.zero, 14, base);
-      canvas.drawCircle(Offset.zero, 14, ink);
-      canvas.drawLine(Offset.zero, const Offset(-6, -7), ink);
-      canvas.drawLine(Offset.zero, const Offset(8, 4), ink);
-      canvas.drawCircle(const Offset(-5, -8), 2, white);
-    case SongWorldTheme.lost:
-      final light = Path()
-        ..moveTo(0, -15)
-        ..quadraticBezierTo(5, -4, 14, 0)
-        ..quadraticBezierTo(5, 4, 0, 15)
-        ..quadraticBezierTo(-5, 4, -14, 0)
-        ..quadraticBezierTo(-5, -4, 0, -15)
-        ..close();
-      canvas.drawPath(light, base);
-      canvas.drawPath(light, ink);
-      canvas.drawCircle(Offset.zero, 4, white);
   }
 }
 
@@ -236,16 +91,6 @@ class CoinPopVisual extends PositionComponent {
       15 * (1 + 0.3 * p),
       Paint()..color = MacaronColors.lemon.withValues(alpha: 1 - p),
     );
-    final center = Offset(size.x / 2, size.y / 2 - 20 * p);
-    for (var i = 0; i < 6; i++) {
-      final angle = i * math.pi / 3;
-      final distance = 10 + 24 * p;
-      canvas.drawCircle(
-        center + Offset(math.cos(angle), math.sin(angle)) * distance,
-        2.5 * (1 - p),
-        Paint()..color = MacaronColors.blush.withValues(alpha: 1 - p),
-      );
-    }
   }
 }
 
@@ -344,45 +189,14 @@ class PowerMacaron extends PositionComponent {
     }
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + math.sin(_spin) * 4);
-    canvas.rotate(math.sin(_spin * 0.7) * 0.08);
-    canvas.drawOval(
-      const Rect.fromLTWH(-16, -9, 32, 25),
-      Paint()..color = const Color(0xFF8D6AAB),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-15, -2, 30, 10),
-        const Radius.circular(5),
-      ),
-      Paint()..color = const Color(0xFFFFF2E9),
-    );
-    canvas.drawOval(
-      const Rect.fromLTWH(-16, -14, 32, 23),
-      Paint()..color = MacaronColors.lilac,
-    );
-    canvas.drawOval(const Rect.fromLTWH(-16, -14, 32, 23), _pickupSheen);
-    canvas.drawArc(
-      const Rect.fromLTWH(-12, -12, 24, 16),
-      3.5,
-      1.1,
-      false,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round,
-    );
-    final sparkle = Path()
-      ..moveTo(0, -8)
-      ..lineTo(2, -3)
-      ..lineTo(6, -2)
-      ..lineTo(2, 0)
-      ..lineTo(0, 4)
-      ..lineTo(-2, 0)
-      ..lineTo(-6, -2)
-      ..lineTo(-2, -3)
-      ..close();
-    canvas.drawPath(sparkle, Paint()..color = const Color(0xFFFFF9DC));
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 2, 7, const Rect.fromLTWH(-18, -18, 36, 36));
+      canvas.restore();
+      return;
+    }
+    canvas.drawCircle(Offset.zero, 16, Paint()..color = MacaronColors.lilac);
+    canvas.drawCircle(Offset.zero, 10, Paint()..color = Colors.white);
+    canvas.drawCircle(Offset.zero, 6, Paint()..color = MacaronColors.rose);
     canvas.restore();
   }
 }
@@ -412,16 +226,16 @@ class LifeHeart extends PositionComponent {
     }
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2 + math.sin(_bob) * 3);
+    if (WorldArt.ready) {
+      WorldArt.draw(canvas, 1, 7, const Rect.fromLTWH(-16, -16, 32, 32));
+      canvas.restore();
+      return;
+    }
     final p = Path()
       ..moveTo(0, 6)
       ..cubicTo(-14, -6, -8, -16, 0, -8)
       ..cubicTo(8, -16, 14, -6, 0, 6);
     canvas.drawPath(p, Paint()..color = MacaronColors.rose);
-    canvas.drawPath(p, _pickupSheen);
-    canvas.drawOval(
-      const Rect.fromLTWH(-7, -12, 5, 3),
-      Paint()..color = Colors.white.withValues(alpha: 0.75),
-    );
     canvas.restore();
   }
 }
@@ -482,11 +296,11 @@ class SoftEnemy extends PositionComponent {
     required this.rightBound,
     required this.difficulty,
     this.speed = 88,
+    this.worldIndex,
     this.onSkillCue,
     this.onShoot,
     this.onLayTrap,
     this.onShockwave,
-    this.theme,
     EnemyKind kind = EnemyKind.walker,
   }) : kind = kind,
        hitPoints = kind == EnemyKind.bruiser || kind == EnemyKind.shell ? 2 : 1,
@@ -509,7 +323,7 @@ class SoftEnemy extends PositionComponent {
   final int difficulty;
   final double speed;
   final EnemyKind kind;
-  final SongWorldTheme? theme;
+  final int? worldIndex;
 
   static Vector2 _bodySize(EnemyKind kind) => switch (kind) {
     EnemyKind.bruiser => Vector2(52, 44),
@@ -854,6 +668,29 @@ class SoftEnemy extends PositionComponent {
     if (dead) {
       return;
     }
+    if (_flash > 0 && (_flash * 18).floor().isOdd) {
+      return;
+    }
+    if (WorldArt.ready &&
+        worldIndex != null &&
+        (kind == EnemyKind.hopper || kind == EnemyKind.bruiser)) {
+      WorldArt.enemy(
+        canvas,
+        worldIndex!,
+        (kind == EnemyKind.bruiser ? 2 : 0) + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
+      );
+      return;
+    }
+    if (WorldArt.ready && worldIndex != null && kind == EnemyKind.walker) {
+      WorldArt.draw(
+        canvas,
+        worldIndex!,
+        3 + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
+      );
+      return;
+    }
     final squash = visualSquash;
     canvas.save();
     canvas.translate(size.x / 2, size.y);
@@ -1079,10 +916,6 @@ class SoftEnemy extends PositionComponent {
   }
 
   void _drawSilhouette(Canvas canvas) {
-    if (theme != null) {
-      _drawThemedEnemy(canvas, theme!);
-      return;
-    }
     // 身体由上到下从提亮到本色，带出立体感。
     final body = _bodyPaint;
     final cream = Paint()..color = MacaronColors.cream;
@@ -1348,163 +1181,6 @@ class SoftEnemy extends PositionComponent {
         _drawFace(canvas, bubbleCenter, 3.4);
     }
   }
-
-  void _drawThemedEnemy(Canvas canvas, SongWorldTheme theme) {
-    final body = Paint()..color = theme.dark;
-    final detail = Paint()..color = theme.light;
-    final edge = Paint()
-      ..color = theme.dark
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    final w = size.x;
-    final h = size.y;
-    final foot = Paint()..color = Color.lerp(theme.dark, Colors.black, .2)!;
-    for (final side in [-1.0, 1.0]) {
-      final stride = math.sin(_walkDistance * .09 + side) * 2;
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(side * w * .22 + stride, -3),
-          width: 9,
-          height: 6,
-        ),
-        foot,
-      );
-    }
-    switch (theme) {
-      case SongWorldTheme.firstLove:
-        final envelope = RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(0, -h * .5),
-            width: w * .9,
-            height: h * .72,
-          ),
-          const Radius.circular(7),
-        );
-        canvas.drawRRect(envelope, detail);
-        canvas.drawRRect(envelope, edge);
-        canvas.drawPath(
-          Path()
-            ..moveTo(-w * .4, -h * .72)
-            ..lineTo(0, -h * .42)
-            ..lineTo(w * .4, -h * .72),
-          edge,
-        );
-      case SongWorldTheme.whiteHorse:
-        final dune = Path()
-          ..moveTo(-w * .5, -3)
-          ..quadraticBezierTo(-w * .5, -h * .7, 0, -h)
-          ..quadraticBezierTo(w * .5, -h * .7, w * .5, -3)
-          ..close();
-        canvas.drawPath(dune, body);
-        canvas.drawPath(
-          Path()
-            ..moveTo(-w * .35, -h * .65)
-            ..lineTo(0, -h * .4)
-            ..lineTo(w * .35, -h * .65),
-          Paint()
-            ..color = theme.light
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 4,
-        );
-      case SongWorldTheme.reflection:
-        final shard = Path()
-          ..moveTo(0, -h)
-          ..lineTo(w * .48, -h * .62)
-          ..lineTo(w * .31, -5)
-          ..lineTo(-w * .34, -5)
-          ..lineTo(-w * .48, -h * .62)
-          ..close();
-        canvas.drawPath(shard, detail);
-        canvas.drawPath(shard, edge);
-        canvas.drawLine(
-          Offset(-w * .3, -h * .6),
-          Offset(0, -h * .88),
-          Paint()
-            ..color = Colors.white70
-            ..strokeWidth = 2,
-        );
-      case SongWorldTheme.quietLove:
-        for (var i = 0; i < 5; i++) {
-          final angle = i * math.pi * 2 / 5;
-          canvas.drawCircle(
-            Offset(
-              math.cos(angle) * w * .25,
-              -h * .52 + math.sin(angle) * h * .27,
-            ),
-            h * .25,
-            detail,
-          );
-        }
-        canvas.drawCircle(Offset(0, -h * .52), h * .28, body);
-      case SongWorldTheme.dawn:
-        canvas.drawCircle(Offset(0, -h * .52), h * .47, detail);
-        canvas.drawCircle(Offset(0, -h * .52), h * .47, edge);
-        canvas.drawLine(Offset(0, -h * .52), Offset(0, -h * .85), edge);
-        canvas.drawLine(Offset(0, -h * .52), Offset(w * .2, -h * .35), edge);
-        canvas.drawCircle(Offset(-w * .32, -h * .9), h * .13, body);
-        canvas.drawCircle(Offset(w * .32, -h * .9), h * .13, body);
-      case SongWorldTheme.lost:
-        final shadow = Path()
-          ..moveTo(-w * .45, -2)
-          ..lineTo(-w * .42, -h * .6)
-          ..quadraticBezierTo(0, -h * 1.2, w * .42, -h * .6)
-          ..lineTo(w * .45, -2)
-          ..lineTo(w * .2, -8)
-          ..lineTo(0, -2)
-          ..lineTo(-w * .2, -8)
-          ..close();
-        canvas.drawPath(shadow, body);
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: Offset(0, -h * .52),
-            width: w * .75,
-            height: h * .38,
-          ),
-          detail,
-        );
-    }
-    final glint = Paint()
-      ..color = Colors.white.withValues(alpha: .4)
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(-w * .25, -h * .77),
-      Offset(-w * .08, -h * .84),
-      glint,
-    );
-    _drawFace(canvas, Offset(0, -h * .52), kind == EnemyKind.bruiser ? 5 : 4);
-    final brow = Paint()
-      ..color = Color.lerp(theme.dark, Colors.black, .35)!
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-    for (final side in [-1.0, 1.0]) {
-      canvas.drawLine(
-        Offset(side * 2, -h * .67),
-        Offset(side * 8, -h * .72),
-        brow,
-      );
-    }
-    if (kind == EnemyKind.shell || kind == EnemyKind.bruiser) {
-      canvas.drawArc(
-        Rect.fromCenter(center: Offset(0, -h * .48), width: w, height: h * .8),
-        3.3,
-        2.8,
-        false,
-        edge,
-      );
-    } else if (kind == EnemyKind.swooper) {
-      for (final side in [-1.0, 1.0]) {
-        canvas.drawPath(
-          Path()
-            ..moveTo(side * w * .4, -h * .55)
-            ..lineTo(side * w * .68, -h * .8)
-            ..lineTo(side * w * .55, -h * .35),
-          edge,
-        );
-      }
-    }
-  }
 }
 
 /// 怪物发射的糖豆，碰到地形或玩家后消失
@@ -1545,7 +1221,6 @@ class EnemyCandyShot extends PositionComponent {
     required Vector2 position,
     required this.direction,
     required this.speed,
-    this.theme,
   }) : super(
          position: position,
          size: Vector2.all(24),
@@ -1555,10 +1230,8 @@ class EnemyCandyShot extends PositionComponent {
 
   final double direction;
   final double speed;
-  final SongWorldTheme? theme;
   double _life = 2.8;
   double _wobble = 0;
-  double _flightTime = 0;
   bool spent = false;
 
   Rect get hitbox => Rect.fromCenter(
@@ -1583,27 +1256,11 @@ class EnemyCandyShot extends PositionComponent {
     _life -= dt;
     _wobble += dt * 12;
     position.x += direction * speed * dt;
-    if (theme case final song?) {
-      final previous = _songFlightOffset(song, _flightTime);
-      _flightTime += dt;
-      position.y += _songFlightOffset(song, _flightTime) - previous;
-    } else {
-      position.y += math.sin(_wobble) * 16 * dt;
-    }
+    position.y += math.sin(_wobble) * 16 * dt;
     if (_life <= 0) {
       consume();
     }
   }
-
-  static double _songFlightOffset(SongWorldTheme theme, double time) =>
-      switch (theme) {
-        SongWorldTheme.firstLove => 4 * math.sin(time * 3),
-        SongWorldTheme.whiteHorse => 0,
-        SongWorldTheme.reflection => 8 * math.sin(time * 6),
-        SongWorldTheme.quietLove => 6 * math.sin(time * 2),
-        SongWorldTheme.dawn => 4 * math.sin(time * 7),
-        SongWorldTheme.lost => -5 * (1 - math.cos(time * 2.5)),
-      };
 
   @override
   void render(Canvas canvas) {
@@ -1614,23 +1271,6 @@ class EnemyCandyShot extends PositionComponent {
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(squash, 1 / squash);
-    if (theme case final song?) {
-      canvas.drawCircle(Offset.zero, 11, Paint()..color = song.dark);
-      canvas.drawCircle(
-        Offset.zero,
-        11,
-        Paint()
-          ..color = const Color(0xFFE3454C)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-      canvas.save();
-      canvas.scale(.56);
-      _drawSongToken(canvas, song);
-      canvas.restore();
-      canvas.restore();
-      return;
-    }
     canvas.drawCircle(Offset.zero, 9, Paint()..color = MacaronColors.rose);
     canvas.drawCircle(
       const Offset(-3, -4),
@@ -1862,11 +1502,10 @@ class GunPickup extends PositionComponent {
       return;
     }
     final y = math.sin(_bob) * 3;
-    _drawPickupBadge(
-      canvas,
+    canvas.drawCircle(
       Offset(size.x / 2, size.y / 2 + y),
       19,
-      const Color(0xFF98A6B7),
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
     // AK-47：木托、金属机匣、长枪管、弧形弹匣。
     final wood = Paint()..color = const Color(0xFF9A5B35);
@@ -1881,19 +1520,6 @@ class GunPickup extends PositionComponent {
     canvas.drawRect(Rect.fromLTWH(13, 17 + y, 14, 6), steel);
     canvas.drawRect(Rect.fromLTWH(26, 18 + y, 14, 3), steel);
     canvas.drawRect(Rect.fromLTWH(24, 21 + y, 9, 3), wood);
-    canvas.drawLine(
-      Offset(14, 18 + y),
-      Offset(27, 18 + y),
-      Paint()
-        ..color = const Color(0xFFADB5C0)
-        ..strokeWidth = 1,
-    );
-    canvas.drawLine(
-      Offset(31, 17 + y),
-      Offset(31, 14 + y),
-      steel..strokeWidth = 1.5,
-    );
-    canvas.drawLine(Offset(36, 18 + y), Offset(36, 16 + y), steel);
     canvas.drawPath(
       Path()
         ..moveTo(18, 23 + y)
@@ -1903,15 +1529,6 @@ class GunPickup extends PositionComponent {
         ..close(),
       Paint()..color = const Color(0xFF55565E),
     );
-    for (var i = 0; i < 3; i++) {
-      canvas.drawLine(
-        Offset(20 + i * 1.5, 25 + y),
-        Offset(21 + i * 1.5, 31 + y),
-        Paint()
-          ..color = const Color(0xFF858791)
-          ..strokeWidth = 0.7,
-      );
-    }
   }
 }
 
@@ -1939,11 +1556,10 @@ class PeaSeed extends PositionComponent {
       return;
     }
     final lift = math.sin(_bob) * 3;
-    _drawPickupBadge(
-      canvas,
+    canvas.drawCircle(
       Offset(size.x / 2, size.y / 2 + lift),
       19,
-      MacaronColors.mint,
+      Paint()..color = Colors.white.withValues(alpha: 0.82),
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1951,13 +1567,6 @@ class PeaSeed extends PositionComponent {
         const Radius.circular(4),
       ),
       Paint()..color = const Color(0xFFB57A66),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(11, 23 + lift, 21, 4),
-        const Radius.circular(2),
-      ),
-      Paint()..color = const Color(0xFFE2A792),
     );
     canvas.drawLine(
       Offset(21, 27 + lift),
@@ -1983,18 +1592,6 @@ class PeaSeed extends PositionComponent {
       Offset(23, 10 + lift),
       1.2,
       Paint()..color = MacaronColors.cocoa,
-    );
-    canvas.drawLine(
-      Offset(20, 18 + lift),
-      Offset(15, 16 + lift),
-      Paint()
-        ..color = const Color(0xFF377C50)
-        ..strokeWidth = 0.8,
-    );
-    canvas.drawCircle(
-      Offset(19, 9 + lift),
-      1.4,
-      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
   }
 }
@@ -2023,15 +1620,6 @@ class VehiclePickup extends PositionComponent {
       return;
     }
     final y = math.sin(_bob) * 2;
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(24, 34), width: 30, height: 5),
-      Paint()..color = MacaronColors.cocoa.withValues(alpha: 0.12),
-    );
-    canvas.drawCircle(
-      Offset(24, 19 + y),
-      22 + math.sin(_bob) * 1.2,
-      Paint()..color = MacaronColors.sky.withValues(alpha: 0.18),
-    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(5, 14 + y, 38, 15),
@@ -2048,32 +1636,6 @@ class VehiclePickup extends PositionComponent {
         ..close(),
       Paint()..color = MacaronColors.sky,
     );
-    canvas.drawLine(
-      Offset(26, 8 + y),
-      Offset(26, 15 + y),
-      Paint()
-        ..color = const Color(0xFF8AAEC0)
-        ..strokeWidth = 1.5,
-    );
-    canvas.drawLine(
-      Offset(17, 9 + y),
-      Offset(14, 14 + y),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.8)
-        ..strokeWidth = 1.5,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(7, 16 + y, 34, 6),
-        const Radius.circular(3),
-      ),
-      Paint()..color = Colors.white.withValues(alpha: 0.55),
-    );
-    canvas.drawCircle(
-      Offset(40, 20 + y),
-      2,
-      Paint()..color = const Color(0xFFFFE8A6),
-    );
     drawCarLabel(canvas, const Offset(24, 21.5), 7.5, y);
     canvas.drawCircle(
       Offset(14, 29 + y),
@@ -2087,16 +1649,6 @@ class VehiclePickup extends PositionComponent {
     );
     canvas.drawCircle(Offset(14, 29 + y), 2, Paint()..color = Colors.white);
     canvas.drawCircle(Offset(34, 29 + y), 2, Paint()..color = Colors.white);
-    canvas.drawCircle(
-      Offset(14, 29 + y),
-      1,
-      Paint()..color = const Color(0xFF8A9AAB),
-    );
-    canvas.drawCircle(
-      Offset(34, 29 + y),
-      1,
-      Paint()..color = const Color(0xFF8A9AAB),
-    );
   }
 }
 
@@ -2108,8 +1660,6 @@ TextPainter _labelPainter(String text, double fontSize, Color color) {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontFamily: MacaronColors.fontFamily,
-          fontFamilyFallback: MacaronColors.fontFallback,
           fontSize: fontSize,
           fontWeight: FontWeight.w900,
           color: color,
@@ -2157,17 +1707,11 @@ class BonusPickup extends PositionComponent {
     }
     final y = math.sin(_bob) * 3;
     final c = Offset(size.x / 2, size.y / 2 + y);
-    final aura = switch (kind) {
-      BonusKind.superman => MacaronColors.rose,
-      BonusKind.plane => MacaronColors.sky,
-      BonusKind.gum => MacaronColors.blush,
-    };
     canvas.drawCircle(
       c,
-      22 + math.sin(_bob) * 1.5,
-      Paint()..color = aura.withValues(alpha: 0.2),
+      20,
+      Paint()..color = Colors.white.withValues(alpha: 0.85),
     );
-    _drawPickupBadge(canvas, c, 20, aura);
     switch (kind) {
       case BonusKind.superman:
         canvas.drawPath(
@@ -2178,13 +1722,6 @@ class BonusPickup extends PositionComponent {
             ..lineTo(c.dx - 8, c.dy + 14)
             ..close(),
           Paint()..color = const Color(0xFFE8484F),
-        );
-        canvas.drawLine(
-          c + const Offset(-9, -6),
-          c + const Offset(9, -6),
-          Paint()
-            ..color = const Color(0xFFFFB1A4)
-            ..strokeWidth = 1.5,
         );
         final s = _labelPainter('S', 15, const Color(0xFFFFE066));
         s.paint(canvas, Offset(c.dx - s.width / 2, c.dy - s.height / 2 + 1));
@@ -2205,18 +1742,6 @@ class BonusPickup extends PositionComponent {
             ..close(),
           Paint()..color = const Color(0xFF6FB4E8),
         );
-        canvas.drawCircle(
-          c + const Offset(7, -1),
-          1.6,
-          Paint()..color = Colors.white.withValues(alpha: 0.9),
-        );
-        canvas.drawLine(
-          c + const Offset(-10, 2),
-          c + const Offset(10, 0),
-          Paint()
-            ..color = Colors.white.withValues(alpha: 0.7)
-            ..strokeWidth = 1,
-        );
         canvas.drawPath(
           Path()
             ..moveTo(c.dx - 4, c.dy - 1)
@@ -2231,10 +1756,6 @@ class BonusPickup extends PositionComponent {
           13,
           Paint()..color = MacaronColors.rose.withValues(alpha: 0.85),
         );
-        canvas.save();
-        canvas.translate(c.dx, c.dy);
-        canvas.drawCircle(Offset.zero, 13, _pickupSheen);
-        canvas.restore();
         canvas.drawCircle(
           c + const Offset(-4, -4),
           4,
@@ -2366,14 +1887,6 @@ class MacaronBoss extends PositionComponent {
   final double leftBound;
   final double rightBound;
   final int worldIndex;
-  late final SoftEnemy _worldAvatar = SoftEnemy(
-    position: Vector2.zero(),
-    leftBound: 0,
-    rightBound: 0,
-    difficulty: 1,
-    theme: SongWorldTheme.forWorld(worldIndex),
-    kind: EnemyKind.bruiser,
-  );
   final int maxHp;
   final double _baseY;
   final void Function(Vector2 at, double direction)? onShoot;
@@ -2623,24 +2136,64 @@ class MacaronBoss extends PositionComponent {
     if (dead) {
       return;
     }
+    if (_flash > 0 && (_flash * 20).floor().isOdd) {
+      return;
+    }
+    if (WorldArt.ready) {
+      WorldArt.draw(
+        canvas,
+        worldIndex,
+        5,
+        Rect.fromLTWH(
+          -size.x * 0.15,
+          -size.y * 0.3,
+          size.x * 1.3,
+          size.y * 1.3,
+        ),
+      );
+      return;
+    }
     final squash =
         1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.08 : 0);
     canvas.save();
     canvas.translate(size.x / 2, size.y);
     canvas.scale((dir >= 0 ? 1.0 : -1.0) * squash, 1 / squash);
-    canvas.saveLayer(
-      null,
-      Paint()
-        ..colorFilter = ColorFilter.mode(
-          Colors.white.withValues(alpha: (_flash / 0.35).clamp(0.0, 1.0) * 0.8),
-          BlendMode.srcATop,
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(0, -size.y * 0.42),
+          width: size.x,
+          height: size.y * 0.85,
         ),
+        const Radius.circular(18),
+      ),
+      Paint()
+        ..color = Color.lerp(
+          enraged ? MacaronColors.rose : MacaronColors.lilac,
+          Colors.white,
+          (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+        )!,
     );
-    canvas.save();
-    canvas.scale(size.x / _worldAvatar.size.x, size.y / _worldAvatar.size.y);
-    _worldAvatar._drawSilhouette(canvas);
-    canvas.restore();
-    canvas.restore();
+    canvas.drawCircle(
+      Offset(-14, -size.y * 0.55),
+      8,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      Offset(14, -size.y * 0.55),
+      8,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      Offset(-14, -size.y * 0.55),
+      4,
+      Paint()..color = MacaronColors.cocoa,
+    );
+    canvas.drawCircle(
+      Offset(14, -size.y * 0.55),
+      4,
+      Paint()..color = MacaronColors.cocoa,
+    );
     canvas.drawCircle(
       Offset(0, -size.y * 0.78),
       10,

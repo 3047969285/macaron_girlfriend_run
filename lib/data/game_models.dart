@@ -33,7 +33,7 @@ extension HeroSkillPresentation on HeroSkill {
 class GameConstants {
   GameConstants._();
 
-  static const int worldCount = 9;
+  static const int worldCount = 6;
   static const int levelsPerWorld = 11;
 
   /// 每个世界在 11 关之外的「歌曲深处」：从高处一路往下走的纵向关卡。
@@ -379,13 +379,13 @@ class WorldCatalog {
     WorldPalette(
       name: '草莓甜点',
       title: '白马长街',
-      skyTop: Color(0xFF9FC8DD),
-      skyBottom: Color(0xFFFFE2B4),
-      ground: Color(0xFFD5B184),
-      groundDark: Color(0xFFA77854),
+      skyTop: Color(0xFFFFD6E5),
+      skyBottom: Color(0xFFFFF0F5),
+      ground: Color(0xFFFF9EBB),
+      groundDark: Color(0xFFE8789C),
       accent: MacaronColors.lemon,
-      parallaxFar: Color(0x55C99769),
-      parallaxMid: Color(0x669B725F),
+      parallaxFar: Color(0x55FFE6A7),
+      parallaxMid: Color(0x66FFB4C8),
     ),
     WorldPalette(
       name: '薄荷汽水',
@@ -423,46 +423,13 @@ class WorldCatalog {
     WorldPalette(
       name: '玫瑰城堡',
       title: '迷失玫瑰',
-      skyTop: Color(0xFF273A60),
-      skyBottom: Color(0xFF7E83AA),
-      ground: Color(0xFF8A8EAE),
-      groundDark: Color(0xFF555D7A),
+      skyTop: Color(0xFFE9C9E8),
+      skyBottom: Color(0xFFC9B8E8),
+      ground: Color(0xFFE89AB5),
+      groundDark: Color(0xFFC46F8E),
       accent: MacaronColors.lilac,
-      parallaxFar: Color(0x55606D98),
-      parallaxMid: Color(0x663C4A6D),
-    ),
-    WorldPalette(
-      name: '蓝莓峡谷',
-      title: '迷途蓝谷',
-      skyTop: Color(0xFF253C64),
-      skyBottom: Color(0xFF8199BC),
-      ground: Color(0xFF7E9FE0),
-      groundDark: Color(0xFF5A7BC4),
-      accent: MacaronColors.blush,
-      parallaxFar: Color(0x557E9FE0),
-      parallaxMid: Color(0x66B8E0FF),
-    ),
-    WorldPalette(
-      name: '焦糖矿山',
-      title: '追风矿道',
-      skyTop: Color(0xFF7A86A2),
-      skyBottom: Color(0xFFF0C79B),
-      ground: Color(0xFFD4A574),
-      groundDark: Color(0xFFB8844F),
-      accent: MacaronColors.lemon,
-      parallaxFar: Color(0x55D4A574),
-      parallaxMid: Color(0x66FFE6A7),
-    ),
-    WorldPalette(
-      name: '蜜月彩虹',
-      title: '素颜彩虹',
-      skyTop: Color(0xFFFFD6F0),
-      skyBottom: Color(0xFFD6F5FF),
-      ground: Color(0xFFFFB4C8),
-      groundDark: Color(0xFFE891B0),
-      accent: MacaronColors.mint,
       parallaxFar: Color(0x55D4C4F5),
-      parallaxMid: Color(0x66B8F0D8),
+      parallaxMid: Color(0x66FFB4C8),
     ),
   ];
 

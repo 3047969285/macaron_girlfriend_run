@@ -8,7 +8,7 @@ void main() {
   test(
     'world BGM spans 16 bars and every boss theme is a distinct 4-bar loop',
     () {
-      for (var world = 0; world < 9; world++) {
+      for (var world = 0; world < 6; world++) {
         final bpm = 92 + world % 3 * 6;
         final bossBpm = 76 + world % 3 * 4;
         final regular = _wavData(SynthWav.bgmLoopForWorld(world));

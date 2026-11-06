@@ -51,7 +51,7 @@ void main() {
   );
 
   test('each world palette paints terrain without throwing', () async {
-    expect(WorldCatalog.palettes, hasLength(9));
+    expect(WorldCatalog.palettes, hasLength(GameConstants.worldCount));
     for (final palette in WorldCatalog.palettes) {
       final renderer = TerrainRenderer(
         solids: const [

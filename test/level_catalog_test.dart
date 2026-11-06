@@ -32,79 +32,10 @@ class _RoutePilot {
       }
       gaps.add((start, x - start));
     }
-    final tunnelTiles = [
-      for (var x = 0; x < game.level.width; x++)
-        if (game.level.tileAt(x, ground - 2) == 'D') x,
-    ];
-    tunnelStart = tunnelTiles.isEmpty
-        ? double.infinity
-        : tunnelTiles.first * GameConstants.tileSize;
-    tunnelEnd = tunnelTiles.isEmpty
-        ? double.negativeInfinity
-        : (tunnelTiles.last + 1) * GameConstants.tileSize;
   }
 
   final MacaronGame game;
   late final List<(int, int)> gaps;
-  late final double tunnelStart;
-  late final double tunnelEnd;
-  int gapIndex = 0;
-  bool jumpIssued = false;
-
-  void step() {
-    final x = game.player.position.x;
-    if (gapIndex < gaps.length) {
-      final (start, length) = gaps[gapIndex];
-      final landingX =
-          (start + length) * GameConstants.tileSize +
-          GirlfriendPlayer.standWidth * 0.325;
-      if (x >= landingX) {
-        gapIndex++;
-        jumpIssued = false;
-      }
-    }
-    final gap = gapIndex < gaps.length ? gaps[gapIndex] : null;
-    final gapDistance = gap == null
-        ? double.infinity
-        : gap.$1 * GameConstants.tileSize - x;
-    final ducking =
-        x + GirlfriendPlayer.standWidth >= tunnelStart - 48 &&
-        x <= tunnelEnd + GirlfriendPlayer.standWidth;
-    final beforeTunnel =
-        x + GirlfriendPlayer.standWidth >= tunnelStart - 160 &&
-        x < tunnelStart - 48;
-    final nearGap = gapDistance >= 0 && gapDistance <= 160;
-    final gapStartX = gap == null
-        ? double.infinity
-        : gap.$1 * GameConstants.tileSize;
-    final springCarriesToGap = game.springs.any(
-      (spring) =>
-          spring.position.x <= gapStartX &&
-          gapStartX - spring.position.x <= 5 * GameConstants.tileSize,
-    );
-    final waitToLand =
-        !game.player.onGround &&
-        !jumpIssued &&
-        !springCarriesToGap &&
-        (beforeTunnel || nearGap);
-    final jumpNow =
-        gap != null &&
-        !jumpIssued &&
-        game.player.onGround &&
-        !ducking &&
-        gapDistance <= 80 &&
-        gapDistance >= 0;
-    game
-      ..rightPressed = !waitToLand
-      ..leftPressed = false
-      ..runPressed = true
-      ..setDuckPressed(ducking)
-      ..setJumpHeld(false);
-    if (jumpNow) {
-      jumpIssued = true;
-      game.setJumpHeld(true);
-    }
-  }
 }
 
 Future<
@@ -564,7 +495,7 @@ void main() {
     );
   });
 
-  test('99 levels catalog loads with spawn and goal', () {
+  test('all world levels load with spawn and goal', () {
     var count = 0;
     var trapperCount = 0;
     var gardenEventCount = 0;
@@ -675,9 +606,9 @@ void main() {
             'world $world must include bounce, plant, gun, and vehicle play',
       );
     }
-    expect(LevelCatalog.load(8, 10).width, 464);
+    expect(LevelCatalog.load(5, 10).width, 410);
     expect(
-      LevelCatalog.load(8, 9).rows.join().split('S').length - 1,
+      LevelCatalog.load(5, 9).rows.join().split('S').length - 1,
       greaterThanOrEqualTo(5),
       reason: 'long levels should gain extra authored jump scenes',
     );
@@ -972,7 +903,10 @@ void main() {
       GameConstants.worldCount,
       BossAttackPattern.forWorld,
     );
-    expect(patterns.toSet(), BossAttackPattern.values.toSet());
+    expect(
+      patterns.toSet(),
+      BossAttackPattern.values.take(GameConstants.worldCount).toSet(),
+    );
     for (var world = 0; world < GameConstants.worldCount; world++) {
       expect(
         BossAttackPattern.forWorld(world),
@@ -1777,9 +1711,6 @@ void main() {
     for (var w = 0; w < GameConstants.worldCount; w++) {
       for (var l = 0; l < GameConstants.levelsPerWorld; l++) {
         final level = LevelCatalog.load(w, l);
-        final sceneCells = {
-          for (final scene in LevelCatalog.scenesOf(w, l)) ...scene.cells.keys,
-        };
         // 天空层（最上面 skyRows 行）不受地面可达带限制。
         final off = level.height > 14 ? LevelCatalog.skyRows : 0;
         final base = level.height - off;
@@ -1795,7 +1726,7 @@ void main() {
           }
           for (var x = 0; x < row.length; x++) {
             final ch = row[x];
-            if ((ch == '=' || ch == '?') && !sceneCells.contains((x, y))) {
+            if (ch == '=' || ch == '?') {
               expect(
                 y,
                 inInclusiveRange(highest, lowest),
@@ -1988,23 +1919,11 @@ void main() {
             enemy.dead = true;
           }
 
-          final routePilot = _RoutePilot(game);
-          final maxFrames =
-              (GameConstants.timeLimitFor(
-                    game.level.difficulty,
-                    mapWidth: game.level.width,
-                  ) +
-                  120) *
-              30;
-          for (
-            var frame = 0;
-            frame < maxFrames && result == null && !gameOver;
-            frame++
-          ) {
-            routePilot.step();
-            game.update(1 / 30);
-          }
-
+          _runWithLiveControls(
+            game,
+            isCleared: () => result?.cleared == true,
+            isGameOver: () => gameOver,
+          );
           expect(
             result?.cleared,
             isTrue,

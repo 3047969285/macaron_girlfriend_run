@@ -34,15 +34,6 @@ class SaveService {
 
   SharedPreferences? _prefs;
 
-  Duration? songPosition(int song) {
-    final millis = _prefs?.getInt('song_position_$song');
-    return millis == null || millis < 0 ? null : Duration(milliseconds: millis);
-  }
-
-  Future<void> setSongPosition(int song, Duration position) async {
-    await _prefs?.setInt('song_position_$song', position.inMilliseconds);
-  }
-
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     if (_prefs?.containsKey(_keyWallet) != true) {

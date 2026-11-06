@@ -571,8 +571,6 @@ class FxLayer extends PositionComponent {
         text: TextSpan(
           text: l.text,
           style: TextStyle(
-            fontFamily: MacaronColors.fontFamily,
-            fontFamilyFallback: MacaronColors.fontFallback,
             fontSize: l.size,
             fontWeight: FontWeight.w900,
             color: l.color.withValues(alpha: alpha),

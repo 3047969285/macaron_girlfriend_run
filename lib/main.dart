@@ -1,3 +1,4 @@
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,7 @@ Future<void> main() async {
   // 角色立绘帧后台加载，没加载完时先用矢量画法。
   // ignore: unawaited_futures
   HeroSprites.preload();
+  await WorldArt.preload();
   await SaveService.instance.init();
   try {
     await AudioService.instance.init();

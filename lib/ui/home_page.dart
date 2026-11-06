@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
-import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
-import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/game/player/girlfriend_player.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
@@ -453,7 +451,6 @@ class _WorldMapPageState extends State<WorldMapPage> {
       body:
           '${WorldCatalog.paletteOf(world).displayName}\n'
           '$name\n'
-          '${isBoss ? '' : '${LyricWorld.chapterFor(world, level).name}\n'}'
           '$starLine\n'
           '${isBoss ? '先踩扁 Boss 才能摸旗\n' : ''}'
           '进关后可暂停查看三星条件',
@@ -487,12 +484,6 @@ class _WorldMapPageState extends State<WorldMapPage> {
   Widget build(BuildContext context) {
     final unlocked = SaveService.instance.unlockedGlobalIndex;
     final palette = WorldCatalog.paletteOf(world);
-    final song = SongProfile.of(world);
-    final completed = List.generate(
-      GameConstants.levelsPerWorld,
-      (level) =>
-          SaveService.instance.starsOf(SaveService.toGlobal(world, level)),
-    ).where((stars) => stars > 0).length;
     return Scaffold(
       backgroundColor: MacaronColors.cream,
       body: SafeArea(
@@ -561,69 +552,6 @@ class _WorldMapPageState extends State<WorldMapPage> {
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '♪ ${song.title}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: MacaronColors.cocoa,
-                            ),
-                          ),
-                          Text(
-                            '已通关 $completed / ${GameConstants.levelsPerWorld}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: MacaronColors.cocoa.withValues(
-                                alpha: 0.65,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      width: 80,
-                      height: 28,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          for (final energy in song.energy)
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 0.4,
-                                ),
-                                child: Container(
-                                  height: 3 + energy * 24,
-                                  color: palette.accent,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             const SizedBox(height: 8),
             Expanded(
               child: GridView.builder(
@@ -632,7 +560,7 @@ class _WorldMapPageState extends State<WorldMapPage> {
                   crossAxisCount: 3,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  mainAxisExtent: 112,
+                  childAspectRatio: 1.2,
                 ),
                 itemCount: GameConstants.levelsPerWorld + 1,
                 itemBuilder: (_, level) {
@@ -1241,7 +1169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   await AudioService.instance.applyVolumes();
                   if (wasAudible && !r.enabled) {
                     // ignore: unawaited_futures
-                    AudioService.instance.pauseBgm();
+                    AudioService.instance.stopBgm();
                   } else if (!wasAudible && r.enabled) {
                     // ignore: unawaited_futures
                     AudioService.instance.resumeBgm();
@@ -1283,8 +1211,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '普通关、Boss 关和歌曲深处都播放对应世界的歌曲。\n'
-                    '上列 Kevin MacLeod 曲目许可：Creative Commons Attribution 4.0 International\n'
+                    '普通关按世界轮换播放这三首授权音乐；Boss 关使用每个世界的原创短曲。\n'
+                    '音频资源不可用时会自动切换备用曲。\n'
+                    '许可：Creative Commons Attribution 4.0 International\n'
                     'https://creativecommons.org/licenses/by/4.0/',
                   ),
                 ),

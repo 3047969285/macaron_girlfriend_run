@@ -1,13 +1,9 @@
+import 'world_art.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:macaron_girlfriend_run/data/game_models.dart';
-import 'package:macaron_girlfriend_run/data/level_scenes.dart';
-import 'package:macaron_girlfriend_run/data/lyric_world.dart';
-import 'package:macaron_girlfriend_run/data/song_world_theme.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 int _sceneValue(int seed, int lane, int salt) =>
@@ -34,9 +30,7 @@ class TerrainRenderer extends PositionComponent {
     required this.mapWidth,
     required this.groundY,
     required this.sceneSeed,
-    this.lyricChapter,
-    this.scenes = const [],
-    this.songTheme,
+    this.worldIndex,
   }) : super(priority: 0);
 
   final List<TerrainTile> solids;
@@ -44,9 +38,7 @@ class TerrainRenderer extends PositionComponent {
   final double mapWidth;
   final double groundY;
   final int sceneSeed;
-  final LyricChapter? lyricChapter;
-  final List<PlacedScene> scenes;
-  final SongWorldTheme? songTheme;
+  final int? worldIndex;
 
   ui.Picture? _picture;
 
@@ -84,7 +76,17 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawTerrain(Canvas canvas) {
-    _drawLyricLandmarks(canvas);
+    if (WorldArt.ready && worldIndex != null) {
+      for (final tile in solids) {
+        WorldArt.draw(
+          canvas,
+          worldIndex!,
+          tile.isGround ? (tile.rect.bottom <= groundY + 0.5 ? 0 : 1) : 2,
+          tile.rect,
+        );
+      }
+      return;
+    }
     final platformRows = <double, List<Rect>>{};
     final duckCeilingRows = <double, List<Rect>>{};
     for (final tile in solids) {
@@ -97,459 +99,6 @@ class TerrainRenderer extends PositionComponent {
     }
     _drawPlatformRows(canvas, platformRows);
     _drawPlatformRows(canvas, duckCeilingRows, duckCeiling: true);
-  }
-
-  void _drawLyricLandmarks(Canvas canvas) {
-    final chapter = lyricChapter;
-    if (chapter == null) return;
-    final ink = Paint()
-      ..color = palette.groundDark.withValues(alpha: 0.42)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-    final light = Paint()..color = palette.accent.withValues(alpha: 0.35);
-    for (var i = 0; i < scenes.length; i++) {
-      final scene = scenes[i];
-      final x = (scene.x + scene.width / 2) * GameConstants.tileSize;
-      final y = groundY - 95;
-      canvas.save();
-      canvas.translate(x, y);
-      if (scene.lyricRoute != null) {
-        _drawWorldSetPiece(canvas);
-        _drawChapterStory(canvas, chapter, scene.mirrored);
-      }
-      // 建筑远景只参与绘制，不改变实体碰撞或可通过路线。
-      final distant = Paint()
-        ..color = palette.groundDark.withValues(alpha: 0.12);
-      final glow = Paint()..color = palette.accent.withValues(alpha: 0.18);
-      final variant = _sceneValue(sceneSeed, i, 29);
-      for (var j = 0; j < 5; j++) {
-        final dx = -160.0 + j * 75 + ((variant + j * 37) % 24);
-        final height = 36.0 + ((variant + j * 53) % 62);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(dx, -height, 48, height),
-            const Radius.circular(8),
-          ),
-          distant,
-        );
-        canvas.drawCircle(Offset(dx + 24, -height + 14), 3, glow);
-      }
-      switch (chapter.landmark) {
-        case LyricLandmark.street:
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              const Rect.fromLTWH(-65, -150, 130, 145),
-              const Radius.circular(8),
-            ),
-            light,
-          );
-          canvas.drawRect(const Rect.fromLTWH(-58, -142, 116, 137), ink);
-          for (final dx in [-36.0, 12.0]) {
-            canvas.drawRect(Rect.fromLTWH(dx, -120, 27, 35), ink);
-            canvas.drawLine(Offset(dx, -102), Offset(dx + 27, -102), ink);
-          }
-          canvas.drawRect(const Rect.fromLTWH(-16, -62, 32, 57), ink);
-        case LyricLandmark.gate:
-          final centers = scene.lyricRoute == null
-              ? [0.0]
-              : [-120.0, 0.0, 120.0];
-          for (final center in centers) {
-            final path = Path()
-              ..moveTo(center - 45, 0)
-              ..lineTo(center - 45, -120)
-              ..quadraticBezierTo(center, -175, center + 45, -120)
-              ..lineTo(center + 45, 0);
-            canvas.drawPath(path, ink..strokeWidth = 10);
-            canvas.drawLine(
-              Offset(center - 55, -118),
-              Offset(center + 55, -118),
-              ink,
-            );
-            canvas.drawCircle(Offset(center, -145), 10, light);
-          }
-          ink.strokeWidth = 6;
-        case LyricLandmark.mirror:
-          canvas.drawOval(const Rect.fromLTWH(-50, -160, 100, 130), light);
-          canvas.drawOval(const Rect.fromLTWH(-50, -160, 100, 130), ink);
-          canvas.drawLine(const Offset(-28, -120), const Offset(-5, -144), ink);
-          canvas.drawLine(const Offset(-20, -105), const Offset(5, -130), ink);
-          canvas.drawLine(const Offset(0, -30), const Offset(0, 0), ink);
-        case LyricLandmark.heartbeat:
-          final heart = Path()
-            ..moveTo(0, -50)
-            ..cubicTo(-120, -115, -44, -185, 0, -138)
-            ..cubicTo(44, -185, 120, -115, 0, -50)
-            ..close();
-          canvas.drawPath(heart, light);
-          canvas.drawPath(heart, ink);
-          final pulse = Path()
-            ..moveTo(-48, -102)
-            ..lineTo(-20, -102)
-            ..lineTo(-10, -120)
-            ..lineTo(0, -82)
-            ..lineTo(10, -105)
-            ..lineTo(48, -105);
-          canvas.drawPath(pulse, ink);
-        case LyricLandmark.clock:
-          canvas.drawCircle(const Offset(0, -105), 55, light);
-          canvas.drawCircle(const Offset(0, -105), 55, ink);
-          canvas.drawLine(const Offset(0, -105), const Offset(0, -140), ink);
-          canvas.drawLine(const Offset(0, -105), const Offset(29, -86), ink);
-          canvas.drawLine(const Offset(0, -50), const Offset(0, 0), ink);
-        case LyricLandmark.streetlight:
-          canvas.drawLine(const Offset(0, 0), const Offset(0, -152), ink);
-          canvas.drawLine(const Offset(0, -152), const Offset(42, -152), ink);
-          canvas.drawCircle(const Offset(42, -142), 15, light);
-          canvas.drawLine(const Offset(25, -142), const Offset(59, -142), ink);
-      }
-      if (scene.lyricRoute case final name?) {
-        _songText(canvas, name, const Offset(0, -198), 18, palette.groundDark);
-        _songText(
-          canvas,
-          chapter.name,
-          const Offset(0, -221),
-          12,
-          palette.groundDark.withValues(alpha: 0.75),
-        );
-      }
-      canvas.restore();
-    }
-  }
-
-  void _drawChapterStory(Canvas canvas, LyricChapter chapter, bool mirrored) {
-    final song = LyricWorld.chapters.indexWhere(
-      (chapters) => chapters.any((item) => item.name == chapter.name),
-    );
-    if (song < 0) return;
-    final phase = LyricWorld.chapters[song].indexWhere(
-      (item) => item.name == chapter.name,
-    );
-    final line = Paint()
-      ..color = palette.groundDark.withValues(alpha: 0.58)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    final fill = Paint()..color = palette.accent.withValues(alpha: 0.55);
-    canvas.save();
-    if (mirrored) canvas.scale(-1, 1);
-    canvas.translate(-115, -30);
-    switch (song) {
-      case 0:
-        // 旧街的信箱、雨伞与相片，对应相遇、雨中和回望。
-        if (phase == 0) {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              const Rect.fromLTWH(-15, -46, 30, 36),
-              const Radius.circular(5),
-            ),
-            fill,
-          );
-          canvas.drawLine(const Offset(-10, -36), const Offset(10, -36), line);
-          canvas.drawLine(const Offset(0, -10), const Offset(0, 0), line);
-        } else if (phase == 1) {
-          canvas.drawPath(
-            Path()
-              ..moveTo(-30, -26)
-              ..quadraticBezierTo(0, -65, 30, -26),
-            line,
-          );
-          canvas.drawLine(const Offset(0, -45), const Offset(0, -7), line);
-          canvas.drawArc(
-            const Rect.fromLTWH(0, -13, 12, 12),
-            0,
-            math.pi,
-            false,
-            line,
-          );
-          for (final x in [-40.0, -25.0, 24.0, 40.0]) {
-            canvas.drawLine(Offset(x, -60), Offset(x - 4, -50), line);
-          }
-        } else {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              const Rect.fromLTWH(-25, -65, 50, 55),
-              const Radius.circular(4),
-            ),
-            line,
-          );
-          canvas.drawCircle(const Offset(-8, -46), 6, fill);
-          canvas.drawPath(
-            Path()
-              ..moveTo(-20, -20)
-              ..lineTo(-5, -35)
-              ..lineTo(4, -27)
-              ..lineTo(13, -38)
-              ..lineTo(21, -20),
-            line,
-          );
-        }
-      case 1:
-        // 驿旗、三关与归处的灯。
-        if (phase == 0) {
-          canvas.drawLine(const Offset(-12, 0), const Offset(-12, -70), line);
-          canvas.drawPath(
-            Path()
-              ..moveTo(-12, -68)
-              ..lineTo(26, -59)
-              ..lineTo(-12, -48)
-              ..close(),
-            fill,
-          );
-        } else if (phase == 1) {
-          for (final x in [-36.0, 0.0, 36.0]) {
-            canvas.drawPath(
-              Path()
-                ..moveTo(x - 12, 0)
-                ..lineTo(x - 12, -40)
-                ..quadraticBezierTo(x, -56, x + 12, -40)
-                ..lineTo(x + 12, 0),
-              line,
-            );
-          }
-        } else {
-          canvas.drawLine(const Offset(0, 0), const Offset(0, -58), line);
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              const Rect.fromLTWH(-13, -70, 26, 24),
-              const Radius.circular(5),
-            ),
-            fill,
-          );
-          canvas.drawCircle(const Offset(0, -58), 5, line);
-        }
-      case 2:
-        // 两面镜子从相对、拉远到交叠。
-        final distance = [12.0, 28.0, 5.0][phase];
-        for (final x in [-distance, distance]) {
-          canvas.drawOval(
-            Rect.fromCenter(center: Offset(x, -42), width: 28, height: 46),
-            line,
-          );
-          canvas.drawLine(Offset(x - 6, -40), Offset(x + 4, -51), line);
-          canvas.drawLine(Offset(x, -19), Offset(x, 0), line);
-        }
-      case 3:
-        // 花蕾、并肩的花与相连的花冠。
-        for (var i = 0; i <= phase; i++) {
-          final x = (i - phase / 2) * 25;
-          canvas.drawLine(Offset(x, 0), Offset(x, -36), line);
-          for (var petal = 0; petal < 5; petal++) {
-            final a = petal * math.pi * 2 / 5;
-            canvas.drawCircle(
-              Offset(x + math.cos(a) * 8, -40 + math.sin(a) * 8),
-              5,
-              fill,
-            );
-          }
-          canvas.drawCircle(Offset(x, -40), 3, line);
-        }
-      case 4:
-        // 清晨闹钟、街巷窗户与留在长椅上的回忆。
-        if (phase == 0) {
-          canvas.drawCircle(const Offset(0, -39), 23, line);
-          canvas.drawLine(const Offset(0, -39), const Offset(-10, -48), line);
-          canvas.drawLine(const Offset(0, -39), const Offset(14, -32), line);
-          canvas.drawCircle(const Offset(-17, -60), 7, fill);
-          canvas.drawCircle(const Offset(17, -60), 7, fill);
-        } else if (phase == 1) {
-          for (final x in [-20.0, 12.0]) {
-            canvas.drawRect(Rect.fromLTWH(x, -64, 24, 38), line);
-            canvas.drawLine(Offset(x + 12, -64), Offset(x + 12, -26), line);
-            canvas.drawLine(Offset(x, -45), Offset(x + 24, -45), line);
-          }
-        } else {
-          canvas.drawLine(const Offset(-35, -25), const Offset(35, -25), line);
-          canvas.drawLine(const Offset(-30, -39), const Offset(30, -39), line);
-          canvas.drawLine(const Offset(-25, -39), const Offset(-25, 0), line);
-          canvas.drawLine(const Offset(25, -39), const Offset(25, 0), line);
-          canvas.drawCircle(const Offset(0, -49), 8, fill);
-        }
-      case 5:
-        // 夜路的方向牌、岔路和远方灯火。
-        if (phase < 2) {
-          canvas.drawLine(const Offset(0, 0), const Offset(0, -70), line);
-          for (var i = 0; i <= phase; i++) {
-            final y = -62.0 + i * 22;
-            final sign = Path()
-              ..moveTo(-27, y)
-              ..lineTo(18, y)
-              ..lineTo(29, y + 7)
-              ..lineTo(18, y + 14)
-              ..lineTo(-27, y + 14)
-              ..close();
-            canvas.save();
-            if (i == 1) canvas.scale(-1, 1);
-            canvas.drawPath(sign, fill);
-            canvas.drawPath(sign, line);
-            canvas.restore();
-          }
-        } else {
-          for (final x in [-28.0, 0.0, 28.0]) {
-            canvas.drawLine(
-              Offset(x, 0),
-              Offset(x, -45 - (x == 0 ? 14 : 0)),
-              line,
-            );
-            canvas.drawCircle(Offset(x, -49 - (x == 0 ? 14 : 0)), 8, fill);
-          }
-        }
-    }
-    canvas.restore();
-  }
-
-  void _drawWorldSetPiece(Canvas canvas) {
-    final silhouette = Paint()
-      ..color = palette.groundDark.withValues(alpha: 0.18);
-    final accent = Paint()..color = palette.accent.withValues(alpha: 0.32);
-    final line = Paint()
-      ..color = palette.groundDark.withValues(alpha: 0.38)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    switch (palette.name) {
-      case '奶油草地':
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            const Rect.fromLTWH(-150, -175, 300, 175),
-            const Radius.circular(8),
-          ),
-          silhouette,
-        );
-        for (final x in [-105.0, -35.0, 35.0, 105.0]) {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(x - 20, -145, 40, 52),
-              const Radius.circular(18),
-            ),
-            accent,
-          );
-          canvas.drawLine(Offset(x, -142), Offset(x, -96), line);
-        }
-      case '草莓甜点':
-        for (final x in [-120.0, 0.0, 120.0]) {
-          canvas.drawPath(
-            Path()
-              ..moveTo(x - 38, 0)
-              ..lineTo(x - 38, -135)
-              ..quadraticBezierTo(x, -185, x + 38, -135)
-              ..lineTo(x + 38, 0),
-            line,
-          );
-          canvas.drawPath(
-            Path()
-              ..moveTo(x - 40, -142)
-              ..lineTo(x, -168)
-              ..lineTo(x + 40, -142)
-              ..close(),
-            accent,
-          );
-        }
-      case '薄荷汽水':
-        for (final x in [-90.0, 90.0]) {
-          canvas.drawOval(
-            Rect.fromCenter(center: Offset(x, -110), width: 105, height: 150),
-            silhouette,
-          );
-          canvas.drawOval(
-            Rect.fromCenter(center: Offset(x, -110), width: 105, height: 150),
-            line,
-          );
-          canvas.drawLine(Offset(x - 20, -100), Offset(x + 15, -140), line);
-        }
-      case '香芋星空':
-        for (final x in [-125.0, 0.0, 125.0]) {
-          canvas.drawLine(Offset(x, 0), Offset(x, -160), line);
-          canvas.drawCircle(Offset(x, -160), 26, accent);
-          canvas.drawLine(Offset(x - 12, -160), Offset(x + 12, -160), line);
-          canvas.drawLine(Offset(x, -172), Offset(x, -148), line);
-        }
-      case '柠檬沙滩':
-        for (var i = 0; i < 5; i++) {
-          final x = -145.0 + i * 62;
-          final h = 90.0 + (i % 3) * 35;
-          canvas.drawRect(Rect.fromLTWH(x, -h, 50, h), silhouette);
-          for (var row = 0; row < 3; row++) {
-            canvas.drawRect(
-              Rect.fromLTWH(x + 10, -h + 18 + row * 20, 8, 10),
-              accent,
-            );
-            canvas.drawRect(
-              Rect.fromLTWH(x + 30, -h + 18 + row * 20, 8, 10),
-              accent,
-            );
-          }
-        }
-      case '玫瑰城堡':
-        canvas.drawRect(const Rect.fromLTWH(-110, -130, 220, 130), silhouette);
-        for (final x in [-100.0, 100.0]) {
-          canvas.drawRect(Rect.fromLTWH(x - 26, -175, 52, 175), silhouette);
-          canvas.drawPath(
-            Path()
-              ..moveTo(x - 34, -175)
-              ..lineTo(x, -220)
-              ..lineTo(x + 34, -175)
-              ..close(),
-            accent,
-          );
-        }
-      case '蓝莓峡谷':
-        canvas.drawPath(
-          Path()
-            ..moveTo(-170, 0)
-            ..lineTo(-100, -180)
-            ..lineTo(-20, -45)
-            ..lineTo(55, -210)
-            ..lineTo(170, 0)
-            ..close(),
-          silhouette,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(-115, -145)
-            ..lineTo(-100, -180)
-            ..lineTo(-75, -138)
-            ..moveTo(35, -160)
-            ..lineTo(55, -210)
-            ..lineTo(85, -155),
-          line,
-        );
-      case '焦糖矿山':
-        for (final x in [-95.0, 95.0]) {
-          canvas.drawPath(
-            Path()
-              ..moveTo(x - 65, 0)
-              ..lineTo(x - 65, -150)
-              ..lineTo(x + 65, -150)
-              ..lineTo(x + 65, 0),
-            line,
-          );
-          canvas.drawLine(Offset(x - 65, -150), Offset(x + 65, 0), line);
-          canvas.drawLine(Offset(x + 65, -150), Offset(x - 65, 0), line);
-        }
-      case '蜜月彩虹':
-        for (var i = 0; i < 4; i++) {
-          canvas.drawArc(
-            Rect.fromCenter(
-              center: const Offset(0, 0),
-              width: 300 - i * 25,
-              height: 300 - i * 25,
-            ),
-            math.pi,
-            math.pi,
-            false,
-            Paint()
-              ..color = [
-                palette.accent,
-                MacaronColors.rose,
-                MacaronColors.lemon,
-                MacaronColors.sky,
-              ][i].withValues(alpha: 0.28)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 10,
-          );
-        }
-    }
   }
 
   void _drawPlatformRows(
@@ -607,10 +156,6 @@ class TerrainRenderer extends PositionComponent {
     }
     if (!isSurface) return;
 
-    if (songTheme != null) {
-      _drawSongSurface(canvas, r, songTheme!);
-      return;
-    }
     if (_drawThemedSurface(canvas, r)) {
       return;
     }
@@ -712,10 +257,6 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawPlatformMaterial(Canvas canvas, Rect r) {
-    if (songTheme != null) {
-      _drawSongPlatform(canvas, r, songTheme!);
-      return;
-    }
     final seam = Paint()
       ..color = palette.groundDark.withValues(alpha: 0.42)
       ..strokeWidth = 1.5
@@ -886,139 +427,6 @@ class TerrainRenderer extends PositionComponent {
     }
   }
 
-  void _drawSongSurface(Canvas canvas, Rect r, SongWorldTheme theme) {
-    canvas.drawRect(
-      Rect.fromLTWH(r.left, r.top, r.width, 7),
-      Paint()..color = theme.light,
-    );
-    final ink = Paint()
-      ..color = theme.dark.withValues(alpha: .6)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    for (var x = r.left + 8; x < r.right; x += 16) {
-      switch (theme) {
-        case SongWorldTheme.firstLove:
-          canvas.drawArc(
-            Rect.fromCenter(center: Offset(x, r.top + 6), width: 11, height: 7),
-            0,
-            math.pi,
-            false,
-            ink,
-          );
-        case SongWorldTheme.whiteHorse:
-          canvas.drawLine(
-            Offset(x - 5, r.top + 12),
-            Offset(x + 5, r.top + 12),
-            ink,
-          );
-        case SongWorldTheme.reflection:
-          canvas.drawPath(
-            Path()
-              ..moveTo(x, r.top + 8)
-              ..lineTo(x + 4, r.top + 13)
-              ..lineTo(x, r.top + 18)
-              ..lineTo(x - 4, r.top + 13)
-              ..close(),
-            ink,
-          );
-        case SongWorldTheme.quietLove:
-          canvas.drawCircle(Offset(x, r.top + 11), 3, ink);
-        case SongWorldTheme.dawn:
-          canvas.drawLine(Offset(x, r.top + 7), Offset(x, r.top + 15), ink);
-        case SongWorldTheme.lost:
-          canvas.drawCircle(
-            Offset(x, r.top + 12),
-            2,
-            Paint()..color = theme.light,
-          );
-      }
-    }
-  }
-
-  void _drawSongPlatform(Canvas canvas, Rect r, SongWorldTheme theme) {
-    final ink = Paint()
-      ..color = theme.dark.withValues(alpha: .55)
-      ..strokeWidth = 1.7
-      ..style = PaintingStyle.stroke;
-    canvas.drawRect(
-      Rect.fromLTWH(r.left, r.top, r.width, 7),
-      Paint()..color = theme.light.withValues(alpha: .85),
-    );
-    for (var x = r.left + 12; x < r.right - 4; x += 28) {
-      switch (theme) {
-        case SongWorldTheme.firstLove:
-          canvas.drawRect(
-            Rect.fromCenter(
-              center: Offset(x, r.center.dy),
-              width: 19,
-              height: 13,
-            ),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x - 9, r.center.dy - 6),
-            Offset(x, r.center.dy + 1),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x, r.center.dy + 1),
-            Offset(x + 9, r.center.dy - 6),
-            ink,
-          );
-        case SongWorldTheme.whiteHorse:
-          canvas.drawRect(
-            Rect.fromCenter(
-              center: Offset(x, r.center.dy),
-              width: 25,
-              height: 16,
-            ),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x, r.center.dy - 8),
-            Offset(x, r.center.dy + 8),
-            ink,
-          );
-        case SongWorldTheme.reflection:
-          canvas.drawLine(
-            Offset(x - 10, r.bottom - 7),
-            Offset(x + 8, r.top + 8),
-            ink,
-          );
-        case SongWorldTheme.quietLove:
-          canvas.drawCircle(Offset(x, r.center.dy), 5, ink);
-          for (final dx in [-7.0, 7.0]) {
-            canvas.drawCircle(Offset(x + dx, r.center.dy), 3, ink);
-          }
-        case SongWorldTheme.dawn:
-          canvas.drawCircle(Offset(x, r.center.dy), 8, ink);
-          canvas.drawLine(
-            Offset(x, r.center.dy),
-            Offset(x, r.center.dy - 6),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x, r.center.dy),
-            Offset(x + 5, r.center.dy + 3),
-            ink,
-          );
-        case SongWorldTheme.lost:
-          canvas.drawPath(
-            Path()
-              ..moveTo(x - 8, r.center.dy - 5)
-              ..lineTo(x, r.center.dy)
-              ..lineTo(x - 8, r.center.dy + 5),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x, r.center.dy),
-            Offset(x + 8, r.center.dy),
-            ink,
-          );
-      }
-    }
-  }
-
   void _drawMeadowTurf(Canvas canvas, Rect r) {
     canvas.drawRect(
       Rect.fromLTWH(r.left, r.top, r.width, 10),
@@ -1122,22 +530,18 @@ class TerrainRenderer extends PositionComponent {
   }
 
   void _drawScenery(Canvas canvas) {
-    if (songTheme case final theme?) {
-      switch (theme) {
-        case SongWorldTheme.firstLove:
-          _alongGround(canvas, 240, _drawFlowerGarden);
-        case SongWorldTheme.whiteHorse:
-          _alongGround(canvas, 330, _drawHorseshoeLamp);
-        case SongWorldTheme.reflection:
-          _alongGround(canvas, 360, _drawCloudQuestion);
-        case SongWorldTheme.quietLove:
-          _alongGround(canvas, 240, _drawTaroLantern);
-        case SongWorldTheme.dawn:
-          _alongGround(canvas, 400, _drawDawnClock);
-        case SongWorldTheme.lost:
-          _alongGround(canvas, 360, _drawForkSign);
+    if (WorldArt.ready && worldIndex != null) {
+      for (final tile in solids) {
+        if (!tile.isGround || tile.rect.bottom > groundY + 0.5) continue;
+        final lane = (tile.rect.left / tile.rect.width).round();
+        if (_sceneValue(sceneSeed, lane, 47) % 13 != 0) continue;
+        WorldArt.draw(
+          canvas,
+          worldIndex!,
+          6,
+          Rect.fromLTWH(tile.rect.left, tile.rect.top - 52, 52, 52),
+        );
       }
-      if (groundY > 700) _drawSkySong(canvas);
       return;
     }
     switch (palette.name) {
@@ -1267,13 +671,7 @@ class TerrainRenderer extends PositionComponent {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
-          fontFamily: MacaronColors.fontFamily,
-          fontFamilyFallback: MacaronColors.fontFallback,
-          fontSize: size,
-          fontWeight: FontWeight.w900,
-          color: c,
-        ),
+        style: TextStyle(fontSize: size, fontWeight: FontWeight.w900, color: c),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -1852,63 +1250,25 @@ class WorldBackdrop extends PositionComponent {
     required this.palette,
     required this.mapWidth,
     required this.sceneSeed,
-    this.songTheme,
-    this.skyShift = 0,
+    this.worldIndex,
   }) : super(priority: -10);
 
   final WorldPalette palette;
   final double mapWidth;
   final int sceneSeed;
-  final SongWorldTheme? songTheme;
-  final double skyShift;
+  final int? worldIndex;
   ui.Picture? _picture;
-  ui.Image? _songBackground;
-  static final Map<SongWorldTheme, Future<ui.Image?>> _backgrounds = {};
-  Future<void>? _backgroundLoading;
-  bool _removed = false;
-  @visibleForTesting
-  bool get songBackgroundLoaded => _songBackground != null;
-  @visibleForTesting
-  Future<void> get backgroundLoading => _backgroundLoading ?? Future.value();
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuild();
-    if (songTheme case final theme?) {
-      _backgroundLoading = _loadSongBackground(theme);
-    }
-  }
-
-  static Future<ui.Image?> _decodeBackground(SongWorldTheme theme) async {
-    try {
-      final bytes = await rootBundle.load('assets/worlds/${theme.name}.png');
-      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
-      final image = (await codec.getNextFrame()).image;
-      codec.dispose();
-      return image;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _loadSongBackground(SongWorldTheme theme) async {
-    final image = await _backgrounds.putIfAbsent(
-      theme,
-      () => _decodeBackground(theme),
-    );
-    if (_removed || image == null) return;
-    _songBackground = image.clone();
-    _rebuild();
   }
 
   @override
   void onRemove() {
-    _removed = true;
     _picture?.dispose();
     _picture = null;
-    _songBackground?.dispose();
-    _songBackground = null;
     super.onRemove();
   }
 
@@ -1916,12 +1276,9 @@ class WorldBackdrop extends PositionComponent {
     _picture?.dispose();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    _drawSongBackground(canvas);
     _drawSceneTints(canvas);
-    if (_songBackground == null) {
-      _drawHills(canvas);
-      _drawClouds(canvas);
-    }
+    _drawHills(canvas);
+    _drawClouds(canvas);
     _picture = recorder.endRecording();
   }
 
@@ -1932,34 +1289,9 @@ class WorldBackdrop extends PositionComponent {
       canvas.drawPicture(pic);
       return;
     }
-    _drawSongBackground(canvas);
     _drawSceneTints(canvas);
     _drawHills(canvas);
     _drawClouds(canvas);
-  }
-
-  void _drawSongBackground(Canvas canvas) {
-    final background = _songBackground;
-    if (background == null) return;
-    final height = 640.0 + math.max(0.0, skyShift);
-    final width = height * background.width / background.height;
-    final src = Rect.fromLTWH(
-      0,
-      0,
-      background.width.toDouble(),
-      background.height.toDouble(),
-    );
-    final paint = Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..filterQuality = FilterQuality.medium;
-    for (var x = 0.0; x < mapWidth; x += width) {
-      canvas.drawImageRect(
-        background,
-        src,
-        Rect.fromLTWH(x, -math.max(0.0, skyShift), width, height),
-        paint,
-      );
-    }
   }
 
   void _drawSceneTints(Canvas canvas) {

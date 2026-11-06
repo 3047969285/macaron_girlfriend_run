@@ -7,9 +7,7 @@ import 'package:macaron_girlfriend_run/data/audio_service.dart';
 import 'package:macaron_girlfriend_run/data/enemy_kind.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_catalog.dart';
-import 'package:macaron_girlfriend_run/data/lyric_world.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
-import 'package:macaron_girlfriend_run/data/song_world_theme.dart';
 import 'package:macaron_girlfriend_run/game/effects/fx_layer.dart';
 import 'package:macaron_girlfriend_run/game/effects/parallax_layer.dart';
 import 'package:macaron_girlfriend_run/game/entities/entities.dart';
@@ -61,12 +59,6 @@ class MacaronGame extends FlameGame {
 
   late LevelData level;
   final WorldPalette palette;
-  SongWorldTheme get songTheme => SongWorldTheme.forWorld(worldIndex);
-  static const songRewardThreshold = 8;
-  int songRewardProgress = 0;
-  double _songMagnetTimer = 0;
-  @visibleForTesting
-  double get songMagnetRemaining => _songMagnetTimer;
   late GirlfriendPlayer player;
   late Vector2 spawnPoint;
 
@@ -263,8 +255,6 @@ class MacaronGame extends FlameGame {
     comboCount = 0;
     _comboTimer = 0;
     _peaBuddyTimer = 0;
-    songRewardProgress = 0;
-    _songMagnetTimer = 0;
     vehicleTimer = 0;
     _clearVehicleDrive();
     _gunCooldown = 0;
@@ -281,20 +271,15 @@ class MacaronGame extends FlameGame {
     // 上面留给渐变天空。
     final skyShift = (level.height - 14) * tile;
     parallax = ParallaxLayer(
+      worldIndex: worldIndex,
       mapWidth: mapWidth,
       farColor: palette.parallaxFar,
       midColor: palette.parallaxMid,
-      theme: songTheme,
     )..position.y = skyShift;
     world.add(parallax!);
     world.add(
-      WorldBackdrop(
-        palette: palette,
-        mapWidth: mapWidth,
-        sceneSeed: sceneSeed,
-        songTheme: songTheme,
-        skyShift: skyShift,
-      )..position.y = skyShift,
+      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
+        ..position.y = skyShift,
     );
     ambient = AmbientSparkles(
       mapWidth: mapWidth,
@@ -351,10 +336,7 @@ class MacaronGame extends FlameGame {
           case 'C':
             if (coins.length < 96) {
               coins.add(
-                MacaronCoin(
-                  position: Vector2(px + tile / 2, py + tile / 2),
-                  theme: songTheme,
-                ),
+                MacaronCoin(position: Vector2(px + tile / 2, py + tile / 2)),
               );
             }
             break;
@@ -447,15 +429,11 @@ class MacaronGame extends FlameGame {
     world.add(
       TerrainRenderer(
         solids: terrain,
+        worldIndex: worldIndex,
         palette: palette,
         mapWidth: mapWidth,
         groundY: groundY,
         sceneSeed: sceneSeed,
-        lyricChapter: levelIndex < GameConstants.depthLevelIndex
-            ? LyricWorld.chapterFor(worldIndex, levelIndex)
-            : null,
-        songTheme: songTheme,
-        scenes: LevelCatalog.scenesOf(worldIndex, levelIndex),
       ),
     );
     for (final component in <Component>[
@@ -479,7 +457,6 @@ class MacaronGame extends FlameGame {
     final cosmetic = SaveService.instance.equippedCosmeticId;
     player = GirlfriendPlayer(role: role, cosmeticId: cosmetic)
       ..position = spawnPoint.clone()
-      ..hasWhiteHorse = songTheme == SongWorldTheme.whiteHorse
       ..isDriving = false
       ..holdingCandyGun = false;
     world.add(player);
@@ -566,6 +543,31 @@ class MacaronGame extends FlameGame {
     if (enemies.length >= GameConstants.maxActiveEnemies) {
       return;
     }
+    // 高层手工敌人同样需要避开终点跑道，保留数量与种类并寻找独立巡逻空间。
+    if (px > (level.width - 7) * tile) {
+      int? destination;
+      for (var x = level.width - 8; x >= 10 && destination == null; x--) {
+        var safe = true;
+        for (var near = x - 6; near <= x + 6 && safe; near++) {
+          if (near < 0 || near >= level.width) {
+            safe = false;
+            break;
+          }
+          for (var row = 0; row < level.height - 2; row++) {
+            if ('AEGRTLYJBSKD'.contains(level.tileAt(near, row))) {
+              safe = false;
+              break;
+            }
+          }
+          if ((near - x).abs() <= 4 &&
+              level.tileAt(near, level.height - 2) != '#')
+            safe = false;
+        }
+        if (safe) destination = x;
+      }
+      if (destination == null) throw StateError('终点敌人缺少安全巡逻位置');
+      px = destination * tile;
+    }
     // 巡逻边界统一由 EnemyPatrol 计算（纯逻辑，可单测），
     // 其中包含相邻敌人之间的反应间距收紧。
     final (patrolLeftX, patrolRightX) = EnemyPatrol.boundsFor(
@@ -576,6 +578,7 @@ class MacaronGame extends FlameGame {
     enemies.add(
       SoftEnemy(
         position: Vector2(px + tile / 2, py + tile),
+        worldIndex: worldIndex,
         leftBound: patrolLeftX,
         rightBound: patrolRightX,
         difficulty: level.difficulty,
@@ -583,7 +586,6 @@ class MacaronGame extends FlameGame {
             GameConstants.enemySpeedFor(level.difficulty) *
             (kind == EnemyKind.hopper ? 1.15 : 1.0),
         kind: kind,
-        theme: songTheme,
         onSkillCue: (at, skillKind) {
           fx.enemySkill(at, skillKind);
           AudioService.instance.enemySkill();
@@ -603,7 +605,6 @@ class MacaronGame extends FlameGame {
       position: at,
       direction: direction,
       speed: GameConstants.enemyProjectileSpeedFor(level.difficulty),
-      theme: songTheme,
     );
     _enemyShots.add(shot);
     world.add(shot);
@@ -1203,7 +1204,6 @@ class MacaronGame extends FlameGame {
     gunTimer = (gunTimer - clampedDt).clamp(0.0, 20.0);
     vehicleTimer = (vehicleTimer - clampedDt).clamp(0.0, 10.0);
     _peaBuddyTimer = (_peaBuddyTimer - clampedDt).clamp(0.0, 30.0);
-    _songMagnetTimer = math.max(0, _songMagnetTimer - clampedDt);
     _gunCooldown = (_gunCooldown - clampedDt).clamp(0.0, 2.0);
     _plantShotCooldown = (_plantShotCooldown - clampedDt).clamp(0.0, 10.0);
     _updateBonusModes(clampedDt);
@@ -1279,10 +1279,7 @@ class MacaronGame extends FlameGame {
       if (solid.right > player.position.x - player.size.x / 2 &&
           solid.left < player.position.x + player.size.x / 2 &&
           solid.bottom <= box.top) {
-        player.crouchVisualClearance = math.min(
-          player.crouchVisualClearance,
-          box.bottom - solid.bottom,
-        );
+        player.crouchVisualClearance = math.min(player.crouchVisualClearance, box.bottom - solid.bottom);
       }
     }
   }
@@ -1411,8 +1408,8 @@ class MacaronGame extends FlameGame {
       player.jumpBufferTimer = 0;
     }
 
-    player.velocity.y += GameConstants.gravity * dt;
     final flying = planeTimer > 0;
+    if (!flying) player.velocity.y += GameConstants.gravity * dt;
     if (flying) {
       // 飞机：完全自由飞行。摇杆 / 方向键控制四个方向，也可以按住「跳」上升、
       // 按住「蹲」下降；什么都不按就停在原地悬停。
@@ -1684,7 +1681,7 @@ class MacaronGame extends FlameGame {
     final roll = (b.position.x ~/ 48) % 3;
     final pos = Vector2(b.position.x + 24, b.position.y - 20);
     if (roll == 0) {
-      final c = MacaronCoin(position: pos, theme: songTheme);
+      final c = MacaronCoin(position: pos);
       coins.add(c);
       totalCoins++;
       world.add(c);
@@ -1731,8 +1728,7 @@ class MacaronGame extends FlameGame {
   void _attractCoins(double dt) {
     // 拿着 AK-47 时是“零元购”：吸力范围翻倍，路过的糖果全拿走。
     final freeShopping = gunTimer > 0;
-    if ((!player.poweredUp && !freeShopping && _songMagnetTimer <= 0) ||
-        player.dead) {
+    if ((!player.poweredUp && !freeShopping) || player.dead) {
       return;
     }
     final radius = freeShopping ? coinMagnetRadius * 2.4 : coinMagnetRadius;
@@ -1772,42 +1768,10 @@ class MacaronGame extends FlameGame {
         collected++;
         player.coins++;
         score += GameConstants.coinScore;
-        songRewardProgress++;
-        if (songRewardProgress >= songRewardThreshold) {
-          songRewardProgress = 0;
-          _activateSongReward();
-        }
         AudioService.instance.coin();
         fx.coinSparkle(coin.position.clone());
       }
     }
-  }
-
-  void _activateSongReward() {
-    switch (songTheme) {
-      case SongWorldTheme.firstLove:
-        player.invincibleTimer = math.max(player.invincibleTimer, 1.2);
-      case SongWorldTheme.whiteHorse:
-        _skillCooldowns[HeroSkill.dash] = 0;
-      case SongWorldTheme.reflection:
-        _skillCooldowns[HeroSkill.shield] = 0;
-      case SongWorldTheme.quietLove:
-        _songMagnetTimer = 4;
-      case SongWorldTheme.dawn:
-        timeLeft = math.min(
-          timeLeft + 2,
-          GameConstants.timeLimitFor(
-            level.difficulty,
-            mapWidth: level.width,
-          ).toDouble(),
-        );
-      case SongWorldTheme.lost:
-        _skillCooldowns[HeroSkill.grapple] = 0;
-    }
-    fx.heroCallout(
-      songTheme.rewardName,
-      player.position + Vector2(0, -player.hitHeight),
-    );
   }
 
   void _resolveBlocks() {
@@ -1931,7 +1895,7 @@ class MacaronGame extends FlameGame {
     }
   }
 
-  /// 更新道具状态与飞机收尾音。
+  /// 道具计时、状态同步和音乐切换（理想进行曲 / 口香糖旋律 / 飞机收尾音）。
   void _updateBonusModes(double dt) {
     final hadPlane = planeTimer > 0;
     superTimer = (superTimer - dt).clamp(0.0, superDuration);
@@ -1948,6 +1912,13 @@ class MacaronGame extends FlameGame {
         player.position + Vector2(-30, -player.hitHeight),
       );
       AudioService.instance.mambaOut();
+    }
+    final audio = AudioService.instance;
+    final want = gumTimer > 0 ? 'gum' : (vehicleTimer > 0 ? 'march' : null);
+    if (want != null) {
+      audio.startTheme(want);
+    } else if (audio.marchPlaying) {
+      audio.stopTheme();
     }
     if (superTimer > 0 && _beamCooldown <= 0) {
       _fireEyeBeam();
@@ -2203,7 +2174,6 @@ class MacaronGame extends FlameGame {
     for (var i = 0; i < 6; i++) {
       final coin = MacaronCoin(
         position: boss.position + Vector2((i - 2.5) * 16.0, -40),
-        theme: songTheme,
       );
       coins.add(coin);
       totalCoins++;
