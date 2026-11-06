@@ -37,6 +37,8 @@ class SongMusicController {
       song == 1 ? const Duration(seconds: 33) : Duration.zero;
 
   int? get currentSong => _song;
+  Duration? get currentPosition =>
+      _loaded && !_paused && _desiredPlaying ? _position : null;
   bool get needsRetry =>
       _owner != null && _desiredPlaying && (!_loaded || _paused) && enabled();
 

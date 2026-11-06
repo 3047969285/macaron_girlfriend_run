@@ -170,6 +170,9 @@ class AudioService {
   Uint8List? _mambaBytes;
 
   bool get marchPlaying => _marchPlaying;
+  int? get currentSong => _marchPlaying ? null : _music.currentSong;
+  Duration? get currentSongPosition =>
+      _marchPlaying ? null : _music.currentPosition;
 
   /// 当前道具主题（'march' 驾驶进行曲 / 'gum' 口香糖），没有则为 null。
   String? get theme => _marchPlaying ? _theme : null;

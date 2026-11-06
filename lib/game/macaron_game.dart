@@ -45,6 +45,7 @@ class MacaronGame extends FlameGame {
     required this.worldIndex,
     required this.levelIndex,
     required this.role,
+    this.enableSyncedLyrics = false,
     this.onHudChanged,
     this.onWin,
     this.onLoseLife,
@@ -54,6 +55,7 @@ class MacaronGame extends FlameGame {
   final int worldIndex;
   final int levelIndex;
   final PlayerRole role;
+  final bool enableSyncedLyrics;
   final VoidCallback? onHudChanged;
   final void Function(LevelResult result)? onWin;
   final VoidCallback? onLoseLife;
@@ -436,6 +438,7 @@ class MacaronGame extends FlameGame {
     world.add(
       TerrainRenderer(
         solids: terrain,
+        enableSyncedLyrics: enableSyncedLyrics,
         worldIndex: worldIndex,
         lyricChapter: levelIndex < GameConstants.depthLevelIndex
             ? LyricWorld.chapterFor(worldIndex, levelIndex)

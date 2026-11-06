@@ -6,6 +6,8 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/song_profile.dart';
+import 'package:macaron_girlfriend_run/data/audio_service.dart';
+import 'package:macaron_girlfriend_run/data/synced_lyrics.dart';
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_scenes.dart';
 import 'package:macaron_girlfriend_run/data/lyric_world.dart';
@@ -37,6 +39,7 @@ class TerrainRenderer extends PositionComponent {
     required this.groundY,
     required this.sceneSeed,
     this.worldIndex,
+    this.enableSyncedLyrics = false,
     this.lyricChapter,
     this.scenes = const [],
     this.songTheme,
@@ -48,20 +51,123 @@ class TerrainRenderer extends PositionComponent {
   final double groundY;
   final int sceneSeed;
   final int? worldIndex;
+  final bool enableSyncedLyrics;
   final LyricChapter? lyricChapter;
   final List<PlacedScene> scenes;
   final SongWorldTheme? songTheme;
 
   ui.Picture? _picture;
+  List<LyricLine> _lyrics = const [];
+  List<Rect> _lyricAreas = const [];
+  TextPainter? _lyricPainter;
+  String? _paintedLyric;
+  bool _removed = false;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuildPicture();
+    if (enableSyncedLyrics && worldIndex != null) {
+      _lyricAreas = _makeLyricAreas();
+      unawaited(_loadLyrics());
+    }
+  }
+
+  Future<void> _loadLyrics() async {
+    final result = await SyncedLyrics.instance.load(
+      SongProfile.songIndexOf(worldIndex!),
+    );
+    if (!_removed) _lyrics = result;
+  }
+
+  List<Rect> _makeLyricAreas() {
+    final rows = <double, List<Rect>>{};
+    for (final tile in solids) {
+      if (tile.isDuckCeiling ||
+          (tile.isGround && tile.rect.bottom > groundY + .5)) {
+        continue;
+      }
+      (rows[tile.rect.top] ??= []).add(tile.rect);
+    }
+    final areas = <Rect>[];
+    for (final row in rows.values) {
+      row.sort((a, b) => a.left.compareTo(b.left));
+      var area = row.first;
+      for (final next in row.skip(1)) {
+        if (next.left <= area.right + .5 &&
+            (next.height - area.height).abs() < .5) {
+          area = area.expandToInclude(next);
+        } else {
+          areas.add(area);
+          area = next;
+        }
+      }
+      areas.add(area);
+    }
+    return areas;
+  }
+
+  void _drawLiveLyrics(Canvas canvas) {
+    final audio = AudioService.instance;
+    final time = audio.currentSongPosition;
+    final song = worldIndex == null
+        ? null
+        : SongProfile.songIndexOf(worldIndex!);
+    final lyric = time == null || audio.currentSong != song
+        ? null
+        : SyncedLyrics.lineAt(_lyrics, time);
+    if (lyric == null) return;
+    if (_paintedLyric != lyric) {
+      _lyricPainter?.dispose();
+      _paintedLyric = lyric;
+      _lyricPainter = TextPainter(
+        text: TextSpan(
+          text: lyric,
+          style: TextStyle(
+            fontFamily: MacaronColors.fontFamily,
+            fontFamilyFallback: MacaronColors.fontFallback,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF352A32),
+            shadows: const [Shadow(color: Colors.white, blurRadius: 3)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+    }
+    final painter = _lyricPainter!;
+    final clip = canvas.getLocalClipBounds();
+    for (final area in _lyricAreas) {
+      if (!area.overlaps(clip) || area.width < 24) continue;
+      canvas.save();
+      canvas.clipRect(area);
+      final segment = math.min(300.0, area.width);
+      final scale = math.min(1.0, (segment - 8) / math.max(1, painter.width));
+      final first = math.max(0, ((clip.left - area.left) / segment).floor());
+      for (
+        var x = area.left + first * segment;
+        x < area.right && x < clip.right;
+        x += segment
+      ) {
+        final width = math.min(segment, area.right - x);
+        canvas.save();
+        canvas.translate(
+          x + (width - painter.width * scale) / 2,
+          area.center.dy - painter.height * scale / 2,
+        );
+        canvas.scale(scale);
+        painter.paint(canvas, Offset.zero);
+        canvas.restore();
+      }
+      canvas.restore();
+    }
   }
 
   @override
   void onRemove() {
+    _removed = true;
+    _lyricPainter?.dispose();
     _picture?.dispose();
     _picture = null;
     super.onRemove();
@@ -81,10 +187,12 @@ class TerrainRenderer extends PositionComponent {
     final pic = _picture;
     if (pic != null) {
       canvas.drawPicture(pic);
+      if (enableSyncedLyrics) _drawLiveLyrics(canvas);
       return;
     }
     _drawTerrain(canvas);
     _drawScenery(canvas);
+    if (enableSyncedLyrics) _drawLiveLyrics(canvas);
   }
 
   void _drawTerrain(Canvas canvas) {
@@ -951,24 +1059,7 @@ class TerrainRenderer extends PositionComponent {
     for (var x = r.left + 12; x < r.right - 4; x += 28) {
       switch (theme) {
         case SongWorldTheme.firstLove:
-          canvas.drawRect(
-            Rect.fromCenter(
-              center: Offset(x, r.center.dy),
-              width: 19,
-              height: 13,
-            ),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x - 9, r.center.dy - 6),
-            Offset(x, r.center.dy + 1),
-            ink,
-          );
-          canvas.drawLine(
-            Offset(x, r.center.dy + 1),
-            Offset(x + 9, r.center.dy - 6),
-            ink,
-          );
+          break;
         case SongWorldTheme.whiteHorse:
           canvas.drawRect(
             Rect.fromCenter(

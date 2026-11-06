@@ -68,6 +68,7 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     _showTutorial = false;
     SaveService.instance.setLastPlayed(widget.worldIndex, widget.levelIndex);
     game = MacaronGame(
+      enableSyncedLyrics: true,
       worldIndex: widget.worldIndex,
       levelIndex: widget.levelIndex,
       role: SaveService.instance.playerRole,

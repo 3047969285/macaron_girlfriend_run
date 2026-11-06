@@ -61,6 +61,20 @@ void main() {
     );
   });
 
+  test('歌词读取当前播放位置，暂停时不显示并在恢复后继续', () async {
+    final owner = Object();
+    await music.start(0, owner);
+    player.current = const Duration(seconds: 12);
+    music.onPosition(player.current);
+    expect(music.currentPosition, const Duration(seconds: 12));
+    await music.pause();
+    expect(music.currentPosition, isNull);
+    await music.resume();
+    expect(music.currentPosition, const Duration(seconds: 12));
+    await music.start(1, owner);
+    expect(music.currentPosition, const Duration(seconds: 33));
+  });
+
   test('song positions survive reinitialising the real save service', () async {
     SharedPreferences.setMockInitialValues({});
     await SaveService.instance.init();
