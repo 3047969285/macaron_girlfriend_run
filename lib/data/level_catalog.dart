@@ -439,8 +439,14 @@ class LevelCatalog {
       case 5:
         _worldRoseCastle(grid, level);
         break;
+      case 6:
+        _worldBlueberry(grid, level);
+        break;
+      case 7:
+        _worldCaramelMine(grid, level);
+        break;
       default:
-        _worldRoseCastle(grid, level);
+        _worldHoneymoon(grid, level);
         break;
     }
 
@@ -475,6 +481,20 @@ class LevelCatalog {
     _placeStagePlatforms(grid, world, level);
     // 最后限流：只删普通巡逻怪，不改动前面各层已经定型的平台与路线。
     _capWalkerDensity(grid, world, level);
+    if (world >= 6) {
+      final ground = grid.length - 3;
+      for (var x = 0; x < grid.first.length; x++) {
+        if (grid[ground][x] != 'S') continue;
+        for (
+          var landing = x + 1;
+          landing <= x + 8 && landing < grid.first.length;
+          landing++
+        ) {
+          grid[ground + 1][landing] = '#';
+          grid[ground + 2][landing] = '#';
+        }
+      }
+    }
 
     return grid.map((r) => r.join()).toList();
   }
@@ -488,6 +508,9 @@ class LevelCatalog {
     7.5,
     7.8,
     8.6,
+    7.5,
+    9.0,
+    7.0,
   ];
   static const densityRampPerLevel = 0.1;
   static const minWalkersKept = 2;
@@ -1223,10 +1246,12 @@ class LevelCatalog {
           continue;
         }
         // 屋顶也是落脚点，上方不能紧贴另一层平台形成死角。
-        if (List.generate(length + 4, (i) => candidate - 2 + i).any(
-          (x) => '#=?D'.contains(grid[ground - 3][x]) ||
-              '#=?D'.contains(grid[ground - 4][x]),
-        )) {
+        if (world < 6 &&
+            List.generate(length + 4, (i) => candidate - 2 + i).any(
+              (x) =>
+                  '#=?D'.contains(grid[ground - 3][x]) ||
+                  '#=?D'.contains(grid[ground - 4][x]),
+            )) {
           continue;
         }
         final runwayOverlapsBossPatrol =
@@ -1762,55 +1787,124 @@ class LevelCatalog {
     }
   }
 
+  static void _worldBlueberry(List<List<String>> g, int level) {
+    final ground = g.length - 3;
+    for (var i = 0; i < 10 + level; i++) {
+      final x = 6 + i * 3;
+      final y = ground - 2 - ((i + level) % 4);
+      _platform(g, x, y, 1 + (i % 2));
+      if (i % 3 == 0) {
+        _coin(g, x, y - 1);
+      }
+      if (i % 4 == 0) {
+        _enemy(g, x + 4, ground);
+      }
+    }
+    for (var x = 8; x < g.first.length - 8; x += 8) {
+      _gap(g, x, 2);
+    }
+  }
+
+  static void _worldCaramelMine(List<List<String>> g, int level) {
+    final ground = g.length - 3;
+    for (var x = 5; x < g.first.length - 5; x += 4) {
+      if ((x ~/ 4 + level).isOdd) {
+        _platform(g, x, ground - 2, 3);
+        _platform(g, x + 1, ground - 4, 2);
+        _coin(g, x + 1, ground - 5);
+      } else {
+        _gap(g, x, 2);
+        _enemy(g, x - 1, ground);
+      }
+    }
+    if (level >= 8) {
+      _platform(g, g.first.length ~/ 3, ground - 5, 6);
+      for (var i = 0; i < 6; i++) {
+        _coin(g, g.first.length ~/ 3 + i, ground - 6);
+      }
+    }
+  }
+
+  static void _worldHoneymoon(List<List<String>> g, int level) {
+    final ground = g.length - 3;
+    for (var i = 0; i < 12 + level; i++) {
+      final x = 5 + i * 3;
+      final y = ground - 2 - ((i + level) % 4);
+      _platform(g, x, y, 2);
+      _coin(g, x, y - 1);
+      if (i % 5 == 0) {
+        _enemy(g, x + 2, ground);
+      }
+    }
+    for (var x = 12; x < g.first.length - 12; x += 6 + level ~/ 3) {
+      _gap(g, x, 2);
+    }
+  }
+
   static void _worldCreamMeadow(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 晨雾小径 — 前奏：轻柔入场，几乎没有威胁
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _put(g, 10, ground - 1, '?');
         _platform(g, 16, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 16 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 16 + i, ground - 3);
+        }
         _platform(g, 28, ground - 1, 3);
         _coin(g, 29, ground - 2);
         _platform(g, 38, ground - 3, 4);
-        _coin(g, 39, ground - 4); _coin(g, 40, ground - 4);
+        _coin(g, 39, ground - 4);
+        _coin(g, 40, ground - 4);
         _put(g, 41, ground - 3, '?');
         _platform(g, 50, ground - 2, 3);
         _coin(g, 51, ground - 3);
         _platform(g, 62, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 63 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 63 + i, ground - 2);
+        }
         _enemy(g, 70, ground);
         _platform(g, 78, ground - 2, 4);
-        _coin(g, 79, ground - 3); _coin(g, 80, ground - 3);
+        _coin(g, 79, ground - 3);
+        _coin(g, 80, ground - 3);
         _platform(g, 90, ground - 3, 3);
         _put(g, 91, ground - 3, '?');
         _platform(g, 100, ground - 1, 4);
-        _coin(g, 101, ground - 2); _coin(g, 102, ground - 2);
+        _coin(g, 101, ground - 2);
+        _coin(g, 102, ground - 2);
         _put(g, 110, ground, 'S');
         _platform(g, 118, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 119 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 119 + i, ground - 3);
+        }
       case 1: // 清水湾 — 主歌A：节奏舒缓，引入小怪
         _platform(g, 6, ground - 1, 3);
         _coin(g, 7, ground - 2);
         _platform(g, 14, ground - 2, 4);
-        _coin(g, 15, ground - 3); _coin(g, 16, ground - 3);
+        _coin(g, 15, ground - 3);
+        _coin(g, 16, ground - 3);
         _enemy(g, 20, ground);
         _platform(g, 26, ground - 3, 3);
         _put(g, 27, ground - 3, '?');
         _coin(g, 27, ground - 4);
         _platform(g, 36, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 37 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 37 + i, ground - 2);
+        }
         _enemy(g, 44, ground);
         _platform(g, 50, ground - 2, 4);
-        _coin(g, 51, ground - 3); _coin(g, 52, ground - 3);
+        _coin(g, 51, ground - 3);
+        _coin(g, 52, ground - 3);
         _put(g, 53, ground - 2, '?');
         _platform(g, 62, ground - 3, 3);
         _coin(g, 63, ground - 4);
         _put(g, 70, ground, 'S');
         _platform(g, 78, ground - 2, 5);
-        _coin(g, 79, ground - 3); _coin(g, 80, ground - 3); _coin(g, 81, ground - 3);
+        _coin(g, 79, ground - 3);
+        _coin(g, 80, ground - 3);
+        _coin(g, 81, ground - 3);
         _enemy(g, 88, ground);
         _platform(g, 94, ground - 1, 4);
         _put(g, 95, ground - 1, '?');
@@ -1818,13 +1912,17 @@ class LevelCatalog {
         _coin(g, 105, ground - 4);
         _enemy(g, 112, ground);
         _platform(g, 120, ground - 2, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 121 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 121 + i, ground - 3);
+        }
         _platform(g, 134, ground - 1, 5);
-        _coin(g, 135, ground - 2); _coin(g, 136, ground - 2);
+        _coin(g, 135, ground - 2);
+        _coin(g, 136, ground - 2);
         _put(g, 140, ground - 2, 'H');
       case 2: // 素净坡 — 主歌B：引入坑洞，节奏渐起
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _gap(g, 14, 2);
         _platform(g, 18, ground - 1, 3);
         _coin(g, 19, ground - 2);
@@ -1837,11 +1935,14 @@ class LevelCatalog {
         _coin(g, 43, ground - 3);
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 55 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 55 + i, ground - 4);
+        }
         _enemy(g, 62, ground);
         _gap(g, 68, 2);
         _platform(g, 72, ground - 2, 4);
-        _coin(g, 73, ground - 3); _coin(g, 74, ground - 3);
+        _coin(g, 73, ground - 3);
+        _coin(g, 74, ground - 3);
         _platform(g, 82, ground - 1, 3);
         _put(g, 83, ground - 1, '?');
         _enemy(g, 90, ground);
@@ -1849,7 +1950,9 @@ class LevelCatalog {
         _platform(g, 100, ground - 3, 3);
         _coin(g, 101, ground - 4);
         _platform(g, 110, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 111 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 111 + i, ground - 3);
+        }
         _enemy(g, 120, ground);
         _platform(g, 128, ground - 1, 4);
         _put(g, 130, ground - 2, 'M');
@@ -1857,10 +1960,13 @@ class LevelCatalog {
         _coin(g, 141, ground - 4);
         _gap(g, 148, 2);
         _platform(g, 154, ground - 2, 4);
-        _coin(g, 155, ground - 3); _coin(g, 156, ground - 3);
+        _coin(g, 155, ground - 3);
+        _coin(g, 156, ground - 3);
       case 3: // 白纱河堤 — 副歌前奏：情绪铺垫，平台跳跃增多
         _platform(g, 6, ground - 2, 5);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3); _coin(g, 9, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
+        _coin(g, 9, ground - 3);
         _put(g, 10, ground - 2, '?');
         _enemy(g, 16, ground);
         _gap(g, 22, 2);
@@ -1870,10 +1976,13 @@ class LevelCatalog {
         _put(g, 35, ground - 1, '?');
         _gap(g, 42, 3);
         _platform(g, 47, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 48 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 48 + i, ground - 3);
+        }
         _enemy(g, 56, ground);
         _platform(g, 62, ground - 3, 4);
-        _coin(g, 63, ground - 4); _coin(g, 64, ground - 4);
+        _coin(g, 63, ground - 4);
+        _coin(g, 64, ground - 4);
         _put(g, 65, ground - 3, '?');
         _put(g, 72, ground, 'S');
         _platform(g, 78, ground - 4, 3);
@@ -1882,14 +1991,17 @@ class LevelCatalog {
         _gap(g, 86, 2);
         _enemy(g, 92, ground);
         _platform(g, 98, ground - 2, 5);
-        _coin(g, 99, ground - 3); _coin(g, 100, ground - 3); _coin(g, 101, ground - 3);
+        _coin(g, 99, ground - 3);
+        _coin(g, 100, ground - 3);
+        _coin(g, 101, ground - 3);
         _gap(g, 108, 3);
         _platform(g, 114, ground - 3, 4);
         _put(g, 115, ground - 3, '?');
         _coin(g, 116, ground - 4);
         _enemy(g, 124, ground);
         _platform(g, 132, ground - 1, 5);
-        _coin(g, 133, ground - 2); _coin(g, 134, ground - 2);
+        _coin(g, 133, ground - 2);
+        _coin(g, 134, ground - 2);
         _gap(g, 142, 2);
         _platform(g, 148, ground - 2, 4);
         _put(g, 150, ground - 3, 'H');
@@ -1897,33 +2009,42 @@ class LevelCatalog {
         _coin(g, 161, ground - 4);
         _enemy(g, 168, ground);
         _platform(g, 174, ground - 2, 4);
-        _coin(g, 175, ground - 3); _coin(g, 176, ground - 3);
+        _coin(g, 175, ground - 3);
+        _coin(g, 176, ground - 3);
       case 4: // 露珠高台 — 副歌：情绪释放，大开大合
         _platform(g, 6, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 10, ground - 3, '?');
         _gap(g, 16, 3);
         _platform(g, 21, ground - 2, 4);
         _enemy(g, 25, ground);
         _platform(g, 32, ground - 4, 3);
-        _coin(g, 33, ground - 5); _coin(g, 34, ground - 5);
+        _coin(g, 33, ground - 5);
+        _coin(g, 34, ground - 5);
         _put(g, 33, ground - 4, 'M');
         _put(g, 40, ground, 'S');
         _gap(g, 46, 2);
         _platform(g, 50, ground - 3, 5);
-        _coin(g, 51, ground - 4); _coin(g, 52, ground - 4); _coin(g, 53, ground - 4);
+        _coin(g, 51, ground - 4);
+        _coin(g, 52, ground - 4);
+        _coin(g, 53, ground - 4);
         _put(g, 54, ground - 3, '?');
         _enemy(g, 60, ground);
         _gap(g, 66, 3);
         _platform(g, 72, ground - 2, 4);
         _put(g, 74, ground - 3, 'H');
         _platform(g, 82, ground - 4, 3);
-        _coin(g, 83, ground - 5); _coin(g, 84, ground - 5);
+        _coin(g, 83, ground - 5);
+        _coin(g, 84, ground - 5);
         _enemy(g, 90, ground);
         _put(g, 96, ground, 'S');
         _gap(g, 102, 2);
         _platform(g, 108, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 108 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 108 + i, ground - 4);
+        }
         _enemy(g, 118, ground);
         _gap(g, 124, 3);
         _platform(g, 130, ground - 2, 4);
@@ -1933,44 +2054,56 @@ class LevelCatalog {
         _put(g, 142, ground - 4, 'M');
         _enemy(g, 150, ground);
         _platform(g, 158, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 159 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 159 + i, ground - 4);
+        }
         _gap(g, 168, 2);
         _platform(g, 174, ground - 1, 4);
-        _coin(g, 175, ground - 2); _coin(g, 176, ground - 2);
+        _coin(g, 175, ground - 2);
+        _coin(g, 176, ground - 2);
         _put(g, 184, ground, 'S');
         _platform(g, 190, ground - 3, 4);
-        _coin(g, 191, ground - 4); _coin(g, 192, ground - 4);
+        _coin(g, 191, ground - 4);
+        _coin(g, 192, ground - 4);
       case 5: // 淡妆峡谷 — 间奏：节奏放缓，探索感
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _platform(g, 14, ground - 4, 3);
         _put(g, 15, ground - 4, '?');
         _coin(g, 15, ground - 5);
         _gap(g, 22, 2);
         _enemy(g, 28, ground);
         _platform(g, 34, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 35 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 35 + i, ground - 4);
+        }
         _put(g, 38, ground - 3, 'M');
         _put(g, 44, ground, 'S');
         _platform(g, 50, ground - 2, 3);
         _coin(g, 51, ground - 3);
         _gap(g, 58, 3);
         _platform(g, 64, ground - 3, 4);
-        _coin(g, 65, ground - 4); _coin(g, 66, ground - 4);
+        _coin(g, 65, ground - 4);
+        _coin(g, 66, ground - 4);
         _put(g, 67, ground - 3, '?');
         _enemy(g, 74, ground);
         _platform(g, 80, ground - 1, 5);
-        _coin(g, 81, ground - 2); _coin(g, 82, ground - 2);
+        _coin(g, 81, ground - 2);
+        _coin(g, 82, ground - 2);
         _gap(g, 90, 2);
         _platform(g, 96, ground - 4, 3);
         _put(g, 97, ground - 5, 'H');
         _enemy(g, 104, ground);
         _put(g, 110, ground, 'S');
         _platform(g, 116, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 117 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 117 + i, ground - 4);
+        }
         _gap(g, 126, 2);
         _platform(g, 132, ground - 2, 4);
-        _coin(g, 133, ground - 3); _coin(g, 134, ground - 3);
+        _coin(g, 133, ground - 3);
+        _coin(g, 134, ground - 3);
         _enemy(g, 142, ground);
         _platform(g, 148, ground - 3, 3);
         _put(g, 149, ground - 3, '?');
@@ -1978,37 +2111,46 @@ class LevelCatalog {
         _coin(g, 159, ground - 2);
         _gap(g, 166, 3);
         _platform(g, 172, ground - 2, 5);
-        _coin(g, 173, ground - 3); _coin(g, 174, ground - 3);
+        _coin(g, 173, ground - 3);
+        _coin(g, 174, ground - 3);
         _enemy(g, 182, ground);
         _platform(g, 188, ground - 4, 3);
         _put(g, 189, ground - 4, 'M');
         _platform(g, 198, ground - 2, 4);
-        _coin(g, 199, ground - 3); _coin(g, 200, ground - 3);
+        _coin(g, 199, ground - 3);
+        _coin(g, 200, ground - 3);
         _put(g, 208, ground, 'S');
       case 6: // 微光桥 — 主歌2：温暖回忆，平稳但有层次
         _platform(g, 6, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 2);
+        }
         _platform(g, 16, ground - 3, 3);
         _put(g, 17, ground - 3, '?');
         _coin(g, 17, ground - 4);
         _enemy(g, 24, ground);
         _gap(g, 30, 2);
         _platform(g, 34, ground - 2, 5);
-        _coin(g, 35, ground - 3); _coin(g, 36, ground - 3); _coin(g, 37, ground - 3);
+        _coin(g, 35, ground - 3);
+        _coin(g, 36, ground - 3);
+        _coin(g, 37, ground - 3);
         _platform(g, 44, ground - 4, 3);
         _put(g, 45, ground - 4, 'M');
         _enemy(g, 52, ground);
         _put(g, 58, ground, 'S');
         _gap(g, 64, 3);
         _platform(g, 70, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 70 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 70 + i, ground - 4);
+        }
         _put(g, 74, ground - 3, '?');
         _platform(g, 82, ground - 1, 4);
         _coin(g, 83, ground - 2);
         _enemy(g, 90, ground);
         _gap(g, 96, 2);
         _platform(g, 102, ground - 3, 4);
-        _coin(g, 103, ground - 4); _coin(g, 104, ground - 4);
+        _coin(g, 103, ground - 4);
+        _coin(g, 104, ground - 4);
         _put(g, 105, ground - 3, '?');
         _put(g, 112, ground, 'S');
         _platform(g, 118, ground - 4, 3);
@@ -2016,7 +2158,9 @@ class LevelCatalog {
         _enemy(g, 126, ground);
         _gap(g, 132, 3);
         _platform(g, 138, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 139 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 139 + i, ground - 3);
+        }
         _platform(g, 150, ground - 3, 3);
         _coin(g, 151, ground - 4);
         _enemy(g, 158, ground);
@@ -2024,16 +2168,21 @@ class LevelCatalog {
         _put(g, 166, ground - 1, '?');
         _gap(g, 174, 2);
         _platform(g, 180, ground - 2, 5);
-        _coin(g, 181, ground - 3); _coin(g, 182, ground - 3);
+        _coin(g, 181, ground - 3);
+        _coin(g, 182, ground - 3);
         _enemy(g, 192, ground);
         _platform(g, 200, ground - 3, 4);
         _put(g, 202, ground - 4, 'M');
         _platform(g, 214, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 215 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 215 + i, ground - 2);
+        }
         _put(g, 224, ground, 'S');
       case 7: // 花影田 — 副歌2：再次升华，对比强烈
         _platform(g, 6, ground - 3, 4);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4); _coin(g, 9, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
+        _coin(g, 9, ground - 4);
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _platform(g, 20, ground - 2, 5);
@@ -2044,21 +2193,27 @@ class LevelCatalog {
         _put(g, 38, ground, 'S');
         _gap(g, 44, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 49 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 49 + i, ground - 4);
+        }
         _put(g, 52, ground - 3, '?');
         _enemy(g, 58, ground);
         _platform(g, 64, ground - 1, 4);
-        _coin(g, 65, ground - 2); _coin(g, 66, ground - 2);
+        _coin(g, 65, ground - 2);
+        _coin(g, 66, ground - 2);
         _gap(g, 74, 3);
         _platform(g, 80, ground - 4, 3);
         _put(g, 81, ground - 5, 'H');
         _platform(g, 90, ground - 2, 5);
-        _coin(g, 91, ground - 3); _coin(g, 92, ground - 3); _coin(g, 93, ground - 3);
+        _coin(g, 91, ground - 3);
+        _coin(g, 92, ground - 3);
+        _coin(g, 93, ground - 3);
         _enemy(g, 100, ground);
         _put(g, 106, ground, 'S');
         _gap(g, 112, 2);
         _platform(g, 118, ground - 3, 4);
-        _coin(g, 119, ground - 4); _coin(g, 120, ground - 4);
+        _coin(g, 119, ground - 4);
+        _coin(g, 120, ground - 4);
         _put(g, 121, ground - 3, '?');
         _platform(g, 128, ground - 1, 5);
         _enemy(g, 134, ground);
@@ -2066,7 +2221,9 @@ class LevelCatalog {
         _platform(g, 146, ground - 4, 3);
         _put(g, 147, ground - 4, 'M');
         _platform(g, 156, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 156 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 156 + i, ground - 3);
+        }
         _enemy(g, 166, ground);
         _platform(g, 172, ground - 3, 4);
         _put(g, 174, ground - 3, '?');
@@ -2075,33 +2232,42 @@ class LevelCatalog {
         _platform(g, 194, ground - 4, 3);
         _put(g, 195, ground - 5, 'H');
         _platform(g, 204, ground - 2, 5);
-        _coin(g, 205, ground - 3); _coin(g, 206, ground - 3);
+        _coin(g, 205, ground - 3);
+        _coin(g, 206, ground - 3);
         _enemy(g, 216, ground);
         _platform(g, 224, ground - 1, 4);
-        _coin(g, 225, ground - 2); _coin(g, 226, ground - 2);
+        _coin(g, 225, ground - 2);
+        _coin(g, 226, ground - 2);
         _platform(g, 238, ground - 3, 3);
         _coin(g, 239, ground - 4);
       case 8: // 浅色滑轨 — 桥段：独特节奏，弹簧路线多
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 4, 3);
-        _coin(g, 21, ground - 5); _coin(g, 22, ground - 5);
+        _coin(g, 21, ground - 5);
+        _coin(g, 22, ground - 5);
         _gap(g, 28, 3);
         _enemy(g, 34, ground);
         _platform(g, 40, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 41 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 41 + i, ground - 4);
+        }
         _put(g, 44, ground - 3, '?');
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 4, 3);
         _put(g, 57, ground - 4, 'M');
         _gap(g, 64, 2);
         _platform(g, 68, ground - 2, 4);
-        _coin(g, 69, ground - 3); _coin(g, 70, ground - 3);
+        _coin(g, 69, ground - 3);
+        _coin(g, 70, ground - 3);
         _enemy(g, 78, ground);
         _put(g, 84, ground, 'S');
         _platform(g, 90, ground - 3, 5);
-        _coin(g, 91, ground - 4); _coin(g, 92, ground - 4); _coin(g, 93, ground - 4);
+        _coin(g, 91, ground - 4);
+        _coin(g, 92, ground - 4);
+        _coin(g, 93, ground - 4);
         _put(g, 94, ground - 3, '?');
         _gap(g, 102, 3);
         _platform(g, 108, ground - 4, 3);
@@ -2109,7 +2275,9 @@ class LevelCatalog {
         _enemy(g, 116, ground);
         _put(g, 122, ground, 'S');
         _platform(g, 128, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 128 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 128 + i, ground - 4);
+        }
         _gap(g, 138, 2);
         _platform(g, 144, ground - 2, 4);
         _coin(g, 145, ground - 3);
@@ -2118,7 +2286,8 @@ class LevelCatalog {
         _platform(g, 166, ground - 4, 3);
         _put(g, 167, ground - 4, 'M');
         _platform(g, 176, ground - 2, 5);
-        _coin(g, 177, ground - 3); _coin(g, 178, ground - 3);
+        _coin(g, 177, ground - 3);
+        _coin(g, 178, ground - 3);
         _gap(g, 186, 3);
         _enemy(g, 194, ground);
         _platform(g, 200, ground - 3, 4);
@@ -2126,9 +2295,12 @@ class LevelCatalog {
         _coin(g, 202, ground - 4);
         _put(g, 210, ground, 'S');
         _platform(g, 218, ground - 4, 3);
-        _coin(g, 219, ground - 5); _coin(g, 220, ground - 5);
+        _coin(g, 219, ground - 5);
+        _coin(g, 220, ground - 5);
         _platform(g, 230, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 231 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 231 + i, ground - 3);
+        }
         _enemy(g, 242, ground);
         _platform(g, 250, ground - 1, 4);
         _put(g, 252, ground - 2, 'H');
@@ -2136,17 +2308,22 @@ class LevelCatalog {
         _coin(g, 263, ground - 4);
       case 9: // 晨曦高塔 — 高潮：最强难度，密集挑战
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 20, ground);
         _platform(g, 26, ground - 4, 3);
-        _coin(g, 27, ground - 5); _coin(g, 28, ground - 5);
+        _coin(g, 27, ground - 5);
+        _coin(g, 28, ground - 5);
         _put(g, 27, ground - 4, 'M');
         _put(g, 34, ground, 'S');
         _gap(g, 40, 2);
         _platform(g, 44, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 44 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 44 + i, ground - 4);
+        }
         _enemy(g, 54, ground);
         _gap(g, 60, 3);
         _platform(g, 66, ground - 2, 4);
@@ -2158,7 +2335,9 @@ class LevelCatalog {
         _put(g, 89, ground - 5, 'H');
         _gap(g, 96, 3);
         _platform(g, 102, ground - 3, 5);
-        _coin(g, 103, ground - 4); _coin(g, 104, ground - 4); _coin(g, 105, ground - 4);
+        _coin(g, 103, ground - 4);
+        _coin(g, 104, ground - 4);
+        _coin(g, 105, ground - 4);
         _put(g, 106, ground - 3, '?');
         _enemy(g, 114, ground);
         _gap(g, 120, 2);
@@ -2166,7 +2345,9 @@ class LevelCatalog {
         _put(g, 127, ground - 4, 'M');
         _put(g, 134, ground, 'S');
         _platform(g, 140, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 140 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 140 + i, ground - 4);
+        }
         _enemy(g, 150, ground);
         _gap(g, 156, 3);
         _platform(g, 162, ground - 2, 5);
@@ -2176,10 +2357,13 @@ class LevelCatalog {
         _put(g, 178, ground, 'S');
         _gap(g, 184, 2);
         _platform(g, 190, ground - 4, 3);
-        _coin(g, 191, ground - 5); _coin(g, 192, ground - 5);
+        _coin(g, 191, ground - 5);
+        _coin(g, 192, ground - 5);
         _platform(g, 200, ground - 3, 5);
         _enemy(g, 210, ground);
-        for (var i = 0; i < 4; i++) _coin(g, 201 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 201 + i, ground - 4);
+        }
         _gap(g, 218, 3);
         _platform(g, 224, ground - 2, 4);
         _put(g, 226, ground - 3, 'H');
@@ -2188,27 +2372,34 @@ class LevelCatalog {
         _put(g, 241, ground - 4, 'M');
         _put(g, 250, ground, 'S');
         _platform(g, 256, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 256 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 256 + i, ground - 4);
+        }
         _gap(g, 266, 2);
         _enemy(g, 274, ground);
         _platform(g, 280, ground - 2, 4);
-        _coin(g, 281, ground - 3); _coin(g, 282, ground - 3);
+        _coin(g, 281, ground - 3);
+        _coin(g, 282, ground - 3);
       case 10: // 素颜之心 — Boss战
         _platform(g, 6, ground - 2, 3);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _platform(g, 14, ground - 3, 4);
         _put(g, 15, ground - 3, '?');
         _enemy(g, 22, ground);
         _gap(g, 28, 2);
         _platform(g, 34, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 35 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 35 + i, ground - 3);
+        }
         _enemy(g, 44, ground);
         _platform(g, 50, ground - 4, 3);
         _put(g, 51, ground - 4, 'M');
         _put(g, 58, ground, 'S');
         _gap(g, 64, 3);
         _platform(g, 70, ground - 3, 4);
-        _coin(g, 71, ground - 4); _coin(g, 72, ground - 4);
+        _coin(g, 71, ground - 4);
+        _coin(g, 72, ground - 4);
         _enemy(g, 80, ground);
         _platform(g, 86, ground - 2, 5);
         _put(g, 88, ground - 2, '?');
@@ -2342,44 +2533,54 @@ class LevelCatalog {
 
   static void _worldStrawberry(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 马蹄台阶 — 前奏：古风起势，阶梯递升
         _platform(g, 6, ground - 1, 3);
         _coin(g, 7, ground - 2);
         _platform(g, 14, ground - 2, 4);
-        _coin(g, 15, ground - 3); _coin(g, 16, ground - 3);
+        _coin(g, 15, ground - 3);
+        _coin(g, 16, ground - 3);
         _platform(g, 24, ground - 3, 3);
         _put(g, 25, ground - 3, '?');
         _coin(g, 25, ground - 4);
         _platform(g, 36, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 37 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 37 + i, ground - 2);
+        }
         _enemy(g, 46, ground);
         _platform(g, 54, ground - 2, 4);
-        _coin(g, 55, ground - 3); _coin(g, 56, ground - 3);
+        _coin(g, 55, ground - 3);
+        _coin(g, 56, ground - 3);
         _platform(g, 66, ground - 3, 3);
         _put(g, 67, ground - 3, '?');
         _platform(g, 78, ground - 1, 4);
-        _coin(g, 79, ground - 2); _coin(g, 80, ground - 2);
+        _coin(g, 79, ground - 2);
+        _coin(g, 80, ground - 2);
         _enemy(g, 88, ground);
         _platform(g, 96, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 97 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 97 + i, ground - 3);
+        }
         _platform(g, 110, ground - 3, 3);
         _coin(g, 111, ground - 4);
         _platform(g, 122, ground - 1, 4);
-        _coin(g, 123, ground - 2); _coin(g, 124, ground - 2);
+        _coin(g, 123, ground - 2);
+        _coin(g, 124, ground - 2);
         _put(g, 130, ground, 'S');
         _platform(g, 138, ground - 2, 4);
-        _coin(g, 139, ground - 3); _coin(g, 140, ground - 3);
+        _coin(g, 139, ground - 3);
+        _coin(g, 140, ground - 3);
         _platform(g, 150, ground - 3, 3);
         _coin(g, 151, ground - 4);
       case 1: // 白鬃洞穴 — 主歌A：探索洞穴意象
         _platform(g, 6, ground - 2, 5);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _platform(g, 24, ground - 3, 4);
-        _coin(g, 25, ground - 4); _coin(g, 26, ground - 4);
+        _coin(g, 25, ground - 4);
+        _coin(g, 26, ground - 4);
         _gap(g, 34, 2);
         _platform(g, 38, ground - 1, 3);
         _coin(g, 39, ground - 2);
@@ -2387,7 +2588,9 @@ class LevelCatalog {
         _put(g, 49, ground - 4, 'M');
         _enemy(g, 56, ground);
         _platform(g, 62, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 63 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 63 + i, ground - 3);
+        }
         _gap(g, 72, 2);
         _platform(g, 78, ground - 3, 4);
         _put(g, 79, ground - 3, '?');
@@ -2395,36 +2598,46 @@ class LevelCatalog {
         _put(g, 88, ground, 'S');
         _enemy(g, 96, ground);
         _platform(g, 102, ground - 2, 4);
-        _coin(g, 103, ground - 3); _coin(g, 104, ground - 3);
+        _coin(g, 103, ground - 3);
+        _coin(g, 104, ground - 3);
         _platform(g, 114, ground - 4, 3);
         _put(g, 115, ground - 5, 'H');
         _gap(g, 124, 2);
         _platform(g, 130, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 131 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 131 + i, ground - 2);
+        }
         _enemy(g, 140, ground);
         _platform(g, 148, ground - 3, 3);
         _coin(g, 149, ground - 4);
       case 2: // 缰绳弹跳 — 副歌前奏：弹簧路线，白马奔驰感
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 3, 4);
-        _coin(g, 21, ground - 4); _coin(g, 22, ground - 4);
+        _coin(g, 21, ground - 4);
+        _coin(g, 22, ground - 4);
         _put(g, 23, ground - 3, '?');
         _gap(g, 30, 2);
         _enemy(g, 36, ground);
         _platform(g, 42, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 43 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 43 + i, ground - 3);
+        }
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 4, 3);
         _put(g, 57, ground - 4, 'M');
         _enemy(g, 64, ground);
         _gap(g, 70, 3);
         _platform(g, 76, ground - 2, 4);
-        _coin(g, 77, ground - 3); _coin(g, 78, ground - 3);
+        _coin(g, 77, ground - 3);
+        _coin(g, 78, ground - 3);
         _put(g, 84, ground, 'S');
         _platform(g, 90, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 91 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 91 + i, ground - 4);
+        }
         _put(g, 94, ground - 3, '?');
         _enemy(g, 102, ground);
         _gap(g, 108, 2);
@@ -2432,10 +2645,13 @@ class LevelCatalog {
         _put(g, 115, ground - 5, 'H');
         _put(g, 122, ground, 'S');
         _platform(g, 128, ground - 2, 4);
-        _coin(g, 129, ground - 3); _coin(g, 130, ground - 3);
+        _coin(g, 129, ground - 3);
+        _coin(g, 130, ground - 3);
         _enemy(g, 138, ground);
         _platform(g, 146, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 147 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 147 + i, ground - 4);
+        }
         _gap(g, 156, 2);
         _platform(g, 162, ground - 1, 4);
         _coin(g, 163, ground - 2);
@@ -2444,19 +2660,24 @@ class LevelCatalog {
         _coin(g, 7, ground - 3);
         _gap(g, 14, 3);
         _platform(g, 20, ground - 3, 4);
-        _coin(g, 21, ground - 4); _coin(g, 22, ground - 4);
+        _coin(g, 21, ground - 4);
+        _coin(g, 22, ground - 4);
         _put(g, 23, ground - 3, '?');
         _enemy(g, 30, ground);
         _gap(g, 38, 3);
         _platform(g, 44, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 45 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 45 + i, ground - 3);
+        }
         _put(g, 52, ground, 'S');
         _platform(g, 58, ground - 4, 3);
         _put(g, 59, ground - 4, 'M');
         _gap(g, 66, 2);
         _enemy(g, 72, ground);
         _platform(g, 78, ground - 3, 5);
-        _coin(g, 79, ground - 4); _coin(g, 80, ground - 4); _coin(g, 81, ground - 4);
+        _coin(g, 79, ground - 4);
+        _coin(g, 80, ground - 4);
+        _coin(g, 81, ground - 4);
         _gap(g, 88, 3);
         _platform(g, 94, ground - 2, 4);
         _put(g, 96, ground - 2, '?');
@@ -2466,18 +2687,23 @@ class LevelCatalog {
         _platform(g, 124, ground - 4, 3);
         _put(g, 125, ground - 5, 'H');
         _platform(g, 134, ground - 1, 5);
-        _coin(g, 135, ground - 2); _coin(g, 136, ground - 2);
+        _coin(g, 135, ground - 2);
+        _coin(g, 136, ground - 2);
         _gap(g, 144, 3);
         _enemy(g, 152, ground);
         _platform(g, 158, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 158 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 158 + i, ground - 4);
+        }
         _gap(g, 168, 2);
         _platform(g, 174, ground - 2, 3);
         _coin(g, 175, ground - 3);
         _put(g, 182, ground, 'S');
       case 4: // 云驹河流 — 间奏：流水般的平台，舒缓
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _platform(g, 16, ground - 1, 3);
         _coin(g, 17, ground - 2);
         _platform(g, 26, ground - 3, 4);
@@ -2486,16 +2712,20 @@ class LevelCatalog {
         _enemy(g, 36, ground);
         _gap(g, 42, 2);
         _platform(g, 48, ground - 2, 5);
-        _coin(g, 49, ground - 3); _coin(g, 50, ground - 3);
+        _coin(g, 49, ground - 3);
+        _coin(g, 50, ground - 3);
         _put(g, 56, ground, 'S');
         _platform(g, 62, ground - 4, 3);
         _put(g, 63, ground - 4, 'M');
         _platform(g, 72, ground - 1, 4);
-        _coin(g, 73, ground - 2); _coin(g, 74, ground - 2);
+        _coin(g, 73, ground - 2);
+        _coin(g, 74, ground - 2);
         _enemy(g, 82, ground);
         _gap(g, 88, 3);
         _platform(g, 94, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 94 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 94 + i, ground - 4);
+        }
         _platform(g, 106, ground - 2, 3);
         _put(g, 107, ground - 2, '?');
         _enemy(g, 116, ground);
@@ -2504,32 +2734,41 @@ class LevelCatalog {
         _put(g, 129, ground - 5, 'H');
         _gap(g, 138, 2);
         _platform(g, 144, ground - 2, 4);
-        _coin(g, 145, ground - 3); _coin(g, 146, ground - 3);
+        _coin(g, 145, ground - 3);
+        _coin(g, 146, ground - 3);
         _platform(g, 158, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 159 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 159 + i, ground - 4);
+        }
         _enemy(g, 168, ground);
         _platform(g, 176, ground - 1, 4);
         _coin(g, 177, ground - 2);
         _gap(g, 186, 2);
         _platform(g, 192, ground - 2, 5);
-        _coin(g, 193, ground - 3); _coin(g, 194, ground - 3);
+        _coin(g, 193, ground - 3);
+        _coin(g, 194, ground - 3);
         _put(g, 200, ground, 'S');
       case 5: // 长鞭螺旋 — 主歌B：螺旋上升，层次丰富
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _platform(g, 14, ground - 3, 3);
         _put(g, 15, ground - 3, '?');
         _gap(g, 22, 2);
         _enemy(g, 28, ground);
         _platform(g, 34, ground - 4, 4);
-        _coin(g, 35, ground - 5); _coin(g, 36, ground - 5);
+        _coin(g, 35, ground - 5);
+        _coin(g, 36, ground - 5);
         _put(g, 37, ground - 4, 'M');
         _put(g, 44, ground, 'S');
         _platform(g, 50, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 51 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 51 + i, ground - 3);
+        }
         _gap(g, 60, 3);
         _platform(g, 66, ground - 3, 4);
-        _coin(g, 67, ground - 4); _coin(g, 68, ground - 4);
+        _coin(g, 67, ground - 4);
+        _coin(g, 68, ground - 4);
         _enemy(g, 76, ground);
         _platform(g, 82, ground - 1, 5);
         _put(g, 84, ground - 1, '?');
@@ -2538,20 +2777,26 @@ class LevelCatalog {
         _put(g, 99, ground - 5, 'H');
         _gap(g, 106, 2);
         _platform(g, 112, ground - 2, 4);
-        _coin(g, 113, ground - 3); _coin(g, 114, ground - 3);
+        _coin(g, 113, ground - 3);
+        _coin(g, 114, ground - 3);
         _enemy(g, 122, ground);
         _platform(g, 128, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 129 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 129 + i, ground - 4);
+        }
         _gap(g, 138, 3);
         _put(g, 146, ground, 'S');
         _platform(g, 152, ground - 4, 3);
         _put(g, 153, ground - 4, 'M');
         _platform(g, 162, ground - 2, 4);
-        _coin(g, 163, ground - 3); _coin(g, 164, ground - 3);
+        _coin(g, 163, ground - 3);
+        _coin(g, 164, ground - 3);
         _enemy(g, 172, ground);
         _gap(g, 178, 2);
         _platform(g, 184, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 184 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 184 + i, ground - 4);
+        }
         _platform(g, 196, ground - 1, 3);
         _coin(g, 197, ground - 2);
         _enemy(g, 206, ground);
@@ -2559,7 +2804,9 @@ class LevelCatalog {
         _put(g, 216, ground - 2, '?');
       case 6: // 银蹄高台 — 副歌B：高台纵跳，银蹄意象
         _platform(g, 6, ground - 3, 4);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4); _coin(g, 9, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
+        _coin(g, 9, ground - 4);
         _put(g, 6, ground - 3, '?');
         _gap(g, 16, 3);
         _platform(g, 22, ground - 2, 5);
@@ -2569,55 +2816,69 @@ class LevelCatalog {
         _put(g, 39, ground - 4, 'M');
         _gap(g, 46, 2);
         _platform(g, 52, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 53 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 53 + i, ground - 4);
+        }
         _put(g, 56, ground - 3, '?');
         _enemy(g, 64, ground);
         _platform(g, 70, ground - 1, 4);
-        _coin(g, 71, ground - 2); _coin(g, 72, ground - 2);
+        _coin(g, 71, ground - 2);
+        _coin(g, 72, ground - 2);
         _gap(g, 80, 3);
         _put(g, 88, ground, 'S');
         _platform(g, 94, ground - 4, 3);
         _put(g, 95, ground - 5, 'H');
         _platform(g, 104, ground - 2, 5);
-        _coin(g, 105, ground - 3); _coin(g, 106, ground - 3);
+        _coin(g, 105, ground - 3);
+        _coin(g, 106, ground - 3);
         _enemy(g, 114, ground);
         _gap(g, 120, 2);
         _platform(g, 126, ground - 3, 4);
-        _coin(g, 127, ground - 4); _coin(g, 128, ground - 4);
+        _coin(g, 127, ground - 4);
+        _coin(g, 128, ground - 4);
         _put(g, 134, ground, 'S');
         _platform(g, 140, ground - 4, 3);
         _put(g, 141, ground - 4, 'M');
         _gap(g, 148, 3);
         _platform(g, 154, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 155 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 155 + i, ground - 3);
+        }
         _enemy(g, 164, ground);
         _platform(g, 170, ground - 3, 4);
         _put(g, 172, ground - 3, '?');
         _gap(g, 180, 2);
         _platform(g, 186, ground - 1, 5);
-        _coin(g, 187, ground - 2); _coin(g, 188, ground - 2);
+        _coin(g, 187, ground - 2);
+        _coin(g, 188, ground - 2);
         _enemy(g, 196, ground);
         _put(g, 204, ground, 'S');
         _platform(g, 210, ground - 4, 3);
-        _coin(g, 211, ground - 5); _coin(g, 212, ground - 5);
+        _coin(g, 211, ground - 5);
+        _coin(g, 212, ground - 5);
         _platform(g, 222, ground - 2, 4);
         _coin(g, 223, ground - 3);
         _gap(g, 232, 2);
       case 7: // 追风环 — 桥段：风的意象，高速通过
         _platform(g, 6, ground - 2, 5);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3); _coin(g, 9, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
+        _coin(g, 9, ground - 3);
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
         _platform(g, 30, ground - 3, 4);
-        _coin(g, 31, ground - 4); _coin(g, 32, ground - 4);
+        _coin(g, 31, ground - 4);
+        _coin(g, 32, ground - 4);
         _put(g, 40, ground, 'S');
         _platform(g, 46, ground - 4, 3);
         _put(g, 47, ground - 4, 'M');
         _gap(g, 54, 3);
         _enemy(g, 62, ground);
         _platform(g, 68, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 68 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 68 + i, ground - 3);
+        }
         _platform(g, 80, ground - 3, 3);
         _put(g, 81, ground - 3, '?');
         _gap(g, 88, 2);
@@ -2626,10 +2887,13 @@ class LevelCatalog {
         _platform(g, 110, ground - 4, 3);
         _put(g, 111, ground - 5, 'H');
         _platform(g, 120, ground - 2, 4);
-        _coin(g, 121, ground - 3); _coin(g, 122, ground - 3);
+        _coin(g, 121, ground - 3);
+        _coin(g, 122, ground - 3);
         _gap(g, 130, 3);
         _platform(g, 136, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 137 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 137 + i, ground - 4);
+        }
         _enemy(g, 146, ground);
         _put(g, 154, ground, 'S');
         _gap(g, 160, 2);
@@ -2639,7 +2903,8 @@ class LevelCatalog {
         _coin(g, 177, ground - 2);
         _enemy(g, 186, ground);
         _platform(g, 192, ground - 3, 5);
-        _coin(g, 193, ground - 4); _coin(g, 194, ground - 4);
+        _coin(g, 193, ground - 4);
+        _coin(g, 194, ground - 4);
         _gap(g, 204, 3);
         _platform(g, 210, ground - 2, 4);
         _put(g, 212, ground - 2, '?');
@@ -2651,29 +2916,37 @@ class LevelCatalog {
         _coin(g, 245, ground - 5);
       case 8: // 草原谷 — 副歌C：开阔草原，最后的奔驰
         _platform(g, 6, ground - 1, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 6 + i, ground - 2);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 6 + i, ground - 2);
+        }
         _gap(g, 16, 2);
         _enemy(g, 22, ground);
         _platform(g, 28, ground - 3, 4);
-        _coin(g, 29, ground - 4); _coin(g, 30, ground - 4);
+        _coin(g, 29, ground - 4);
+        _coin(g, 30, ground - 4);
         _put(g, 31, ground - 3, '?');
         _put(g, 38, ground, 'S');
         _platform(g, 44, ground - 4, 3);
         _put(g, 45, ground - 4, 'M');
         _gap(g, 52, 3);
         _platform(g, 58, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 59 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 59 + i, ground - 3);
+        }
         _enemy(g, 68, ground);
         _gap(g, 74, 2);
         _platform(g, 80, ground - 3, 4);
-        _coin(g, 81, ground - 4); _coin(g, 82, ground - 4);
+        _coin(g, 81, ground - 4);
+        _coin(g, 82, ground - 4);
         _put(g, 90, ground, 'S');
         _platform(g, 96, ground - 4, 3);
         _put(g, 97, ground - 5, 'H');
         _enemy(g, 106, ground);
         _gap(g, 112, 3);
         _platform(g, 118, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 119 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 119 + i, ground - 3);
+        }
         _put(g, 122, ground - 2, '?');
         _platform(g, 130, ground - 3, 3);
         _coin(g, 131, ground - 4);
@@ -2683,11 +2956,14 @@ class LevelCatalog {
         _platform(g, 158, ground - 4, 3);
         _put(g, 159, ground - 4, 'M');
         _platform(g, 168, ground - 1, 5);
-        _coin(g, 169, ground - 2); _coin(g, 170, ground - 2);
+        _coin(g, 169, ground - 2);
+        _coin(g, 170, ground - 2);
         _enemy(g, 178, ground);
         _gap(g, 186, 3);
         _platform(g, 192, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 192 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 192 + i, ground - 4);
+        }
         _platform(g, 204, ground - 2, 5);
         _put(g, 206, ground - 2, '?');
         _enemy(g, 214, ground);
@@ -2695,13 +2971,18 @@ class LevelCatalog {
         _put(g, 223, ground - 5, 'H');
         _put(g, 232, ground, 'S');
         _platform(g, 238, ground - 3, 4);
-        _coin(g, 239, ground - 4); _coin(g, 240, ground - 4);
+        _coin(g, 239, ground - 4);
+        _coin(g, 240, ground - 4);
         _gap(g, 248, 2);
         _platform(g, 254, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 255 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 255 + i, ground - 3);
+        }
       case 9: // 踏雪之巅 — 高潮：最难，踏雪意象
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
@@ -2711,7 +2992,9 @@ class LevelCatalog {
         _put(g, 36, ground, 'S');
         _gap(g, 42, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 48 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 48 + i, ground - 4);
+        }
         _enemy(g, 58, ground);
         _gap(g, 64, 3);
         _platform(g, 70, ground - 2, 4);
@@ -2722,7 +3005,9 @@ class LevelCatalog {
         _put(g, 93, ground - 5, 'H');
         _gap(g, 100, 3);
         _platform(g, 106, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 107 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 107 + i, ground - 4);
+        }
         _put(g, 110, ground - 3, '?');
         _enemy(g, 118, ground);
         _gap(g, 124, 2);
@@ -2731,18 +3016,22 @@ class LevelCatalog {
         _put(g, 138, ground, 'S');
         _gap(g, 144, 3);
         _platform(g, 150, ground - 3, 4);
-        _coin(g, 151, ground - 4); _coin(g, 152, ground - 4);
+        _coin(g, 151, ground - 4);
+        _coin(g, 152, ground - 4);
         _enemy(g, 160, ground);
         _platform(g, 166, ground - 2, 5);
         _put(g, 168, ground - 2, '?');
         _gap(g, 176, 2);
         _put(g, 184, ground, 'S');
         _platform(g, 190, ground - 4, 3);
-        _coin(g, 191, ground - 5); _coin(g, 192, ground - 5);
+        _coin(g, 191, ground - 5);
+        _coin(g, 192, ground - 5);
         _enemy(g, 200, ground);
         _gap(g, 206, 3);
         _platform(g, 212, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 212 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 212 + i, ground - 4);
+        }
         _platform(g, 224, ground - 2, 4);
         _enemy(g, 232, ground);
         _gap(g, 238, 2);
@@ -2750,25 +3039,32 @@ class LevelCatalog {
         _platform(g, 250, ground - 4, 3);
         _put(g, 251, ground - 5, 'H');
         _platform(g, 262, ground - 3, 4);
-        _coin(g, 263, ground - 4); _coin(g, 264, ground - 4);
+        _coin(g, 263, ground - 4);
+        _coin(g, 264, ground - 4);
         _enemy(g, 274, ground);
         _platform(g, 280, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 281 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 281 + i, ground - 3);
+        }
       case 10: // 白马城堡 — Boss战
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _enemy(g, 40, ground);
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 4, 3);
         _put(g, 55, ground - 4, 'M');
         _gap(g, 62, 3);
         _platform(g, 68, ground - 2, 4);
-        _coin(g, 69, ground - 3); _coin(g, 70, ground - 3);
+        _coin(g, 69, ground - 3);
+        _coin(g, 70, ground - 3);
         _enemy(g, 78, ground);
         _platform(g, 86, ground - 3, 5);
         _put(g, 88, ground - 3, '?');
@@ -2780,32 +3076,40 @@ class LevelCatalog {
 
   static void _worldMint(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 回声入口 — 前奏：迷雾缭绕，神秘入场
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _platform(g, 16, ground - 3, 3);
         _put(g, 17, ground - 3, '?');
         _platform(g, 28, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 29 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 29 + i, ground - 2);
+        }
         _enemy(g, 38, ground);
         _platform(g, 46, ground - 2, 4);
-        _coin(g, 47, ground - 3); _coin(g, 48, ground - 3);
+        _coin(g, 47, ground - 3);
+        _coin(g, 48, ground - 3);
         _platform(g, 58, ground - 3, 3);
         _coin(g, 59, ground - 4);
         _put(g, 66, ground, 'S');
         _platform(g, 74, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 75 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 75 + i, ground - 3);
+        }
         _enemy(g, 84, ground);
         _platform(g, 92, ground - 1, 4);
         _coin(g, 93, ground - 2);
         _platform(g, 104, ground - 3, 3);
         _put(g, 105, ground - 3, '?');
         _platform(g, 116, ground - 2, 4);
-        _coin(g, 117, ground - 3); _coin(g, 118, ground - 3);
+        _coin(g, 117, ground - 3);
+        _coin(g, 118, ground - 3);
         _platform(g, 130, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 131 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 131 + i, ground - 2);
+        }
         _put(g, 140, ground, 'S');
         _platform(g, 148, ground - 3, 3);
         _coin(g, 149, ground - 4);
@@ -2820,7 +3124,8 @@ class LevelCatalog {
         _coin(g, 18, ground - 4);
         _enemy(g, 26, ground);
         _platform(g, 34, ground - 2, 5);
-        _coin(g, 35, ground - 3); _coin(g, 36, ground - 3);
+        _coin(g, 35, ground - 3);
+        _coin(g, 36, ground - 3);
         _put(g, 37, ground - 2, '?');
         _gap(g, 44, 2);
         _platform(g, 50, ground - 3, 3);
@@ -2829,14 +3134,17 @@ class LevelCatalog {
         _put(g, 58, ground, 'S');
         _enemy(g, 66, ground);
         _platform(g, 72, ground - 2, 4);
-        _coin(g, 73, ground - 3); _coin(g, 74, ground - 3);
+        _coin(g, 73, ground - 3);
+        _coin(g, 74, ground - 3);
         _put(g, 75, ground - 2, '?');
         _platform(g, 84, ground - 4, 3);
         _put(g, 85, ground - 4, 'M');
         _gap(g, 94, 2);
         _platform(g, 100, ground - 1, 5);
         _put(g, 102, ground - 1, '?');
-        for (var i = 0; i < 3; i++) _coin(g, 101 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 101 + i, ground - 2);
+        }
         _enemy(g, 112, ground);
         _platform(g, 118, ground - 3, 4);
         _put(g, 119, ground - 3, '?');
@@ -2847,36 +3155,45 @@ class LevelCatalog {
         _platform(g, 146, ground - 3, 4);
         _put(g, 148, ground - 4, 'H');
         _platform(g, 158, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 159 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 159 + i, ground - 2);
+        }
         _enemy(g, 168, ground);
       case 2: // 迷雾滑道 — 副歌前奏：弹簧连跳
         _platform(g, 6, ground - 2, 3);
         _coin(g, 7, ground - 3);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 4, 4);
-        _coin(g, 21, ground - 5); _coin(g, 22, ground - 5);
+        _coin(g, 21, ground - 5);
+        _coin(g, 22, ground - 5);
         _gap(g, 30, 2);
         _enemy(g, 36, ground);
         _platform(g, 42, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 43 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 43 + i, ground - 4);
+        }
         _put(g, 46, ground - 3, '?');
         _put(g, 54, ground, 'S');
         _platform(g, 60, ground - 4, 3);
         _put(g, 61, ground - 4, 'M');
         _gap(g, 68, 3);
         _platform(g, 74, ground - 2, 4);
-        _coin(g, 75, ground - 3); _coin(g, 76, ground - 3);
+        _coin(g, 75, ground - 3);
+        _coin(g, 76, ground - 3);
         _enemy(g, 84, ground);
         _put(g, 90, ground, 'S');
         _platform(g, 96, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 97 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 97 + i, ground - 4);
+        }
         _gap(g, 106, 2);
         _platform(g, 112, ground - 4, 3);
         _put(g, 113, ground - 5, 'H');
         _put(g, 120, ground, 'S');
         _enemy(g, 128, ground);
         _platform(g, 134, ground - 2, 4);
-        _coin(g, 135, ground - 3); _coin(g, 136, ground - 3);
+        _coin(g, 135, ground - 3);
+        _coin(g, 136, ground - 3);
         _gap(g, 144, 3);
         _platform(g, 150, ground - 3, 5);
         _put(g, 152, ground - 3, '?');
@@ -2885,7 +3202,8 @@ class LevelCatalog {
         _coin(g, 167, ground - 2);
       case 3: // 影子气泡 — 副歌A：泡泡飘浮感，高低交错
         _platform(g, 6, ground - 3, 3);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
         _platform(g, 14, ground - 1, 4);
         _coin(g, 15, ground - 2);
         _gap(g, 24, 2);
@@ -2894,27 +3212,34 @@ class LevelCatalog {
         _coin(g, 31, ground - 5);
         _enemy(g, 38, ground);
         _platform(g, 44, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 45 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 45 + i, ground - 3);
+        }
         _put(g, 52, ground, 'S');
         _platform(g, 58, ground - 4, 3);
         _put(g, 59, ground - 4, 'M');
         _gap(g, 66, 3);
         _platform(g, 72, ground - 1, 4);
-        _coin(g, 73, ground - 2); _coin(g, 74, ground - 2);
+        _coin(g, 73, ground - 2);
+        _coin(g, 74, ground - 2);
         _enemy(g, 82, ground);
         _platform(g, 88, ground - 3, 5);
-        _coin(g, 89, ground - 4); _coin(g, 90, ground - 4);
+        _coin(g, 89, ground - 4);
+        _coin(g, 90, ground - 4);
         _put(g, 91, ground - 3, '?');
         _gap(g, 98, 2);
         _platform(g, 104, ground - 4, 3);
         _put(g, 105, ground - 5, 'H');
         _put(g, 112, ground, 'S');
         _platform(g, 118, ground - 2, 4);
-        _coin(g, 119, ground - 3); _coin(g, 120, ground - 3);
+        _coin(g, 119, ground - 3);
+        _coin(g, 120, ground - 3);
         _enemy(g, 128, ground);
         _gap(g, 134, 3);
         _platform(g, 140, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 140 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 140 + i, ground - 4);
+        }
         _platform(g, 152, ground - 1, 3);
         _coin(g, 153, ground - 2);
         _enemy(g, 160, ground);
@@ -2922,39 +3247,49 @@ class LevelCatalog {
         _put(g, 169, ground - 4, 'M');
         _put(g, 176, ground, 'S');
         _platform(g, 182, ground - 2, 4);
-        _coin(g, 183, ground - 3); _coin(g, 184, ground - 3);
+        _coin(g, 183, ground - 3);
+        _coin(g, 184, ground - 3);
       case 4: // 路灯跳台 — 间奏：路灯下独行，平稳探索
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _platform(g, 26, ground - 3, 3);
         _coin(g, 27, ground - 4);
         _gap(g, 34, 2);
         _platform(g, 40, ground - 1, 4);
-        _coin(g, 41, ground - 2); _coin(g, 42, ground - 2);
+        _coin(g, 41, ground - 2);
+        _coin(g, 42, ground - 2);
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 4, 3);
         _put(g, 55, ground - 4, 'M');
         _enemy(g, 64, ground);
         _platform(g, 70, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 71 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 71 + i, ground - 3);
+        }
         _gap(g, 80, 3);
         _platform(g, 86, ground - 3, 4);
         _put(g, 88, ground - 3, '?');
         _coin(g, 88, ground - 4);
         _enemy(g, 96, ground);
         _platform(g, 102, ground - 1, 5);
-        _coin(g, 103, ground - 2); _coin(g, 104, ground - 2);
+        _coin(g, 103, ground - 2);
+        _coin(g, 104, ground - 2);
         _put(g, 112, ground, 'S');
         _platform(g, 118, ground - 4, 3);
         _put(g, 119, ground - 5, 'H');
         _gap(g, 128, 2);
         _platform(g, 134, ground - 2, 4);
-        _coin(g, 135, ground - 3); _coin(g, 136, ground - 3);
+        _coin(g, 135, ground - 3);
+        _coin(g, 136, ground - 3);
         _enemy(g, 144, ground);
         _platform(g, 150, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 151 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 151 + i, ground - 4);
+        }
         _put(g, 160, ground, 'S');
         _platform(g, 166, ground - 2, 3);
         _coin(g, 167, ground - 3);
@@ -2963,23 +3298,28 @@ class LevelCatalog {
         _put(g, 184, ground - 3, '?');
         _enemy(g, 192, ground);
         _platform(g, 200, ground - 1, 5);
-        _coin(g, 201, ground - 2); _coin(g, 202, ground - 2);
+        _coin(g, 201, ground - 2);
+        _coin(g, 202, ground - 2);
       case 5: // 回眸峡谷 — 主歌B：回望意象，中等难度
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _platform(g, 16, ground - 3, 3);
         _put(g, 17, ground - 3, '?');
         _coin(g, 17, ground - 4);
         _enemy(g, 26, ground);
         _gap(g, 32, 3);
         _platform(g, 38, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 39 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 39 + i, ground - 3);
+        }
         _put(g, 46, ground, 'S');
         _platform(g, 52, ground - 4, 3);
         _put(g, 53, ground - 4, 'M');
         _gap(g, 60, 2);
         _platform(g, 66, ground - 3, 4);
-        _coin(g, 67, ground - 4); _coin(g, 68, ground - 4);
+        _coin(g, 67, ground - 4);
+        _coin(g, 68, ground - 4);
         _enemy(g, 76, ground);
         _platform(g, 82, ground - 1, 5);
         _put(g, 84, ground - 1, '?');
@@ -2988,11 +3328,14 @@ class LevelCatalog {
         _put(g, 99, ground - 5, 'H');
         _put(g, 106, ground, 'S');
         _platform(g, 112, ground - 2, 4);
-        _coin(g, 113, ground - 3); _coin(g, 114, ground - 3);
+        _coin(g, 113, ground - 3);
+        _coin(g, 114, ground - 3);
         _enemy(g, 122, ground);
         _gap(g, 128, 2);
         _platform(g, 134, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 134 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 134 + i, ground - 4);
+        }
         _platform(g, 146, ground - 1, 3);
         _coin(g, 147, ground - 2);
         _enemy(g, 156, ground);
@@ -3001,16 +3344,21 @@ class LevelCatalog {
         _put(g, 169, ground - 4, 'M');
         _gap(g, 176, 3);
         _platform(g, 182, ground - 2, 4);
-        _coin(g, 183, ground - 3); _coin(g, 184, ground - 3);
+        _coin(g, 183, ground - 3);
+        _coin(g, 184, ground - 3);
         _enemy(g, 194, ground);
         _platform(g, 200, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 201 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 201 + i, ground - 4);
+        }
         _put(g, 210, ground, 'S');
         _platform(g, 218, ground - 2, 3);
         _coin(g, 219, ground - 3);
       case 6: // 空白隧道 — 副歌B：空旷中爆发
         _platform(g, 6, ground - 2, 5);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3); _coin(g, 9, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
+        _coin(g, 9, ground - 3);
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
         _platform(g, 30, ground - 4, 3);
@@ -3018,7 +3366,9 @@ class LevelCatalog {
         _coin(g, 31, ground - 5);
         _put(g, 38, ground, 'S');
         _platform(g, 44, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 45 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 45 + i, ground - 4);
+        }
         _gap(g, 54, 2);
         _platform(g, 60, ground - 2, 4);
         _enemy(g, 68, ground);
@@ -3027,7 +3377,9 @@ class LevelCatalog {
         _put(g, 81, ground - 4, 'M');
         _gap(g, 88, 3);
         _platform(g, 94, ground - 3, 5);
-        _coin(g, 95, ground - 4); _coin(g, 96, ground - 4); _coin(g, 97, ground - 4);
+        _coin(g, 95, ground - 4);
+        _coin(g, 96, ground - 4);
+        _coin(g, 97, ground - 4);
         _put(g, 98, ground - 3, '?');
         _enemy(g, 106, ground);
         _platform(g, 112, ground - 1, 4);
@@ -3037,11 +3389,14 @@ class LevelCatalog {
         _put(g, 129, ground - 5, 'H');
         _put(g, 136, ground, 'S');
         _platform(g, 142, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 143 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 143 + i, ground - 3);
+        }
         _enemy(g, 152, ground);
         _gap(g, 158, 3);
         _platform(g, 164, ground - 3, 4);
-        _coin(g, 165, ground - 4); _coin(g, 166, ground - 4);
+        _coin(g, 165, ground - 4);
+        _coin(g, 166, ground - 4);
         _put(g, 174, ground, 'S');
         _platform(g, 180, ground - 4, 3);
         _put(g, 181, ground - 4, 'M');
@@ -3050,26 +3405,33 @@ class LevelCatalog {
         _put(g, 198, ground - 2, '?');
         _gap(g, 206, 2);
         _platform(g, 212, ground - 3, 4);
-        _coin(g, 213, ground - 4); _coin(g, 214, ground - 4);
+        _coin(g, 213, ground - 4);
+        _coin(g, 214, ground - 4);
         _enemy(g, 224, ground);
         _platform(g, 232, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 232 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 232 + i, ground - 2);
+        }
       case 7: // 疑问风暴 — 桥段：谜箱连串，高强度
         _platform(g, 6, ground - 3, 4);
-        _put(g, 7, ground - 3, '?'); _put(g, 9, ground - 3, '?');
+        _put(g, 7, ground - 3, '?');
+        _put(g, 9, ground - 3, '?');
         _coin(g, 8, ground - 4);
         _gap(g, 16, 2);
         _enemy(g, 22, ground);
         _platform(g, 28, ground - 2, 5);
         _put(g, 30, ground - 2, '?');
-        _coin(g, 29, ground - 3); _coin(g, 31, ground - 3);
+        _coin(g, 29, ground - 3);
+        _coin(g, 31, ground - 3);
         _put(g, 38, ground, 'S');
         _platform(g, 44, ground - 4, 3);
         _put(g, 45, ground - 4, 'M');
         _gap(g, 52, 3);
         _platform(g, 58, ground - 3, 5);
         _put(g, 60, ground - 3, '?');
-        for (var i = 0; i < 3; i++) _coin(g, 59 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 59 + i, ground - 4);
+        }
         _enemy(g, 68, ground);
         _platform(g, 74, ground - 1, 4);
         _put(g, 76, ground - 1, '?');
@@ -3080,24 +3442,29 @@ class LevelCatalog {
         _enemy(g, 106, ground);
         _platform(g, 112, ground - 3, 5);
         _put(g, 114, ground - 3, '?');
-        _coin(g, 113, ground - 4); _coin(g, 115, ground - 4);
+        _coin(g, 113, ground - 4);
+        _coin(g, 115, ground - 4);
         _gap(g, 122, 3);
         _platform(g, 128, ground - 2, 4);
-        _coin(g, 129, ground - 3); _coin(g, 130, ground - 3);
+        _coin(g, 129, ground - 3);
+        _coin(g, 130, ground - 3);
         _put(g, 138, ground, 'S');
         _enemy(g, 146, ground);
         _platform(g, 152, ground - 4, 3);
         _put(g, 153, ground - 4, 'M');
         _gap(g, 160, 2);
         _platform(g, 166, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 166 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 166 + i, ground - 4);
+        }
         _put(g, 170, ground - 3, '?');
         _enemy(g, 178, ground);
         _platform(g, 184, ground - 1, 4);
         _put(g, 186, ground - 1, '?');
         _gap(g, 194, 3);
         _platform(g, 200, ground - 2, 5);
-        _coin(g, 201, ground - 3); _coin(g, 202, ground - 3);
+        _coin(g, 201, ground - 3);
+        _coin(g, 202, ground - 3);
         _put(g, 210, ground, 'S');
         _platform(g, 216, ground - 4, 3);
         _put(g, 217, ground - 5, 'H');
@@ -3106,26 +3473,33 @@ class LevelCatalog {
         _put(g, 236, ground - 3, '?');
         _coin(g, 236, ground - 4);
         _platform(g, 248, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 249 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 249 + i, ground - 3);
+        }
       case 8: // 倒影平台 — 副歌C：对称布局
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _platform(g, 16, ground - 3, 3);
         _coin(g, 17, ground - 4);
         _gap(g, 24, 3);
         _enemy(g, 32, ground);
         _platform(g, 38, ground - 2, 5);
         _put(g, 40, ground - 2, '?');
-        for (var i = 0; i < 4; i++) _coin(g, 39 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 39 + i, ground - 3);
+        }
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 4, 3);
         _put(g, 55, ground - 4, 'M');
         _gap(g, 62, 2);
         _platform(g, 68, ground - 3, 4);
-        _coin(g, 69, ground - 4); _coin(g, 70, ground - 4);
+        _coin(g, 69, ground - 4);
+        _coin(g, 70, ground - 4);
         _enemy(g, 78, ground);
         _platform(g, 84, ground - 1, 5);
-        _coin(g, 85, ground - 2); _coin(g, 86, ground - 2);
+        _coin(g, 85, ground - 2);
+        _coin(g, 86, ground - 2);
         _gap(g, 94, 3);
         _put(g, 102, ground, 'S');
         _platform(g, 108, ground - 4, 3);
@@ -3135,17 +3509,22 @@ class LevelCatalog {
         _put(g, 126, ground - 2, '?');
         _gap(g, 134, 2);
         _platform(g, 140, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 140 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 140 + i, ground - 4);
+        }
         _enemy(g, 150, ground);
         _put(g, 158, ground, 'S');
         _platform(g, 164, ground - 4, 3);
         _put(g, 165, ground - 4, 'M');
         _gap(g, 172, 3);
         _platform(g, 178, ground - 2, 4);
-        _coin(g, 179, ground - 3); _coin(g, 180, ground - 3);
+        _coin(g, 179, ground - 3);
+        _coin(g, 180, ground - 3);
         _enemy(g, 188, ground);
         _platform(g, 196, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 197 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 197 + i, ground - 4);
+        }
         _put(g, 200, ground - 3, '?');
         _gap(g, 208, 2);
         _platform(g, 214, ground - 1, 4);
@@ -3153,13 +3532,18 @@ class LevelCatalog {
         _enemy(g, 224, ground);
         _put(g, 232, ground, 'S');
         _platform(g, 238, ground - 3, 4);
-        _coin(g, 239, ground - 4); _coin(g, 240, ground - 4);
+        _coin(g, 239, ground - 4);
+        _coin(g, 240, ground - 4);
         _platform(g, 252, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 253 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 253 + i, ground - 3);
+        }
         _enemy(g, 264, ground);
       case 9: // 无名高塔 — 高潮：最强挑战
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
@@ -3169,7 +3553,9 @@ class LevelCatalog {
         _coin(g, 35, ground - 5);
         _gap(g, 42, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 48 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 48 + i, ground - 4);
+        }
         _enemy(g, 58, ground);
         _gap(g, 64, 3);
         _platform(g, 70, ground - 2, 4);
@@ -3180,7 +3566,9 @@ class LevelCatalog {
         _put(g, 95, ground - 5, 'H');
         _gap(g, 102, 3);
         _platform(g, 108, ground - 3, 5);
-        _coin(g, 109, ground - 4); _coin(g, 110, ground - 4); _coin(g, 111, ground - 4);
+        _coin(g, 109, ground - 4);
+        _coin(g, 110, ground - 4);
+        _coin(g, 111, ground - 4);
         _put(g, 112, ground - 3, '?');
         _enemy(g, 120, ground);
         _gap(g, 126, 2);
@@ -3190,17 +3578,22 @@ class LevelCatalog {
         _enemy(g, 150, ground);
         _gap(g, 156, 3);
         _platform(g, 162, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 162 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 162 + i, ground - 4);
+        }
         _platform(g, 174, ground - 2, 5);
         _put(g, 176, ground - 2, '?');
         _enemy(g, 184, ground);
         _put(g, 190, ground, 'S');
         _gap(g, 196, 2);
         _platform(g, 202, ground - 4, 3);
-        _coin(g, 203, ground - 5); _coin(g, 204, ground - 5);
+        _coin(g, 203, ground - 5);
+        _coin(g, 204, ground - 5);
         _enemy(g, 214, ground);
         _platform(g, 220, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 220 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 220 + i, ground - 4);
+        }
         _gap(g, 230, 3);
         _platform(g, 236, ground - 2, 4);
         _put(g, 238, ground - 3, 'H');
@@ -3210,22 +3603,27 @@ class LevelCatalog {
         _put(g, 261, ground - 4, 'M');
         _gap(g, 268, 2);
         _platform(g, 274, ground - 3, 5);
-        _coin(g, 275, ground - 4); _coin(g, 276, ground - 4);
+        _coin(g, 275, ground - 4);
+        _coin(g, 276, ground - 4);
         _enemy(g, 286, ground);
       case 10: // 答案之心 — Boss战
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _platform(g, 26, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 27 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 27 + i, ground - 4);
+        }
         _gap(g, 36, 2);
         _enemy(g, 44, ground);
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 4, 3);
         _put(g, 57, ground - 4, 'M');
         _platform(g, 66, ground - 2, 4);
-        _coin(g, 67, ground - 3); _coin(g, 68, ground - 3);
+        _coin(g, 67, ground - 3);
+        _coin(g, 68, ground - 3);
         _gap(g, 76, 3);
         _enemy(g, 84, ground);
         _platform(g, 90, ground - 3, 5);
@@ -3238,37 +3636,46 @@ class LevelCatalog {
 
   static void _worldTaroStar(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 静夜星门 — 前奏：寂静入夜，星光点缀
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _platform(g, 18, ground - 2, 3);
         _put(g, 19, ground - 2, '?');
         _coin(g, 19, ground - 3);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _enemy(g, 42, ground);
         _platform(g, 50, ground - 1, 4);
-        _coin(g, 51, ground - 2); _coin(g, 52, ground - 2);
+        _coin(g, 51, ground - 2);
+        _coin(g, 52, ground - 2);
         _platform(g, 64, ground - 2, 3);
         _coin(g, 65, ground - 3);
         _put(g, 74, ground, 'S');
         _platform(g, 82, ground - 3, 4);
-        _coin(g, 83, ground - 4); _coin(g, 84, ground - 4);
+        _coin(g, 83, ground - 4);
+        _coin(g, 84, ground - 4);
         _put(g, 85, ground - 3, '?');
         _enemy(g, 96, ground);
         _platform(g, 104, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 105 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 105 + i, ground - 3);
+        }
         _platform(g, 118, ground - 1, 3);
         _coin(g, 119, ground - 2);
         _platform(g, 130, ground - 3, 4);
         _coin(g, 131, ground - 4);
         _put(g, 140, ground, 'S');
         _platform(g, 148, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 149 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 149 + i, ground - 3);
+        }
         _platform(g, 164, ground - 1, 4);
-        _coin(g, 165, ground - 2); _coin(g, 166, ground - 2);
+        _coin(g, 165, ground - 2);
+        _coin(g, 166, ground - 2);
         _enemy(g, 176, ground);
         _platform(g, 184, ground - 3, 3);
         _coin(g, 185, ground - 4);
@@ -3281,61 +3688,78 @@ class LevelCatalog {
         _enemy(g, 28, ground);
         _gap(g, 34, 2);
         _platform(g, 40, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 41 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 41 + i, ground - 2);
+        }
         _platform(g, 52, ground - 2, 3);
         _coin(g, 53, ground - 3);
         _put(g, 60, ground, 'S');
         _platform(g, 68, ground - 3, 4);
-        _coin(g, 69, ground - 4); _coin(g, 70, ground - 4);
+        _coin(g, 69, ground - 4);
+        _coin(g, 70, ground - 4);
         _enemy(g, 80, ground);
         _gap(g, 86, 2);
         _platform(g, 92, ground - 2, 5);
         _put(g, 94, ground - 2, '?');
-        for (var i = 0; i < 4; i++) _coin(g, 93 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 93 + i, ground - 3);
+        }
         _platform(g, 106, ground - 4, 3);
         _put(g, 107, ground - 4, 'M');
         _enemy(g, 116, ground);
         _platform(g, 124, ground - 1, 4);
-        _coin(g, 125, ground - 2); _coin(g, 126, ground - 2);
+        _coin(g, 125, ground - 2);
+        _coin(g, 126, ground - 2);
         _gap(g, 134, 2);
         _platform(g, 140, ground - 3, 3);
         _coin(g, 141, ground - 4);
         _put(g, 148, ground, 'S');
         _platform(g, 156, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 157 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 157 + i, ground - 3);
+        }
         _enemy(g, 166, ground);
         _platform(g, 174, ground - 3, 4);
         _put(g, 176, ground - 4, 'H');
         _platform(g, 188, ground - 1, 5);
-        _coin(g, 189, ground - 2); _coin(g, 190, ground - 2);
+        _coin(g, 189, ground - 2);
+        _coin(g, 190, ground - 2);
       case 2: // 屏息浮岛 — 副歌前奏：浮岛感，弹簧路线
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 4, 3);
-        _coin(g, 21, ground - 5); _coin(g, 22, ground - 5);
+        _coin(g, 21, ground - 5);
+        _coin(g, 22, ground - 5);
         _gap(g, 30, 2);
         _enemy(g, 36, ground);
         _platform(g, 42, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 43 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 43 + i, ground - 4);
+        }
         _put(g, 46, ground - 3, '?');
         _put(g, 54, ground, 'S');
         _platform(g, 60, ground - 4, 3);
         _put(g, 61, ground - 4, 'M');
         _gap(g, 68, 3);
         _platform(g, 74, ground - 2, 4);
-        _coin(g, 75, ground - 3); _coin(g, 76, ground - 3);
+        _coin(g, 75, ground - 3);
+        _coin(g, 76, ground - 3);
         _enemy(g, 84, ground);
         _put(g, 90, ground, 'S');
         _platform(g, 96, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 97 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 97 + i, ground - 4);
+        }
         _gap(g, 106, 2);
         _platform(g, 112, ground - 4, 3);
         _put(g, 113, ground - 5, 'H');
         _put(g, 120, ground, 'S');
         _enemy(g, 128, ground);
         _platform(g, 134, ground - 2, 4);
-        _coin(g, 135, ground - 3); _coin(g, 136, ground - 3);
+        _coin(g, 135, ground - 3);
+        _coin(g, 136, ground - 3);
         _gap(g, 144, 3);
         _platform(g, 150, ground - 3, 5);
         _put(g, 152, ground - 3, '?');
@@ -3345,13 +3769,17 @@ class LevelCatalog {
         _platform(g, 174, ground - 4, 3);
         _put(g, 175, ground - 4, 'M');
         _platform(g, 186, ground - 1, 4);
-        _coin(g, 187, ground - 2); _coin(g, 188, ground - 2);
+        _coin(g, 187, ground - 2);
+        _coin(g, 188, ground - 2);
         _gap(g, 196, 2);
         _platform(g, 202, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 203 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 203 + i, ground - 4);
+        }
       case 3: // 月影断桥 — 副歌A：月夜断桥，跳跃密集
         _platform(g, 6, ground - 3, 3);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
         _gap(g, 14, 3);
         _platform(g, 20, ground - 2, 4);
         _coin(g, 21, ground - 3);
@@ -3362,11 +3790,14 @@ class LevelCatalog {
         _put(g, 43, ground - 4, 'M');
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 57 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 57 + i, ground - 4);
+        }
         _gap(g, 66, 3);
         _enemy(g, 74, ground);
         _platform(g, 80, ground - 2, 4);
-        _coin(g, 81, ground - 3); _coin(g, 82, ground - 3);
+        _coin(g, 81, ground - 3);
+        _coin(g, 82, ground - 3);
         _gap(g, 90, 2);
         _platform(g, 96, ground - 3, 3);
         _put(g, 97, ground - 3, '?');
@@ -3376,7 +3807,9 @@ class LevelCatalog {
         _enemy(g, 120, ground);
         _gap(g, 126, 3);
         _platform(g, 132, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 132 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 132 + i, ground - 3);
+        }
         _gap(g, 142, 2);
         _platform(g, 148, ground - 3, 4);
         _put(g, 150, ground - 3, '?');
@@ -3386,58 +3819,75 @@ class LevelCatalog {
         _platform(g, 176, ground - 4, 3);
         _put(g, 177, ground - 4, 'M');
         _platform(g, 188, ground - 2, 4);
-        _coin(g, 189, ground - 3); _coin(g, 190, ground - 3);
+        _coin(g, 189, ground - 3);
+        _coin(g, 190, ground - 3);
         _enemy(g, 200, ground);
         _gap(g, 206, 2);
         _platform(g, 212, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 213 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 213 + i, ground - 4);
+        }
       case 4: // 萤火平台 — 间奏：萤火虫点缀，舒缓
         _platform(g, 6, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 2);
+        }
         _platform(g, 18, ground - 3, 3);
         _put(g, 19, ground - 3, '?');
         _enemy(g, 28, ground);
         _gap(g, 34, 2);
         _platform(g, 40, ground - 2, 4);
-        _coin(g, 41, ground - 3); _coin(g, 42, ground - 3);
+        _coin(g, 41, ground - 3);
+        _coin(g, 42, ground - 3);
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 4, 3);
         _put(g, 57, ground - 4, 'M');
         _platform(g, 66, ground - 1, 5);
-        _coin(g, 67, ground - 2); _coin(g, 68, ground - 2);
+        _coin(g, 67, ground - 2);
+        _coin(g, 68, ground - 2);
         _enemy(g, 78, ground);
         _gap(g, 84, 3);
         _platform(g, 90, ground - 3, 4);
-        _coin(g, 91, ground - 4); _coin(g, 92, ground - 4);
+        _coin(g, 91, ground - 4);
+        _coin(g, 92, ground - 4);
         _put(g, 93, ground - 3, '?');
         _put(g, 102, ground, 'S');
         _platform(g, 108, ground - 4, 3);
         _put(g, 109, ground - 5, 'H');
         _enemy(g, 118, ground);
         _platform(g, 124, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 125 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 125 + i, ground - 3);
+        }
         _gap(g, 134, 2);
         _platform(g, 140, ground - 3, 3);
         _coin(g, 141, ground - 4);
         _enemy(g, 150, ground);
         _put(g, 158, ground, 'S');
         _platform(g, 164, ground - 2, 4);
-        _coin(g, 165, ground - 3); _coin(g, 166, ground - 3);
+        _coin(g, 165, ground - 3);
+        _coin(g, 166, ground - 3);
         _platform(g, 178, ground - 4, 3);
         _put(g, 179, ground - 4, 'M');
         _gap(g, 188, 3);
         _platform(g, 194, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 195 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 195 + i, ground - 2);
+        }
         _enemy(g, 206, ground);
         _platform(g, 214, ground - 3, 4);
-        _coin(g, 215, ground - 4); _coin(g, 216, ground - 4);
+        _coin(g, 215, ground - 4);
+        _coin(g, 216, ground - 4);
       case 5: // 无声回廊 — 主歌B：安静走廊
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _platform(g, 26, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 27 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 27 + i, ground - 4);
+        }
         _gap(g, 36, 2);
         _platform(g, 42, ground - 1, 3);
         _coin(g, 43, ground - 2);
@@ -3447,17 +3897,21 @@ class LevelCatalog {
         _enemy(g, 66, ground);
         _gap(g, 72, 3);
         _platform(g, 78, ground - 2, 4);
-        _coin(g, 79, ground - 3); _coin(g, 80, ground - 3);
+        _coin(g, 79, ground - 3);
+        _coin(g, 80, ground - 3);
         _platform(g, 90, ground - 3, 5);
         _put(g, 92, ground - 3, '?');
-        for (var i = 0; i < 3; i++) _coin(g, 91 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 91 + i, ground - 4);
+        }
         _put(g, 100, ground, 'S');
         _platform(g, 106, ground - 4, 3);
         _put(g, 107, ground - 5, 'H');
         _enemy(g, 116, ground);
         _gap(g, 122, 2);
         _platform(g, 128, ground - 2, 5);
-        _coin(g, 129, ground - 3); _coin(g, 130, ground - 3);
+        _coin(g, 129, ground - 3);
+        _coin(g, 130, ground - 3);
         _platform(g, 142, ground - 3, 3);
         _put(g, 143, ground - 3, '?');
         _enemy(g, 152, ground);
@@ -3466,16 +3920,21 @@ class LevelCatalog {
         _platform(g, 172, ground - 4, 3);
         _put(g, 173, ground - 4, 'M');
         _platform(g, 184, ground - 1, 4);
-        _coin(g, 185, ground - 2); _coin(g, 186, ground - 2);
+        _coin(g, 185, ground - 2);
+        _coin(g, 186, ground - 2);
         _enemy(g, 196, ground);
         _platform(g, 204, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 205 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 205 + i, ground - 3);
+        }
         _gap(g, 216, 2);
         _platform(g, 222, ground - 3, 4);
         _coin(g, 223, ground - 4);
       case 6: // 流星滑道 — 副歌B：流星意象，快节奏
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
@@ -3484,11 +3943,14 @@ class LevelCatalog {
         _put(g, 37, ground - 4, 'M');
         _gap(g, 44, 2);
         _platform(g, 50, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 51 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 51 + i, ground - 3);
+        }
         _enemy(g, 60, ground);
         _put(g, 66, ground, 'S');
         _platform(g, 72, ground - 3, 4);
-        _coin(g, 73, ground - 4); _coin(g, 74, ground - 4);
+        _coin(g, 73, ground - 4);
+        _coin(g, 74, ground - 4);
         _put(g, 75, ground - 3, '?');
         _gap(g, 82, 3);
         _platform(g, 88, ground - 4, 3);
@@ -3496,7 +3958,9 @@ class LevelCatalog {
         _enemy(g, 98, ground);
         _put(g, 104, ground, 'S');
         _platform(g, 110, ground - 2, 5);
-        _coin(g, 111, ground - 3); _coin(g, 112, ground - 3); _coin(g, 113, ground - 3);
+        _coin(g, 111, ground - 3);
+        _coin(g, 112, ground - 3);
+        _coin(g, 113, ground - 3);
         _gap(g, 120, 2);
         _platform(g, 126, ground - 3, 4);
         _put(g, 128, ground - 3, '?');
@@ -3506,22 +3970,29 @@ class LevelCatalog {
         _put(g, 149, ground - 4, 'M');
         _gap(g, 156, 3);
         _platform(g, 162, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 162 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 162 + i, ground - 3);
+        }
         _enemy(g, 172, ground);
         _platform(g, 178, ground - 3, 3);
         _coin(g, 179, ground - 4);
         _gap(g, 186, 2);
         _put(g, 194, ground, 'S');
         _platform(g, 200, ground - 4, 3);
-        _coin(g, 201, ground - 5); _coin(g, 202, ground - 5);
+        _coin(g, 201, ground - 5);
+        _coin(g, 202, ground - 5);
         _enemy(g, 212, ground);
         _platform(g, 218, ground - 1, 4);
         _put(g, 220, ground - 1, '?');
         _platform(g, 232, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 233 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 233 + i, ground - 3);
+        }
       case 7: // 安眠高台 — 桥段：安眠意象，高台俯瞰
         _platform(g, 6, ground - 2, 5);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3); _coin(g, 9, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
+        _coin(g, 9, ground - 3);
         _put(g, 10, ground - 2, '?');
         _gap(g, 18, 2);
         _enemy(g, 26, ground);
@@ -3529,7 +4000,9 @@ class LevelCatalog {
         _put(g, 33, ground - 4, 'M');
         _put(g, 40, ground, 'S');
         _platform(g, 46, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 47 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 47 + i, ground - 4);
+        }
         _gap(g, 56, 3);
         _platform(g, 62, ground - 2, 4);
         _enemy(g, 70, ground);
@@ -3542,7 +4015,8 @@ class LevelCatalog {
         _gap(g, 98, 2);
         _enemy(g, 106, ground);
         _platform(g, 112, ground - 2, 5);
-        _coin(g, 113, ground - 3); _coin(g, 114, ground - 3);
+        _coin(g, 113, ground - 3);
+        _coin(g, 114, ground - 3);
         _platform(g, 124, ground - 3, 4);
         _put(g, 126, ground - 3, '?');
         _put(g, 134, ground, 'S');
@@ -3551,25 +4025,32 @@ class LevelCatalog {
         _put(g, 147, ground - 4, 'M');
         _enemy(g, 156, ground);
         _platform(g, 162, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 163 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 163 + i, ground - 2);
+        }
         _gap(g, 174, 2);
         _platform(g, 180, ground - 3, 4);
-        _coin(g, 181, ground - 4); _coin(g, 182, ground - 4);
+        _coin(g, 181, ground - 4);
+        _coin(g, 182, ground - 4);
         _enemy(g, 192, ground);
         _put(g, 198, ground, 'S');
         _platform(g, 204, ground - 4, 3);
         _coin(g, 205, ground - 5);
         _platform(g, 216, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 217 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 217 + i, ground - 3);
+        }
         _gap(g, 228, 3);
         _enemy(g, 236, ground);
         _platform(g, 244, ground - 3, 4);
         _put(g, 246, ground - 4, 'H');
         _platform(g, 258, ground - 1, 5);
-        _coin(g, 259, ground - 2); _coin(g, 260, ground - 2);
+        _coin(g, 259, ground - 2);
+        _coin(g, 260, ground - 2);
       case 8: // 耳语之桥 — 副歌C：耳语般强度
         _platform(g, 6, ground - 3, 4);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
         _put(g, 9, ground - 3, '?');
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
@@ -3577,11 +4058,14 @@ class LevelCatalog {
         _platform(g, 36, ground - 4, 3);
         _put(g, 37, ground - 4, 'M');
         _platform(g, 46, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 47 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 47 + i, ground - 3);
+        }
         _gap(g, 56, 2);
         _enemy(g, 64, ground);
         _platform(g, 70, ground - 3, 4);
-        _coin(g, 71, ground - 4); _coin(g, 72, ground - 4);
+        _coin(g, 71, ground - 4);
+        _coin(g, 72, ground - 4);
         _put(g, 80, ground, 'S');
         _platform(g, 86, ground - 4, 3);
         _put(g, 87, ground - 5, 'H');
@@ -3592,34 +4076,45 @@ class LevelCatalog {
         _enemy(g, 112, ground);
         _put(g, 118, ground, 'S');
         _platform(g, 124, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 124 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 124 + i, ground - 4);
+        }
         _gap(g, 134, 2);
         _platform(g, 140, ground - 4, 3);
         _put(g, 141, ground - 4, 'M');
         _enemy(g, 150, ground);
         _platform(g, 156, ground - 1, 5);
-        _coin(g, 157, ground - 2); _coin(g, 158, ground - 2);
+        _coin(g, 157, ground - 2);
+        _coin(g, 158, ground - 2);
         _gap(g, 168, 3);
         _put(g, 176, ground, 'S');
         _platform(g, 182, ground - 3, 4);
-        _coin(g, 183, ground - 4); _coin(g, 184, ground - 4);
+        _coin(g, 183, ground - 4);
+        _coin(g, 184, ground - 4);
         _put(g, 185, ground - 3, '?');
         _enemy(g, 194, ground);
         _platform(g, 200, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 201 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 201 + i, ground - 3);
+        }
         _gap(g, 212, 2);
         _put(g, 220, ground, 'S');
         _platform(g, 226, ground - 4, 3);
         _put(g, 227, ground - 5, 'H');
         _enemy(g, 236, ground);
         _platform(g, 242, ground - 2, 4);
-        _coin(g, 243, ground - 3); _coin(g, 244, ground - 3);
+        _coin(g, 243, ground - 3);
+        _coin(g, 244, ground - 3);
         _gap(g, 254, 3);
         _platform(g, 260, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 261 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 261 + i, ground - 4);
+        }
       case 9: // 星尘之巅 — 高潮
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
@@ -3628,7 +4123,9 @@ class LevelCatalog {
         _put(g, 35, ground - 4, 'M');
         _gap(g, 42, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 48 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 48 + i, ground - 4);
+        }
         _enemy(g, 58, ground);
         _gap(g, 64, 3);
         _platform(g, 70, ground - 2, 4);
@@ -3639,7 +4136,9 @@ class LevelCatalog {
         _enemy(g, 96, ground);
         _gap(g, 102, 2);
         _platform(g, 108, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 109 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 109 + i, ground - 4);
+        }
         _put(g, 112, ground - 3, '?');
         _enemy(g, 120, ground);
         _put(g, 126, ground, 'S');
@@ -3647,11 +4146,14 @@ class LevelCatalog {
         _platform(g, 138, ground - 4, 3);
         _put(g, 139, ground - 4, 'M');
         _platform(g, 150, ground - 2, 4);
-        _coin(g, 151, ground - 3); _coin(g, 152, ground - 3);
+        _coin(g, 151, ground - 3);
+        _coin(g, 152, ground - 3);
         _enemy(g, 160, ground);
         _gap(g, 166, 2);
         _platform(g, 172, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 172 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 172 + i, ground - 4);
+        }
         _put(g, 182, ground, 'S');
         _enemy(g, 190, ground);
         _platform(g, 196, ground - 4, 3);
@@ -3662,31 +4164,40 @@ class LevelCatalog {
         _enemy(g, 222, ground);
         _put(g, 228, ground, 'S');
         _platform(g, 234, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 235 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 235 + i, ground - 4);
+        }
         _gap(g, 244, 2);
         _platform(g, 250, ground - 4, 3);
         _put(g, 251, ground - 4, 'M');
         _enemy(g, 260, ground);
         _platform(g, 266, ground - 2, 5);
-        _coin(g, 267, ground - 3); _coin(g, 268, ground - 3);
+        _coin(g, 267, ground - 3);
+        _coin(g, 268, ground - 3);
         _gap(g, 278, 3);
         _platform(g, 284, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 285 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 285 + i, ground - 4);
+        }
       case 10: // 静夜王座 — Boss战
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _enemy(g, 42, ground);
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 4, 3);
         _put(g, 55, ground - 4, 'M');
         _gap(g, 62, 3);
         _platform(g, 68, ground - 2, 4);
-        _coin(g, 69, ground - 3); _coin(g, 70, ground - 3);
+        _coin(g, 69, ground - 3);
+        _coin(g, 70, ground - 3);
         _enemy(g, 80, ground);
         _platform(g, 86, ground - 3, 5);
         _put(g, 88, ground - 3, '?');
@@ -3698,47 +4209,62 @@ class LevelCatalog {
 
   static void _worldLemonBeach(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 破晓海岸 — 前奏：黎明海边，温暖起步
         _platform(g, 6, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 2);
+        }
         _platform(g, 18, ground - 2, 3);
         _put(g, 19, ground - 2, '?');
         _platform(g, 30, ground - 1, 4);
-        _coin(g, 31, ground - 2); _coin(g, 32, ground - 2);
+        _coin(g, 31, ground - 2);
+        _coin(g, 32, ground - 2);
         _enemy(g, 42, ground);
         _platform(g, 50, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 51 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 51 + i, ground - 4);
+        }
         _platform(g, 64, ground - 1, 4);
-        _coin(g, 65, ground - 2); _coin(g, 66, ground - 2);
+        _coin(g, 65, ground - 2);
+        _coin(g, 66, ground - 2);
         _put(g, 74, ground, 'S');
         _platform(g, 82, ground - 2, 3);
         _coin(g, 83, ground - 3);
         _enemy(g, 92, ground);
         _platform(g, 100, ground - 3, 5);
         _put(g, 102, ground - 3, '?');
-        for (var i = 0; i < 4; i++) _coin(g, 101 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 101 + i, ground - 4);
+        }
         _platform(g, 114, ground - 1, 4);
         _coin(g, 115, ground - 2);
         _platform(g, 128, ground - 2, 3);
-        _coin(g, 129, ground - 3); _coin(g, 130, ground - 3);
+        _coin(g, 129, ground - 3);
+        _coin(g, 130, ground - 3);
         _enemy(g, 140, ground);
         _platform(g, 148, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 149 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 149 + i, ground - 4);
+        }
         _put(g, 160, ground, 'S');
         _platform(g, 168, ground - 2, 4);
-        _coin(g, 169, ground - 3); _coin(g, 170, ground - 3);
+        _coin(g, 169, ground - 3);
+        _coin(g, 170, ground - 3);
         _platform(g, 182, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 183 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 183 + i, ground - 2);
+        }
         _enemy(g, 196, ground);
         _platform(g, 204, ground - 3, 3);
         _coin(g, 205, ground - 4);
         _platform(g, 218, ground - 2, 4);
-        _coin(g, 219, ground - 3); _coin(g, 220, ground - 3);
+        _coin(g, 219, ground - 3);
+        _coin(g, 220, ground - 3);
       case 1: // 闹钟弹跳 — 主歌A：闹钟打破宁静
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 3, 3);
         _put(g, 21, ground - 3, '?');
@@ -3746,17 +4272,22 @@ class LevelCatalog {
         _enemy(g, 30, ground);
         _gap(g, 36, 2);
         _platform(g, 42, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 43 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 43 + i, ground - 3);
+        }
         _put(g, 52, ground, 'S');
         _platform(g, 58, ground - 4, 3);
         _put(g, 59, ground - 4, 'M');
         _enemy(g, 68, ground);
         _platform(g, 74, ground - 1, 4);
-        _coin(g, 75, ground - 2); _coin(g, 76, ground - 2);
+        _coin(g, 75, ground - 2);
+        _coin(g, 76, ground - 2);
         _gap(g, 84, 2);
         _put(g, 92, ground, 'S');
         _platform(g, 98, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 99 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 99 + i, ground - 4);
+        }
         _put(g, 102, ground - 3, '?');
         _enemy(g, 112, ground);
         _platform(g, 118, ground - 2, 4);
@@ -3766,7 +4297,8 @@ class LevelCatalog {
         _put(g, 135, ground - 5, 'H');
         _put(g, 142, ground, 'S');
         _platform(g, 148, ground - 2, 5);
-        _coin(g, 149, ground - 3); _coin(g, 150, ground - 3);
+        _coin(g, 149, ground - 3);
+        _coin(g, 150, ground - 3);
         _enemy(g, 160, ground);
         _platform(g, 168, ground - 3, 3);
         _coin(g, 169, ground - 4);
@@ -3775,16 +4307,22 @@ class LevelCatalog {
         _platform(g, 190, ground - 4, 3);
         _put(g, 191, ground - 4, 'M');
         _platform(g, 202, ground - 1, 4);
-        _coin(g, 203, ground - 2); _coin(g, 204, ground - 2);
+        _coin(g, 203, ground - 2);
+        _coin(g, 204, ground - 2);
         _enemy(g, 216, ground);
         _platform(g, 224, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 225 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 225 + i, ground - 3);
+        }
       case 2: // 晨潮平台 — 副歌前奏：潮水涌来
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _gap(g, 14, 2);
         _platform(g, 20, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 21 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 21 + i, ground - 4);
+        }
         _put(g, 24, ground - 3, '?');
         _enemy(g, 32, ground);
         _put(g, 38, ground, 'S');
@@ -3792,10 +4330,13 @@ class LevelCatalog {
         _put(g, 45, ground - 4, 'M');
         _gap(g, 52, 3);
         _platform(g, 58, ground - 2, 4);
-        _coin(g, 59, ground - 3); _coin(g, 60, ground - 3);
+        _coin(g, 59, ground - 3);
+        _coin(g, 60, ground - 3);
         _enemy(g, 68, ground);
         _platform(g, 74, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 75 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 75 + i, ground - 4);
+        }
         _gap(g, 84, 2);
         _put(g, 92, ground, 'S');
         _platform(g, 98, ground - 4, 3);
@@ -3805,37 +4346,48 @@ class LevelCatalog {
         _put(g, 116, ground - 1, '?');
         _gap(g, 124, 3);
         _platform(g, 130, ground - 2, 5);
-        _coin(g, 131, ground - 3); _coin(g, 132, ground - 3);
+        _coin(g, 131, ground - 3);
+        _coin(g, 132, ground - 3);
         _put(g, 140, ground, 'S');
         _platform(g, 146, ground - 3, 4);
-        _coin(g, 147, ground - 4); _coin(g, 148, ground - 4);
+        _coin(g, 147, ground - 4);
+        _coin(g, 148, ground - 4);
         _enemy(g, 156, ground);
         _gap(g, 164, 2);
         _platform(g, 170, ground - 4, 3);
         _put(g, 171, ground - 4, 'M');
         _platform(g, 182, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 183 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 183 + i, ground - 3);
+        }
         _enemy(g, 194, ground);
         _platform(g, 202, ground - 1, 4);
         _coin(g, 203, ground - 2);
         _gap(g, 212, 3);
         _put(g, 220, ground, 'S');
         _platform(g, 226, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 227 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 227 + i, ground - 4);
+        }
       case 3: // 日出跳台 — 副歌A：日出能量爆发
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
         _platform(g, 30, ground - 2, 5);
-        _coin(g, 31, ground - 3); _coin(g, 32, ground - 3);
+        _coin(g, 31, ground - 3);
+        _coin(g, 32, ground - 3);
         _put(g, 40, ground, 'S');
         _platform(g, 46, ground - 4, 3);
         _put(g, 47, ground - 4, 'M');
         _gap(g, 54, 2);
         _platform(g, 60, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 60 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 60 + i, ground - 4);
+        }
         _enemy(g, 72, ground);
         _gap(g, 78, 3);
         _platform(g, 84, ground - 2, 4);
@@ -3846,7 +4398,9 @@ class LevelCatalog {
         _enemy(g, 110, ground);
         _gap(g, 116, 2);
         _platform(g, 122, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 123 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 123 + i, ground - 4);
+        }
         _platform(g, 134, ground - 1, 4);
         _coin(g, 135, ground - 2);
         _gap(g, 144, 3);
@@ -3855,33 +4409,42 @@ class LevelCatalog {
         _platform(g, 164, ground - 4, 3);
         _put(g, 165, ground - 4, 'M');
         _platform(g, 176, ground - 2, 5);
-        _coin(g, 177, ground - 3); _coin(g, 178, ground - 3);
+        _coin(g, 177, ground - 3);
+        _coin(g, 178, ground - 3);
         _gap(g, 188, 2);
         _enemy(g, 196, ground);
         _platform(g, 202, ground - 3, 4);
         _put(g, 204, ground - 3, '?');
         _put(g, 212, ground, 'S');
         _platform(g, 218, ground - 4, 3);
-        _coin(g, 219, ground - 5); _coin(g, 220, ground - 5);
+        _coin(g, 219, ground - 5);
+        _coin(g, 220, ground - 5);
         _gap(g, 228, 3);
         _platform(g, 234, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 235 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 235 + i, ground - 3);
+        }
         _enemy(g, 246, ground);
       case 4: // 第一缕光 — 间奏：第一缕阳光，暖色调
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 10, ground - 2, '?');
         _platform(g, 18, ground - 1, 3);
         _coin(g, 19, ground - 2);
         _enemy(g, 28, ground);
         _platform(g, 36, ground - 3, 4);
-        _coin(g, 37, ground - 4); _coin(g, 38, ground - 4);
+        _coin(g, 37, ground - 4);
+        _coin(g, 38, ground - 4);
         _put(g, 46, ground, 'S');
         _platform(g, 52, ground - 4, 3);
         _put(g, 53, ground - 4, 'M');
         _gap(g, 60, 2);
         _platform(g, 66, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 67 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 67 + i, ground - 3);
+        }
         _enemy(g, 78, ground);
         _platform(g, 84, ground - 3, 3);
         _put(g, 85, ground - 3, '?');
@@ -3890,10 +4453,13 @@ class LevelCatalog {
         _put(g, 101, ground - 5, 'H');
         _put(g, 108, ground, 'S');
         _platform(g, 114, ground - 2, 4);
-        _coin(g, 115, ground - 3); _coin(g, 116, ground - 3);
+        _coin(g, 115, ground - 3);
+        _coin(g, 116, ground - 3);
         _enemy(g, 126, ground);
         _platform(g, 132, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 133 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 133 + i, ground - 2);
+        }
         _gap(g, 142, 2);
         _platform(g, 148, ground - 3, 3);
         _coin(g, 149, ground - 4);
@@ -3902,13 +4468,17 @@ class LevelCatalog {
         _put(g, 163, ground - 4, 'M');
         _enemy(g, 174, ground);
         _platform(g, 180, ground - 2, 5);
-        _coin(g, 181, ground - 3); _coin(g, 182, ground - 3);
+        _coin(g, 181, ground - 3);
+        _coin(g, 182, ground - 3);
         _gap(g, 192, 3);
         _platform(g, 198, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 199 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 199 + i, ground - 4);
+        }
         _enemy(g, 210, ground);
         _platform(g, 218, ground - 1, 5);
-        _coin(g, 219, ground - 2); _coin(g, 220, ground - 2);
+        _coin(g, 219, ground - 2);
+        _coin(g, 220, ground - 2);
         _put(g, 230, ground, 'S');
         _platform(g, 238, ground - 2, 4);
         _coin(g, 239, ground - 3);
@@ -3916,72 +4486,91 @@ class LevelCatalog {
         _coin(g, 253, ground - 4);
       case 5: // 早班高堤 — 主歌B：通勤节奏
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _platform(g, 16, ground - 3, 3);
         _put(g, 17, ground - 3, '?');
         _enemy(g, 28, ground);
         _gap(g, 34, 3);
         _platform(g, 40, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 41 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 41 + i, ground - 3);
+        }
         _put(g, 50, ground, 'S');
         _platform(g, 56, ground - 4, 3);
         _put(g, 57, ground - 4, 'M');
         _gap(g, 64, 2);
         _enemy(g, 72, ground);
         _platform(g, 78, ground - 3, 4);
-        _coin(g, 79, ground - 4); _coin(g, 80, ground - 4);
+        _coin(g, 79, ground - 4);
+        _coin(g, 80, ground - 4);
         _put(g, 81, ground - 3, '?');
         _put(g, 90, ground, 'S');
         _platform(g, 96, ground - 4, 3);
         _put(g, 97, ground - 5, 'H');
         _gap(g, 104, 3);
         _platform(g, 110, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 111 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 111 + i, ground - 3);
+        }
         _enemy(g, 120, ground);
         _platform(g, 128, ground - 1, 4);
         _coin(g, 129, ground - 2);
         _gap(g, 138, 2);
         _put(g, 146, ground, 'S');
         _platform(g, 152, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 152 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 152 + i, ground - 4);
+        }
         _enemy(g, 162, ground);
         _platform(g, 170, ground - 4, 3);
         _put(g, 171, ground - 4, 'M');
         _gap(g, 178, 3);
         _platform(g, 184, ground - 2, 4);
-        _coin(g, 185, ground - 3); _coin(g, 186, ground - 3);
+        _coin(g, 185, ground - 3);
+        _coin(g, 186, ground - 3);
         _enemy(g, 196, ground);
         _put(g, 204, ground, 'S');
         _platform(g, 210, ground - 3, 5);
         _put(g, 212, ground - 3, '?');
-        for (var i = 0; i < 4; i++) _coin(g, 211 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 211 + i, ground - 4);
+        }
         _gap(g, 222, 2);
         _platform(g, 228, ground - 1, 4);
         _coin(g, 229, ground - 2);
         _enemy(g, 240, ground);
         _platform(g, 248, ground - 2, 5);
-        _coin(g, 249, ground - 3); _coin(g, 250, ground - 3);
+        _coin(g, 249, ground - 3);
+        _coin(g, 250, ground - 3);
       case 6: // 海风滑道 — 副歌B：海风吹拂
         _platform(g, 6, ground - 3, 4);
-        _coin(g, 7, ground - 4); _coin(g, 8, ground - 4); _coin(g, 9, ground - 4);
+        _coin(g, 7, ground - 4);
+        _coin(g, 8, ground - 4);
+        _coin(g, 9, ground - 4);
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
         _put(g, 30, ground, 'S');
         _platform(g, 36, ground - 4, 3);
         _put(g, 37, ground - 4, 'M');
         _platform(g, 48, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 49 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 49 + i, ground - 3);
+        }
         _put(g, 52, ground - 2, '?');
         _gap(g, 58, 2);
         _enemy(g, 66, ground);
         _platform(g, 72, ground - 3, 4);
-        _coin(g, 73, ground - 4); _coin(g, 74, ground - 4);
+        _coin(g, 73, ground - 4);
+        _coin(g, 74, ground - 4);
         _put(g, 82, ground, 'S');
         _platform(g, 88, ground - 4, 3);
         _put(g, 89, ground - 5, 'H');
         _gap(g, 96, 3);
         _platform(g, 102, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 102 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 102 + i, ground - 3);
+        }
         _enemy(g, 114, ground);
         _put(g, 120, ground, 'S');
         _gap(g, 126, 2);
@@ -3993,26 +4582,35 @@ class LevelCatalog {
         _put(g, 151, ground - 4, 'M');
         _gap(g, 158, 3);
         _platform(g, 164, ground - 1, 5);
-        _coin(g, 165, ground - 2); _coin(g, 166, ground - 2);
+        _coin(g, 165, ground - 2);
+        _coin(g, 166, ground - 2);
         _put(g, 174, ground, 'S');
         _enemy(g, 182, ground);
         _platform(g, 188, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 188 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 188 + i, ground - 4);
+        }
         _gap(g, 198, 2);
         _platform(g, 204, ground - 2, 5);
-        _coin(g, 205, ground - 3); _coin(g, 206, ground - 3);
+        _coin(g, 205, ground - 3);
+        _coin(g, 206, ground - 3);
         _enemy(g, 216, ground);
         _put(g, 224, ground, 'S');
         _platform(g, 230, ground - 4, 3);
         _put(g, 231, ground - 5, 'H');
         _platform(g, 242, ground - 2, 4);
-        _coin(g, 243, ground - 3); _coin(g, 244, ground - 3);
+        _coin(g, 243, ground - 3);
+        _coin(g, 244, ground - 3);
         _gap(g, 254, 3);
         _platform(g, 260, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 261 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 261 + i, ground - 4);
+        }
       case 7: // 灯塔之桥 — 桥段：灯塔指引
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
@@ -4020,7 +4618,9 @@ class LevelCatalog {
         _put(g, 31, ground - 4, 'M');
         _put(g, 38, ground, 'S');
         _platform(g, 44, ground - 3, 5);
-        _coin(g, 45, ground - 4); _coin(g, 46, ground - 4); _coin(g, 47, ground - 4);
+        _coin(g, 45, ground - 4);
+        _coin(g, 46, ground - 4);
+        _coin(g, 47, ground - 4);
         _gap(g, 54, 3);
         _enemy(g, 62, ground);
         _platform(g, 68, ground - 2, 4);
@@ -4030,7 +4630,9 @@ class LevelCatalog {
         _put(g, 88, ground, 'S');
         _gap(g, 94, 2);
         _platform(g, 100, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 100 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 100 + i, ground - 4);
+        }
         _enemy(g, 112, ground);
         _platform(g, 118, ground - 1, 4);
         _coin(g, 119, ground - 2);
@@ -4040,7 +4642,8 @@ class LevelCatalog {
         _put(g, 143, ground - 4, 'M');
         _enemy(g, 152, ground);
         _platform(g, 158, ground - 2, 5);
-        _coin(g, 159, ground - 3); _coin(g, 160, ground - 3);
+        _coin(g, 159, ground - 3);
+        _coin(g, 160, ground - 3);
         _gap(g, 170, 2);
         _platform(g, 176, ground - 3, 4);
         _put(g, 178, ground - 3, '?');
@@ -4048,10 +4651,13 @@ class LevelCatalog {
         _enemy(g, 188, ground);
         _put(g, 194, ground, 'S');
         _platform(g, 200, ground - 4, 3);
-        _coin(g, 201, ground - 5); _coin(g, 202, ground - 5);
+        _coin(g, 201, ground - 5);
+        _coin(g, 202, ground - 5);
         _gap(g, 210, 3);
         _platform(g, 216, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 217 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 217 + i, ground - 3);
+        }
         _enemy(g, 228, ground);
         _platform(g, 234, ground - 3, 3);
         _coin(g, 235, ground - 4);
@@ -4059,17 +4665,23 @@ class LevelCatalog {
         _platform(g, 250, ground - 4, 3);
         _put(g, 251, ground - 5, 'H');
         _platform(g, 262, ground - 1, 4);
-        _coin(g, 263, ground - 2); _coin(g, 264, ground - 2);
+        _coin(g, 263, ground - 2);
+        _coin(g, 264, ground - 2);
         _gap(g, 274, 2);
         _platform(g, 280, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 281 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 281 + i, ground - 3);
+        }
       case 8: // 金色沙堡 — 副歌C：沙堡意象
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _put(g, 34, ground - 3, '?');
         _put(g, 42, ground, 'S');
         _platform(g, 48, ground - 4, 3);
@@ -4078,7 +4690,8 @@ class LevelCatalog {
         _platform(g, 62, ground - 2, 4);
         _enemy(g, 70, ground);
         _platform(g, 76, ground - 3, 5);
-        _coin(g, 77, ground - 4); _coin(g, 78, ground - 4);
+        _coin(g, 77, ground - 4);
+        _coin(g, 78, ground - 4);
         _put(g, 86, ground, 'S');
         _gap(g, 92, 3);
         _platform(g, 98, ground - 4, 3);
@@ -4086,21 +4699,27 @@ class LevelCatalog {
         _enemy(g, 108, ground);
         _platform(g, 114, ground - 2, 5);
         _put(g, 116, ground - 2, '?');
-        for (var i = 0; i < 3; i++) _coin(g, 115 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 115 + i, ground - 3);
+        }
         _gap(g, 124, 2);
         _put(g, 132, ground, 'S');
         _platform(g, 138, ground - 3, 4);
-        _coin(g, 139, ground - 4); _coin(g, 140, ground - 4);
+        _coin(g, 139, ground - 4);
+        _coin(g, 140, ground - 4);
         _enemy(g, 148, ground);
         _platform(g, 156, ground - 4, 3);
         _put(g, 157, ground - 4, 'M');
         _gap(g, 164, 3);
         _platform(g, 170, ground - 1, 5);
-        _coin(g, 171, ground - 2); _coin(g, 172, ground - 2);
+        _coin(g, 171, ground - 2);
+        _coin(g, 172, ground - 2);
         _enemy(g, 182, ground);
         _put(g, 188, ground, 'S');
         _platform(g, 194, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 194 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 194 + i, ground - 4);
+        }
         _gap(g, 204, 2);
         _platform(g, 210, ground - 2, 5);
         _put(g, 212, ground - 2, '?');
@@ -4109,16 +4728,22 @@ class LevelCatalog {
         _put(g, 229, ground - 5, 'H');
         _put(g, 238, ground, 'S');
         _platform(g, 244, ground - 3, 5);
-        _coin(g, 245, ground - 4); _coin(g, 246, ground - 4);
+        _coin(g, 245, ground - 4);
+        _coin(g, 246, ground - 4);
         _gap(g, 256, 3);
         _enemy(g, 264, ground);
         _platform(g, 270, ground - 2, 4);
-        _coin(g, 271, ground - 3); _coin(g, 272, ground - 3);
+        _coin(g, 271, ground - 3);
+        _coin(g, 272, ground - 3);
         _platform(g, 284, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 285 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 285 + i, ground - 2);
+        }
       case 9: // 黎明之巅 — 高潮
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
@@ -4127,7 +4752,9 @@ class LevelCatalog {
         _put(g, 35, ground - 4, 'M');
         _gap(g, 42, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 48 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 48 + i, ground - 4);
+        }
         _enemy(g, 58, ground);
         _gap(g, 64, 3);
         _put(g, 72, ground, 'S');
@@ -4138,19 +4765,24 @@ class LevelCatalog {
         _enemy(g, 98, ground);
         _gap(g, 104, 2);
         _platform(g, 110, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 111 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 111 + i, ground - 4);
+        }
         _put(g, 120, ground, 'S');
         _platform(g, 126, ground - 4, 3);
         _put(g, 127, ground - 4, 'M');
         _enemy(g, 136, ground);
         _gap(g, 142, 3);
         _platform(g, 148, ground - 2, 4);
-        _coin(g, 149, ground - 3); _coin(g, 150, ground - 3);
+        _coin(g, 149, ground - 3);
+        _coin(g, 150, ground - 3);
         _put(g, 158, ground, 'S');
         _gap(g, 164, 2);
         _enemy(g, 172, ground);
         _platform(g, 178, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 178 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 178 + i, ground - 4);
+        }
         _put(g, 182, ground - 3, '?');
         _gap(g, 190, 3);
         _platform(g, 196, ground - 4, 3);
@@ -4158,35 +4790,45 @@ class LevelCatalog {
         _put(g, 204, ground, 'S');
         _enemy(g, 212, ground);
         _platform(g, 218, ground - 2, 4);
-        _coin(g, 219, ground - 3); _coin(g, 220, ground - 3);
+        _coin(g, 219, ground - 3);
+        _coin(g, 220, ground - 3);
         _gap(g, 230, 2);
         _platform(g, 236, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 237 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 237 + i, ground - 4);
+        }
         _enemy(g, 248, ground);
         _put(g, 254, ground, 'S');
         _platform(g, 260, ground - 4, 3);
         _put(g, 261, ground - 4, 'M');
         _gap(g, 268, 3);
         _platform(g, 274, ground - 2, 5);
-        _coin(g, 275, ground - 3); _coin(g, 276, ground - 3);
+        _coin(g, 275, ground - 3);
+        _coin(g, 276, ground - 3);
         _enemy(g, 288, ground);
         _platform(g, 294, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 295 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 295 + i, ground - 4);
+        }
       case 10: // 二十分灯塔 — Boss战
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _enemy(g, 42, ground);
         _put(g, 48, ground, 'S');
         _platform(g, 54, ground - 4, 3);
         _put(g, 55, ground - 4, 'M');
         _gap(g, 62, 3);
         _platform(g, 68, ground - 2, 4);
-        _coin(g, 69, ground - 3); _coin(g, 70, ground - 3);
+        _coin(g, 69, ground - 3);
+        _coin(g, 70, ground - 3);
         _enemy(g, 80, ground);
         _platform(g, 86, ground - 3, 5);
         _put(g, 88, ground - 3, '?');
@@ -4198,25 +4840,30 @@ class LevelCatalog {
 
   static void _worldRoseCastle(List<List<String>> g, int level) {
     final ground = g.length - 3;
-    final w = g.first.length;
     switch (level) {
       case 0: // 迷途门廊 — 前奏：迷失入口，哥特门廊
         _platform(g, 6, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 2);
+        }
         _platform(g, 18, ground - 2, 3);
         _put(g, 19, ground - 2, '?');
         _enemy(g, 28, ground);
         _platform(g, 36, ground - 3, 4);
-        _coin(g, 37, ground - 4); _coin(g, 38, ground - 4);
+        _coin(g, 37, ground - 4);
+        _coin(g, 38, ground - 4);
         _gap(g, 46, 2);
         _platform(g, 52, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 53 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 53 + i, ground - 2);
+        }
         _put(g, 62, ground, 'S');
         _platform(g, 68, ground - 3, 3);
         _put(g, 69, ground - 3, 'M');
         _enemy(g, 78, ground);
         _platform(g, 86, ground - 2, 4);
-        _coin(g, 87, ground - 3); _coin(g, 88, ground - 3);
+        _coin(g, 87, ground - 3);
+        _coin(g, 88, ground - 3);
         _platform(g, 98, ground - 1, 5);
         _put(g, 100, ground - 1, '?');
         _gap(g, 108, 2);
@@ -4224,41 +4871,54 @@ class LevelCatalog {
         _coin(g, 115, ground - 4);
         _enemy(g, 124, ground);
         _platform(g, 132, ground - 2, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 133 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 133 + i, ground - 3);
+        }
         _put(g, 142, ground, 'S');
         _platform(g, 148, ground - 4, 3);
         _put(g, 149, ground - 5, 'H');
         _platform(g, 160, ground - 1, 5);
-        _coin(g, 161, ground - 2); _coin(g, 162, ground - 2);
+        _coin(g, 161, ground - 2);
+        _coin(g, 162, ground - 2);
         _enemy(g, 174, ground);
         _platform(g, 182, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 182 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 182 + i, ground - 4);
+        }
         _platform(g, 196, ground - 2, 3);
         _coin(g, 197, ground - 3);
         _gap(g, 206, 2);
         _platform(g, 212, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 213 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 213 + i, ground - 2);
+        }
         _platform(g, 224, ground - 3, 3);
         _put(g, 225, ground - 3, '?');
       case 1: // 回旋台阶 — 主歌A：螺旋上升
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 14, ground, 'S');
         _platform(g, 20, ground - 3, 3);
         _put(g, 21, ground - 3, '?');
         _enemy(g, 30, ground);
         _gap(g, 36, 2);
         _platform(g, 42, ground - 4, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 43 + i, ground - 5);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 43 + i, ground - 5);
+        }
         _platform(g, 54, ground - 2, 5);
-        _coin(g, 55, ground - 3); _coin(g, 56, ground - 3);
+        _coin(g, 55, ground - 3);
+        _coin(g, 56, ground - 3);
         _put(g, 64, ground, 'S');
         _platform(g, 70, ground - 4, 3);
         _put(g, 71, ground - 4, 'M');
         _enemy(g, 80, ground);
         _gap(g, 86, 3);
         _platform(g, 92, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 92 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 92 + i, ground - 4);
+        }
         _put(g, 95, ground - 3, '?');
         _platform(g, 104, ground - 1, 5);
         _coin(g, 105, ground - 2);
@@ -4267,31 +4927,40 @@ class LevelCatalog {
         _put(g, 121, ground - 5, 'H');
         _enemy(g, 130, ground);
         _platform(g, 138, ground - 2, 4);
-        _coin(g, 139, ground - 3); _coin(g, 140, ground - 3);
+        _coin(g, 139, ground - 3);
+        _coin(g, 140, ground - 3);
         _gap(g, 150, 2);
         _platform(g, 156, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 156 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 156 + i, ground - 4);
+        }
         _enemy(g, 168, ground);
         _put(g, 174, ground, 'S');
         _platform(g, 180, ground - 4, 3);
         _put(g, 181, ground - 4, 'M');
         _gap(g, 188, 3);
         _platform(g, 194, ground - 2, 4);
-        _coin(g, 195, ground - 3); _coin(g, 196, ground - 3);
+        _coin(g, 195, ground - 3);
+        _coin(g, 196, ground - 3);
         _enemy(g, 206, ground);
         _platform(g, 214, ground - 3, 3);
         _put(g, 215, ground - 3, '?');
         _platform(g, 226, ground - 1, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 227 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 227 + i, ground - 2);
+        }
         _gap(g, 238, 2);
         _platform(g, 244, ground - 2, 3);
         _coin(g, 245, ground - 3);
       case 2: // 断线平台 — 主歌B：断裂失落
         _platform(g, 6, ground - 1, 3);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _gap(g, 14, 3);
         _platform(g, 20, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 21 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 21 + i, ground - 4);
+        }
         _put(g, 23, ground - 3, '?');
         _enemy(g, 32, ground);
         _put(g, 38, ground, 'S');
@@ -4299,11 +4968,14 @@ class LevelCatalog {
         _put(g, 45, ground - 4, 'M');
         _gap(g, 52, 2);
         _platform(g, 58, ground - 2, 5);
-        _coin(g, 59, ground - 3); _coin(g, 60, ground - 3);
+        _coin(g, 59, ground - 3);
+        _coin(g, 60, ground - 3);
         _enemy(g, 70, ground);
         _gap(g, 76, 3);
         _platform(g, 82, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 82 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 82 + i, ground - 4);
+        }
         _put(g, 92, ground, 'S');
         _platform(g, 98, ground - 4, 3);
         _put(g, 99, ground - 5, 'H');
@@ -4311,21 +4983,27 @@ class LevelCatalog {
         _enemy(g, 114, ground);
         _platform(g, 120, ground - 2, 5);
         _put(g, 122, ground - 2, '?');
-        _coin(g, 121, ground - 3); _coin(g, 122, ground - 3);
+        _coin(g, 121, ground - 3);
+        _coin(g, 122, ground - 3);
         _gap(g, 132, 3);
         _put(g, 140, ground, 'S');
         _platform(g, 146, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 147 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 147 + i, ground - 4);
+        }
         _enemy(g, 156, ground);
         _platform(g, 164, ground - 4, 3);
         _put(g, 165, ground - 4, 'M');
         _gap(g, 172, 2);
         _platform(g, 178, ground - 1, 5);
-        _coin(g, 179, ground - 2); _coin(g, 180, ground - 2);
+        _coin(g, 179, ground - 2);
+        _coin(g, 180, ground - 2);
         _enemy(g, 190, ground);
         _put(g, 196, ground, 'S');
         _platform(g, 202, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 202 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 202 + i, ground - 4);
+        }
         _gap(g, 212, 3);
         _platform(g, 218, ground - 2, 5);
         _put(g, 220, ground - 2, '?');
@@ -4333,44 +5011,56 @@ class LevelCatalog {
         _platform(g, 238, ground - 4, 3);
         _put(g, 239, ground - 5, 'H');
         _platform(g, 250, ground - 1, 4);
-        _coin(g, 251, ground - 2); _coin(g, 252, ground - 2);
+        _coin(g, 251, ground - 2);
+        _coin(g, 252, ground - 2);
         _gap(g, 262, 2);
       case 3: // 荆棘回廊 — 副歌前奏：荆棘逼近
         _platform(g, 6, ground - 2, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 9, ground - 2, '?');
         _gap(g, 16, 2);
         _enemy(g, 24, ground);
         _platform(g, 30, ground - 3, 5);
-        _coin(g, 31, ground - 4); _coin(g, 32, ground - 4);
+        _coin(g, 31, ground - 4);
+        _coin(g, 32, ground - 4);
         _put(g, 40, ground, 'S');
         _platform(g, 46, ground - 4, 3);
         _put(g, 47, ground - 4, 'M');
         _enemy(g, 56, ground);
         _gap(g, 62, 3);
         _platform(g, 68, ground - 2, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 68 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 68 + i, ground - 3);
+        }
         _platform(g, 80, ground - 3, 3);
         _put(g, 81, ground - 3, '?');
         _put(g, 88, ground, 'S');
         _gap(g, 94, 2);
         _enemy(g, 102, ground);
         _platform(g, 108, ground - 4, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 109 + i, ground - 5);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 109 + i, ground - 5);
+        }
         _put(g, 111, ground - 4, 'H');
         _gap(g, 118, 3);
         _platform(g, 124, ground - 2, 5);
-        _coin(g, 125, ground - 3); _coin(g, 126, ground - 3);
+        _coin(g, 125, ground - 3);
+        _coin(g, 126, ground - 3);
         _enemy(g, 136, ground);
         _put(g, 142, ground, 'S');
         _platform(g, 148, ground - 3, 4);
         _put(g, 150, ground - 3, 'M');
         _gap(g, 158, 2);
         _platform(g, 164, ground - 4, 3);
-        _coin(g, 165, ground - 5); _coin(g, 166, ground - 5);
+        _coin(g, 165, ground - 5);
+        _coin(g, 166, ground - 5);
         _enemy(g, 176, ground);
         _platform(g, 182, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 183 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 183 + i, ground - 2);
+        }
         _gap(g, 192, 3);
         _put(g, 200, ground, 'S');
         _platform(g, 206, ground - 3, 4);
@@ -4380,16 +5070,21 @@ class LevelCatalog {
         _put(g, 225, ground - 4, 'M');
         _gap(g, 232, 2);
         _platform(g, 238, ground - 2, 5);
-        _coin(g, 239, ground - 3); _coin(g, 240, ground - 3);
+        _coin(g, 239, ground - 3);
+        _coin(g, 240, ground - 3);
         _enemy(g, 252, ground);
         _platform(g, 260, ground - 3, 3);
         _put(g, 261, ground - 3, '?');
         _platform(g, 272, ground - 1, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 273 + i, ground - 2);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 273 + i, ground - 2);
+        }
         _put(g, 280, ground, 'S');
       case 4: // 雾中塔楼 — 副歌A：迷雾塔楼
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
         _put(g, 28, ground, 'S');
@@ -4397,27 +5092,34 @@ class LevelCatalog {
         _put(g, 35, ground - 4, 'M');
         _platform(g, 46, ground - 2, 5);
         _put(g, 48, ground - 2, '?');
-        _coin(g, 47, ground - 3); _coin(g, 48, ground - 3);
+        _coin(g, 47, ground - 3);
+        _coin(g, 48, ground - 3);
         _gap(g, 56, 2);
         _enemy(g, 64, ground);
         _platform(g, 70, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 70 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 70 + i, ground - 4);
+        }
         _put(g, 80, ground, 'S');
         _platform(g, 86, ground - 4, 3);
         _put(g, 87, ground - 5, 'H');
         _gap(g, 94, 3);
         _platform(g, 100, ground - 2, 5);
-        _coin(g, 101, ground - 3); _coin(g, 102, ground - 3);
+        _coin(g, 101, ground - 3);
+        _coin(g, 102, ground - 3);
         _enemy(g, 112, ground);
         _platform(g, 118, ground - 3, 3);
         _put(g, 119, ground - 3, '?');
         _put(g, 126, ground, 'S');
         _gap(g, 132, 2);
         _platform(g, 138, ground - 4, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 139 + i, ground - 5);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 139 + i, ground - 5);
+        }
         _enemy(g, 148, ground);
         _platform(g, 156, ground - 1, 5);
-        _coin(g, 157, ground - 2); _coin(g, 158, ground - 2);
+        _coin(g, 157, ground - 2);
+        _coin(g, 158, ground - 2);
         _gap(g, 166, 3);
         _put(g, 174, ground, 'S');
         _platform(g, 180, ground - 4, 3);
@@ -4427,23 +5129,30 @@ class LevelCatalog {
         _put(g, 200, ground - 2, '?');
         _gap(g, 208, 2);
         _platform(g, 214, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 214 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 214 + i, ground - 4);
+        }
         _enemy(g, 226, ground);
         _put(g, 232, ground, 'S');
         _platform(g, 238, ground - 4, 3);
         _put(g, 239, ground - 5, 'H');
         _gap(g, 246, 3);
         _platform(g, 252, ground - 2, 4);
-        _coin(g, 253, ground - 3); _coin(g, 254, ground - 3);
+        _coin(g, 253, ground - 3);
+        _coin(g, 254, ground - 3);
         _enemy(g, 264, ground);
         _platform(g, 272, ground - 3, 3);
         _put(g, 273, ground - 3, 'M');
         _platform(g, 284, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 285 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 285 + i, ground - 2);
+        }
         _gap(g, 296, 2);
       case 5: // 花瓣断桥 — 间奏：花瓣飘落
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 2);
@@ -4454,7 +5163,8 @@ class LevelCatalog {
         _put(g, 46, ground - 4, 'M');
         _gap(g, 54, 3);
         _platform(g, 60, ground - 1, 5);
-        _coin(g, 61, ground - 2); _coin(g, 62, ground - 2);
+        _coin(g, 61, ground - 2);
+        _coin(g, 62, ground - 2);
         _enemy(g, 72, ground);
         _platform(g, 78, ground - 3, 3);
         _put(g, 79, ground - 3, '?');
@@ -4463,11 +5173,14 @@ class LevelCatalog {
         _put(g, 93, ground - 5, 'H');
         _gap(g, 100, 2);
         _platform(g, 106, ground - 2, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 107 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 107 + i, ground - 3);
+        }
         _enemy(g, 118, ground);
         _gap(g, 124, 3);
         _platform(g, 130, ground - 3, 5);
-        _coin(g, 131, ground - 4); _coin(g, 132, ground - 4);
+        _coin(g, 131, ground - 4);
+        _coin(g, 132, ground - 4);
         _put(g, 140, ground, 'S');
         _platform(g, 146, ground - 4, 3);
         _put(g, 147, ground - 4, 'M');
@@ -4475,49 +5188,64 @@ class LevelCatalog {
         _gap(g, 162, 2);
         _platform(g, 168, ground - 2, 4);
         _put(g, 170, ground - 2, '?');
-        _coin(g, 169, ground - 3); _coin(g, 170, ground - 3);
+        _coin(g, 169, ground - 3);
+        _coin(g, 170, ground - 3);
         _platform(g, 180, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 181 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 181 + i, ground - 2);
+        }
         _enemy(g, 192, ground);
         _gap(g, 198, 3);
         _put(g, 206, ground, 'S');
         _platform(g, 212, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 213 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 213 + i, ground - 4);
+        }
         _enemy(g, 224, ground);
         _platform(g, 230, ground - 4, 3);
         _put(g, 231, ground - 5, 'H');
         _gap(g, 238, 2);
         _platform(g, 244, ground - 2, 5);
-        _coin(g, 245, ground - 3); _coin(g, 246, ground - 3);
+        _coin(g, 245, ground - 3);
+        _coin(g, 246, ground - 3);
         _enemy(g, 258, ground);
         _platform(g, 264, ground - 3, 3);
         _put(g, 265, ground - 3, '?');
         _platform(g, 276, ground - 1, 4);
-        _coin(g, 277, ground - 2); _coin(g, 278, ground - 2);
+        _coin(g, 277, ground - 2);
+        _coin(g, 278, ground - 2);
         _put(g, 288, ground, 'S');
         _platform(g, 294, ground - 4, 3);
         _put(g, 295, ground - 4, 'M');
         _gap(g, 304, 3);
         _platform(g, 310, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 311 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 311 + i, ground - 3);
+        }
       case 6: // 失落大厅 — 主歌2：空旷大厅
         _platform(g, 6, ground - 1, 4);
-        _coin(g, 7, ground - 2); _coin(g, 8, ground - 2);
+        _coin(g, 7, ground - 2);
+        _coin(g, 8, ground - 2);
         _gap(g, 16, 3);
         _enemy(g, 24, ground);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _put(g, 34, ground - 3, '?');
         _put(g, 42, ground, 'S');
         _platform(g, 48, ground - 4, 3);
         _put(g, 49, ground - 4, 'M');
         _gap(g, 56, 2);
         _platform(g, 62, ground - 2, 4);
-        _coin(g, 63, ground - 3); _coin(g, 64, ground - 3);
+        _coin(g, 63, ground - 3);
+        _coin(g, 64, ground - 3);
         _enemy(g, 74, ground);
         _gap(g, 80, 3);
         _platform(g, 86, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 86 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 86 + i, ground - 4);
+        }
         _put(g, 96, ground, 'S');
         _platform(g, 102, ground - 4, 3);
         _put(g, 103, ground - 5, 'H');
@@ -4528,7 +5256,8 @@ class LevelCatalog {
         _coin(g, 125, ground - 3);
         _put(g, 134, ground, 'S');
         _platform(g, 140, ground - 3, 5);
-        _coin(g, 141, ground - 4); _coin(g, 142, ground - 4);
+        _coin(g, 141, ground - 4);
+        _coin(g, 142, ground - 4);
         _gap(g, 152, 3);
         _enemy(g, 160, ground);
         _platform(g, 166, ground - 4, 3);
@@ -4537,7 +5266,9 @@ class LevelCatalog {
         _coin(g, 179, ground - 2);
         _gap(g, 188, 2);
         _platform(g, 194, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 195 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 195 + i, ground - 4);
+        }
         _enemy(g, 206, ground);
         _put(g, 212, ground, 'S');
         _platform(g, 218, ground - 4, 3);
@@ -4545,25 +5276,33 @@ class LevelCatalog {
         _gap(g, 226, 3);
         _platform(g, 232, ground - 2, 4);
         _put(g, 234, ground - 2, '?');
-        _coin(g, 233, ground - 3); _coin(g, 234, ground - 3);
+        _coin(g, 233, ground - 3);
+        _coin(g, 234, ground - 3);
         _enemy(g, 244, ground);
         _platform(g, 252, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 253 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 253 + i, ground - 4);
+        }
         _gap(g, 264, 2);
         _put(g, 272, ground, 'S');
         _platform(g, 278, ground - 4, 3);
         _put(g, 279, ground - 4, 'M');
         _enemy(g, 290, ground);
         _platform(g, 296, ground - 1, 5);
-        _coin(g, 297, ground - 2); _coin(g, 298, ground - 2);
+        _coin(g, 297, ground - 2);
+        _coin(g, 298, ground - 2);
         _gap(g, 308, 3);
         _platform(g, 314, ground - 2, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 315 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 315 + i, ground - 3);
+        }
         _platform(g, 328, ground - 3, 3);
         _put(g, 329, ground - 3, '?');
       case 7: // 迷宫高台 — 副歌B：迷宫攀登
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 2);
         _enemy(g, 22, ground);
@@ -4571,18 +5310,23 @@ class LevelCatalog {
         _platform(g, 34, ground - 4, 3);
         _put(g, 35, ground - 4, 'M');
         _platform(g, 46, ground - 2, 5);
-        _coin(g, 47, ground - 3); _coin(g, 48, ground - 3);
+        _coin(g, 47, ground - 3);
+        _coin(g, 48, ground - 3);
         _gap(g, 56, 3);
         _enemy(g, 64, ground);
         _platform(g, 70, ground - 3, 4);
-        for (var i = 0; i < 4; i++) _coin(g, 70 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 70 + i, ground - 4);
+        }
         _put(g, 73, ground - 3, '?');
         _put(g, 80, ground, 'S');
         _platform(g, 86, ground - 4, 3);
         _put(g, 87, ground - 5, 'H');
         _gap(g, 94, 2);
         _platform(g, 100, ground - 2, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 100 + i, ground - 3);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 100 + i, ground - 3);
+        }
         _enemy(g, 112, ground);
         _gap(g, 118, 3);
         _put(g, 126, ground, 'S');
@@ -4593,7 +5337,9 @@ class LevelCatalog {
         _enemy(g, 154, ground);
         _gap(g, 160, 2);
         _platform(g, 166, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 167 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 167 + i, ground - 4);
+        }
         _put(g, 170, ground - 3, '?');
         _put(g, 178, ground, 'S');
         _gap(g, 184, 3);
@@ -4601,10 +5347,13 @@ class LevelCatalog {
         _put(g, 191, ground - 5, 'H');
         _enemy(g, 200, ground);
         _platform(g, 208, ground - 2, 4);
-        _coin(g, 209, ground - 3); _coin(g, 210, ground - 3);
+        _coin(g, 209, ground - 3);
+        _coin(g, 210, ground - 3);
         _gap(g, 220, 2);
         _platform(g, 226, ground - 3, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 227 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 227 + i, ground - 4);
+        }
         _enemy(g, 238, ground);
         _put(g, 244, ground, 'S');
         _platform(g, 250, ground - 4, 3);
@@ -4612,22 +5361,30 @@ class LevelCatalog {
         _gap(g, 258, 3);
         _platform(g, 264, ground - 2, 4);
         _put(g, 266, ground - 2, '?');
-        _coin(g, 265, ground - 3); _coin(g, 266, ground - 3);
+        _coin(g, 265, ground - 3);
+        _coin(g, 266, ground - 3);
         _enemy(g, 276, ground);
         _platform(g, 284, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 285 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 285 + i, ground - 4);
+        }
         _gap(g, 296, 2);
         _put(g, 304, ground, 'S');
         _platform(g, 310, ground - 4, 3);
-        _coin(g, 311, ground - 5); _coin(g, 312, ground - 5);
+        _coin(g, 311, ground - 5);
+        _coin(g, 312, ground - 5);
         _platform(g, 324, ground - 1, 4);
         _coin(g, 325, ground - 2);
         _enemy(g, 336, ground);
         _platform(g, 344, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 345 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 345 + i, ground - 3);
+        }
       case 8: // 指路之桥 — 桥段：指引归途
         _platform(g, 6, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 7 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 7 + i, ground - 3);
+        }
         _put(g, 10, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 3);
@@ -4635,7 +5392,9 @@ class LevelCatalog {
         _put(g, 31, ground - 4, 'M');
         _put(g, 38, ground, 'S');
         _platform(g, 44, ground - 3, 5);
-        _coin(g, 45, ground - 4); _coin(g, 46, ground - 4); _coin(g, 47, ground - 4);
+        _coin(g, 45, ground - 4);
+        _coin(g, 46, ground - 4);
+        _coin(g, 47, ground - 4);
         _gap(g, 54, 2);
         _enemy(g, 62, ground);
         _platform(g, 68, ground - 2, 4);
@@ -4645,7 +5404,9 @@ class LevelCatalog {
         _put(g, 85, ground - 5, 'H');
         _gap(g, 92, 3);
         _platform(g, 98, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 98 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 98 + i, ground - 4);
+        }
         _enemy(g, 110, ground);
         _gap(g, 116, 2);
         _platform(g, 122, ground - 1, 4);
@@ -4656,38 +5417,48 @@ class LevelCatalog {
         _enemy(g, 148, ground);
         _gap(g, 154, 3);
         _platform(g, 160, ground - 2, 5);
-        _coin(g, 161, ground - 3); _coin(g, 162, ground - 3);
+        _coin(g, 161, ground - 3);
+        _coin(g, 162, ground - 3);
         _put(g, 170, ground, 'S');
         _platform(g, 176, ground - 3, 4);
         _put(g, 178, ground - 3, '?');
-        for (var i = 0; i < 3; i++) _coin(g, 177 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 177 + i, ground - 4);
+        }
         _enemy(g, 188, ground);
         _gap(g, 194, 2);
         _platform(g, 200, ground - 4, 3);
         _put(g, 201, ground - 5, 'H');
         _put(g, 208, ground, 'S');
         _platform(g, 214, ground - 2, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 215 + i, ground - 3);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 215 + i, ground - 3);
+        }
         _gap(g, 226, 3);
         _enemy(g, 234, ground);
         _platform(g, 240, ground - 3, 4);
-        _coin(g, 241, ground - 4); _coin(g, 242, ground - 4);
+        _coin(g, 241, ground - 4);
+        _coin(g, 242, ground - 4);
         _put(g, 252, ground, 'S');
         _platform(g, 258, ground - 4, 3);
         _put(g, 259, ground - 4, 'M');
         _gap(g, 266, 2);
         _platform(g, 272, ground - 2, 5);
         _put(g, 274, ground - 2, '?');
-        _coin(g, 273, ground - 3); _coin(g, 274, ground - 3);
+        _coin(g, 273, ground - 3);
+        _coin(g, 274, ground - 3);
         _enemy(g, 284, ground);
         _platform(g, 292, ground - 3, 3);
         _coin(g, 293, ground - 4);
         _gap(g, 302, 3);
         _put(g, 310, ground, 'S');
         _platform(g, 316, ground - 4, 3);
-        _coin(g, 317, ground - 5); _coin(g, 318, ground - 5);
+        _coin(g, 317, ground - 5);
+        _coin(g, 318, ground - 5);
         _platform(g, 330, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 331 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 331 + i, ground - 2);
+        }
         _enemy(g, 344, ground);
         _platform(g, 352, ground - 2, 4);
         _coin(g, 353, ground - 3);
@@ -4696,7 +5467,9 @@ class LevelCatalog {
         _put(g, 369, ground - 3, '?');
       case 9: // 归途尖塔 — 高潮：最终攀登
         _platform(g, 6, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 7 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 7 + i, ground - 4);
+        }
         _put(g, 6, ground - 3, '?');
         _gap(g, 14, 3);
         _enemy(g, 22, ground);
@@ -4705,7 +5478,9 @@ class LevelCatalog {
         _put(g, 35, ground - 4, 'M');
         _gap(g, 42, 2);
         _platform(g, 48, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 48 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 48 + i, ground - 4);
+        }
         _enemy(g, 60, ground);
         _gap(g, 66, 3);
         _put(g, 74, ground, 'S');
@@ -4713,23 +5488,29 @@ class LevelCatalog {
         _put(g, 81, ground - 5, 'H');
         _platform(g, 92, ground - 2, 4);
         _put(g, 94, ground - 2, '?');
-        _coin(g, 93, ground - 3); _coin(g, 94, ground - 3);
+        _coin(g, 93, ground - 3);
+        _coin(g, 94, ground - 3);
         _enemy(g, 104, ground);
         _gap(g, 110, 2);
         _platform(g, 116, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 117 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 117 + i, ground - 4);
+        }
         _put(g, 126, ground, 'S');
         _platform(g, 132, ground - 4, 3);
         _put(g, 133, ground - 4, 'M');
         _enemy(g, 142, ground);
         _gap(g, 148, 3);
         _platform(g, 154, ground - 2, 4);
-        _coin(g, 155, ground - 3); _coin(g, 156, ground - 3);
+        _coin(g, 155, ground - 3);
+        _coin(g, 156, ground - 3);
         _put(g, 164, ground, 'S');
         _gap(g, 170, 2);
         _enemy(g, 178, ground);
         _platform(g, 184, ground - 3, 5);
-        for (var i = 0; i < 5; i++) _coin(g, 184 + i, ground - 4);
+        for (var i = 0; i < 5; i++) {
+          _coin(g, 184 + i, ground - 4);
+        }
         _put(g, 188, ground - 3, '?');
         _gap(g, 196, 3);
         _platform(g, 202, ground - 4, 3);
@@ -4737,49 +5518,64 @@ class LevelCatalog {
         _put(g, 210, ground, 'S');
         _enemy(g, 218, ground);
         _platform(g, 224, ground - 2, 4);
-        _coin(g, 225, ground - 3); _coin(g, 226, ground - 3);
+        _coin(g, 225, ground - 3);
+        _coin(g, 226, ground - 3);
         _gap(g, 236, 2);
         _platform(g, 242, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 243 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 243 + i, ground - 4);
+        }
         _enemy(g, 254, ground);
         _put(g, 260, ground, 'S');
         _platform(g, 266, ground - 4, 3);
         _put(g, 267, ground - 4, 'M');
         _gap(g, 274, 3);
         _platform(g, 280, ground - 2, 5);
-        _coin(g, 281, ground - 3); _coin(g, 282, ground - 3);
+        _coin(g, 281, ground - 3);
+        _coin(g, 282, ground - 3);
         _enemy(g, 294, ground);
         _platform(g, 300, ground - 3, 4);
-        for (var i = 0; i < 3; i++) _coin(g, 301 + i, ground - 4);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 301 + i, ground - 4);
+        }
         _put(g, 303, ground - 3, '?');
         _gap(g, 312, 2);
         _put(g, 320, ground, 'S');
         _platform(g, 326, ground - 4, 3);
         _put(g, 327, ground - 5, 'H');
         _platform(g, 338, ground - 1, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 339 + i, ground - 2);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 339 + i, ground - 2);
+        }
         _enemy(g, 352, ground);
         _gap(g, 358, 3);
         _platform(g, 364, ground - 3, 4);
-        _coin(g, 365, ground - 4); _coin(g, 366, ground - 4);
+        _coin(g, 365, ground - 4);
+        _coin(g, 366, ground - 4);
         _platform(g, 378, ground - 2, 5);
-        for (var i = 0; i < 3; i++) _coin(g, 379 + i, ground - 3);
+        for (var i = 0; i < 3; i++) {
+          _coin(g, 379 + i, ground - 3);
+        }
         _enemy(g, 390, ground);
       case 10: // 找回之心 — Boss战：最终Boss
         _platform(g, 6, ground - 2, 4);
-        _coin(g, 7, ground - 3); _coin(g, 8, ground - 3);
+        _coin(g, 7, ground - 3);
+        _coin(g, 8, ground - 3);
         _put(g, 9, ground - 2, '?');
         _enemy(g, 18, ground);
         _gap(g, 24, 3);
         _platform(g, 30, ground - 3, 5);
-        for (var i = 0; i < 4; i++) _coin(g, 31 + i, ground - 4);
+        for (var i = 0; i < 4; i++) {
+          _coin(g, 31 + i, ground - 4);
+        }
         _put(g, 40, ground, 'S');
         _platform(g, 46, ground - 4, 3);
         _put(g, 47, ground - 4, 'M');
         _enemy(g, 56, ground);
         _gap(g, 62, 2);
         _platform(g, 68, ground - 2, 4);
-        _coin(g, 69, ground - 3); _coin(g, 70, ground - 3);
+        _coin(g, 69, ground - 3);
+        _coin(g, 70, ground - 3);
         _put(g, 78, ground, 'S');
         _platform(g, 84, ground - 3, 5);
         _put(g, 86, ground - 3, '?');

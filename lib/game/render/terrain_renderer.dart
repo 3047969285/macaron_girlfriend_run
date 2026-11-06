@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'world_art.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 
 int _sceneValue(int seed, int lane, int salt) =>
@@ -1251,22 +1254,65 @@ class WorldBackdrop extends PositionComponent {
     required this.mapWidth,
     required this.sceneSeed,
     this.worldIndex,
+    this.skyShift = 0,
   }) : super(priority: -10);
 
   final WorldPalette palette;
   final double mapWidth;
   final int sceneSeed;
   final int? worldIndex;
+  final double skyShift;
   ui.Picture? _picture;
+  ui.Image? _songBackground;
+  bool _removed = false;
+  static final Map<int, Future<ui.Image?>> _backgrounds = {};
+  static const _backgroundNames = [
+    'firstLove',
+    'whiteHorse',
+    'reflection',
+    'quietLove',
+    'dawn',
+    'lost',
+  ];
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuild();
+    if (worldIndex case final world?) {
+      unawaited(_loadBackground(world));
+    }
+  }
+
+  Future<void> _loadBackground(int world) async {
+    final song = SongProfile.songIndexOf(world);
+    final image = await _backgrounds.putIfAbsent(song, () async {
+      try {
+        final bytes = await rootBundle.load(
+          'assets/worlds/${_backgroundNames[song]}.png',
+        );
+        final codec = await ui.instantiateImageCodec(
+          bytes.buffer.asUint8List(),
+        );
+        try {
+          return (await codec.getNextFrame()).image;
+        } finally {
+          codec.dispose();
+        }
+      } catch (_) {
+        return null;
+      }
+    });
+    if (!_removed && image != null) {
+      _songBackground = image.clone();
+      _rebuild();
+    }
   }
 
   @override
   void onRemove() {
+    _removed = true;
+    _songBackground?.dispose();
     _picture?.dispose();
     _picture = null;
     super.onRemove();
@@ -1276,9 +1322,30 @@ class WorldBackdrop extends PositionComponent {
     _picture?.dispose();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    _drawSceneTints(canvas);
-    _drawHills(canvas);
-    _drawClouds(canvas);
+    final image = _songBackground;
+    if (image == null) {
+      _drawSceneTints(canvas);
+      _drawHills(canvas);
+      _drawClouds(canvas);
+    } else {
+      final height = 640.0 + math.max(0.0, skyShift);
+      final width = height * image.width / image.height;
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        image.width.toDouble(),
+        image.height.toDouble(),
+      );
+      final paint = Paint()..filterQuality = FilterQuality.medium;
+      for (var x = 0.0; x < mapWidth; x += width) {
+        canvas.drawImageRect(
+          image,
+          src,
+          Rect.fromLTWH(x, -math.max(0.0, skyShift), width, height),
+          paint,
+        );
+      }
+    }
     _picture = recorder.endRecording();
   }
 

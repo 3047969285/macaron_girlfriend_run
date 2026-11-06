@@ -1,3 +1,4 @@
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
@@ -51,7 +52,7 @@ class WorldArt {
       atlas,
       ui.Rect.fromLTWH(
         column * width,
-        world.clamp(0, 5) * height,
+        SongProfile.songIndexOf(world) * height,
         width,
         height,
       ),
@@ -74,7 +75,7 @@ class WorldArt {
       atlas,
       ui.Rect.fromLTWH(
         layer * width,
-        world.clamp(0, 5) * height,
+        SongProfile.songIndexOf(world) * height,
         width,
         height,
       ),
@@ -92,7 +93,7 @@ class WorldArt {
       atlas,
       ui.Rect.fromLTWH(
         column * width,
-        world.clamp(0, 5) * height,
+        SongProfile.songIndexOf(world) * height,
         width,
         height,
       ).deflate(column < 2 ? width * 0.1 : 0),

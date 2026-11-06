@@ -278,8 +278,13 @@ class MacaronGame extends FlameGame {
     )..position.y = skyShift;
     world.add(parallax!);
     world.add(
-      WorldBackdrop(palette: palette, mapWidth: mapWidth, sceneSeed: sceneSeed)
-        ..position.y = skyShift,
+      WorldBackdrop(
+        palette: palette,
+        mapWidth: mapWidth,
+        sceneSeed: sceneSeed,
+        worldIndex: worldIndex,
+        skyShift: skyShift,
+      )..position.y = skyShift,
     );
     ambient = AmbientSparkles(
       mapWidth: mapWidth,
@@ -560,8 +565,9 @@ class MacaronGame extends FlameGame {
             }
           }
           if ((near - x).abs() <= 4 &&
-              level.tileAt(near, level.height - 2) != '#')
+              level.tileAt(near, level.height - 2) != '#') {
             safe = false;
+          }
         }
         if (safe) destination = x;
       }
@@ -1279,7 +1285,10 @@ class MacaronGame extends FlameGame {
       if (solid.right > player.position.x - player.size.x / 2 &&
           solid.left < player.position.x + player.size.x / 2 &&
           solid.bottom <= box.top) {
-        player.crouchVisualClearance = math.min(player.crouchVisualClearance, box.bottom - solid.bottom);
+        player.crouchVisualClearance = math.min(
+          player.crouchVisualClearance,
+          box.bottom - solid.bottom,
+        );
       }
     }
   }
