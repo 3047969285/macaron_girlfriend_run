@@ -129,6 +129,7 @@
       new URL('flutter.js', base).href,
       new URL('flutter_bootstrap.js', base).href,
       new URL('manifest.json', base).href,
+      new URL('offline_fonts.json', base).href,
       new URL('assets/FontManifest.json', base).href,
       new URL('assets/AssetManifest.bin.json', base).href,
       new URL('assets/AssetManifest.bin', base).href,
@@ -144,6 +145,17 @@
       .filter((entry) => new URL(entry.name).origin === location.origin && !(entry.responseStatus >= 400))
       .map((entry) => entry.name);
     const urls = new Set([...core, ...loaded]);
+    const fonts = await fetch(new URL('offline_fonts.json', base), {
+      cache: 'no-store',
+      headers: { 'X-Macaron-Warm': '1' },
+    });
+    if (!fonts.ok) throw new Error(`离线字体清单不可用（${fonts.status}）`);
+    for (const path of await fonts.json()) {
+      if (typeof path !== 'string' || !/^fonts\/[a-zA-Z0-9_./-]+\.woff2$/.test(path) || path.includes('..')) {
+        throw new Error('离线字体清单格式不对');
+      }
+      urls.add(new URL(path, base).href);
+    }
     for (const key of await loadAssetKeys()) urls.add(new URL(`assets/${key}`, base).href);
     return [...urls];
   };
