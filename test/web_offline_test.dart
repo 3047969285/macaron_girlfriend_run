@@ -1,4 +1,5 @@
 // 离线与局域网验收测试（静态部分），对应 docs/离线与局域网/需求与接口.md。
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,19 @@ void main() {
     expect(boot, contains('AssetManifest.json'));
     expect(boot, contains('flutter-first-frame'));
     expect(boot, contains('saveData'));
+  });
+
+  test('离线字体清单覆盖所有本地回退字体', () {
+    final expected = Directory('web/fonts')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.woff2'))
+        .map((file) => file.path.substring('web/'.length))
+        .toSet();
+    final actual = (jsonDecode(_read('web/offline_fonts.json')) as List)
+        .cast<String>();
+    expect(actual.toSet(), expected);
+    expect(actual.length, expected.length);
   });
 
   test('O5 web 目录不依赖外网地址', () {
