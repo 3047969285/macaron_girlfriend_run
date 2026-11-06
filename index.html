@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="/macaron_girlfriend_run/">
+  <base href="./">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -59,9 +59,24 @@
     }
     #boot.slow .retry { display: inline-flex; }
     #boot.hidden { display: none; }
+    #offline-status {
+      position: fixed;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      max-width: min(340px, calc(100vw - 24px));
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #ffffffed;
+      color: #5C4033;
+      font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+      box-shadow: 0 2px 10px #0002;
+      z-index: 10000;
+    }
   </style>
 </head>
 <body>
+  <div id="offline-status" role="status" aria-live="polite" hidden></div>
   <div id="boot">
     <div class="candy">🍬</div>
     <div class="title">马卡龙加载中…</div>
@@ -86,7 +101,7 @@
         boot.classList.add('slow');
       }, 8000);
       var bootstrap = document.createElement('script');
-      bootstrap.src = 'flutter_bootstrap.js?load=' + Date.now();
+      bootstrap.src = 'flutter_bootstrap.js';
       bootstrap.async = true;
       document.body.appendChild(bootstrap);
     })();
