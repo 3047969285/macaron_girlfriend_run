@@ -1,6 +1,6 @@
 // 马卡龙离线缓存。网络优先：4 秒内拿到 200 就返回并写入缓存，否则用缓存；
 // 带 Range 的请求（音频）从完整缓存里切出字节范围，返回 206。
-const CACHE = 'macaron-offline-v1';
+const CACHE = 'macaron-offline-v2';
 const META_CACHE = 'macaron-offline-meta-v1';
 const BUNDLE_PREFIX = 'macaron-offline-bundle-';
 const ACTIVE_URL = new URL('__offline_active__', self.registration.scope).href;
@@ -28,8 +28,46 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(request));
     return;
   }
-  event.respondWith(request.headers.has('Range') ? rangeFromCache(request) : networkFirst(event));
+  event.respondWith(
+    request.headers.has('Range')
+      ? rangeFromCache(request)
+      : isImmutable(request.url)
+        ? cacheFirst(event)
+        : networkFirst(event),
+  );
 });
+
+// 图集、字体、音频等文件在同一个构建里不会变：有缓存就直接返回，
+// 不再为每个文件等 4 秒网络超时。页面、清单和 main.dart.js 仍走网络优先。
+function isImmutable(url) {
+  const { pathname } = new URL(url);
+  return pathname.includes('/canvaskit/') ||
+    pathname.includes('/assets/assets/') ||
+    pathname.includes('/fonts/') ||
+    pathname.includes('/icons/');
+}
+
+async function cacheFirst(event) {
+  const { request } = event;
+  const cached = await matchCache(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.status === 200) {
+    const cache = await caches.open(CACHE).catch((err) => {
+      console.warn('[offline] 缓存不可用，直接走网络', err);
+      return null;
+    });
+    if (cache) {
+      // 写缓存失败只影响下次离线，不影响本次响应。
+      event.waitUntil(
+        cache.put(cacheKey(request.url), response.clone()).catch((err) => {
+          console.warn('[offline] 缓存写入失败', err);
+        }),
+      );
+    }
+  }
+  return response;
+}
 
 // 缓存键去掉查询串，同一文件的新旧版本只保留一份。
 function cacheKey(url) {

@@ -11,6 +11,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="马卡龙">
   <meta name="theme-color" content="#FFB4C8">
+  <script>
+    // 手机普遍是 3x 屏：按 3 倍像素渲染 CanvasKit 会明显掉帧。
+    // 低内存设备封顶 1.5x，其余封顶 2x，画面按 CSS 尺寸放大，FPS 更稳。
+    (function () {
+      var nativeDpr = window.devicePixelRatio || 1;
+      var memory = navigator.deviceMemory || 4;
+      var cap = memory <= 4 ? 1.5 : 2;
+      if (nativeDpr <= cap) return;
+      try {
+        Object.defineProperty(window, 'devicePixelRatio', {
+          configurable: true,
+          get: function () { return cap; },
+        });
+      } catch (e) {
+        // 老浏览器不允许覆盖时保持原样。
+      }
+    })();
+  </script>
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png"/>
   <title>马卡龙</title>
@@ -80,7 +98,7 @@
   <div id="boot">
     <div class="candy">🍬</div>
     <div class="title">马卡龙加载中…</div>
-    <div class="hint" role="status" aria-live="polite">横屏体验 · 首次加载需几秒</div>
+    <div class="hint" role="status" aria-live="polite">正在加载游戏引擎，首次约需 10–30 秒</div>
     <button class="retry" type="button">重新加载</button>
   </div>
   <script>
@@ -97,9 +115,9 @@
       });
       setTimeout(function () {
         if (!boot || boot.classList.contains('hidden')) return;
-        hint.textContent = '加载较慢，请检查网络后重试';
+        hint.textContent = '首次需下载约 10MB 引擎资源，之后会走缓存加速';
         boot.classList.add('slow');
-      }, 8000);
+      }, 20000);
       var bootstrap = document.createElement('script');
       bootstrap.src = 'flutter_bootstrap.js';
       bootstrap.async = true;
