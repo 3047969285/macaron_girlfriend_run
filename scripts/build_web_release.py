@@ -55,12 +55,13 @@ def find_flutter() -> str:
     raise SystemExit("找不到 flutter，请先把它加入 PATH 或设置 FLUTTER_ROOT。")
 
 
-def run_flutter(flutter: str, base_href: str) -> None:
+def run_flutter(flutter: str, base_href: str, output: Path) -> None:
     args = [
         "build",
         "web",
         "--release",
         f"--base-href={base_href}",
+        f"--output={output}",
         "--no-web-resources-cdn",
         "--no-wasm-dry-run",
     ]
@@ -127,11 +128,20 @@ def compress(build: Path) -> tuple[int, int, int]:
 
 
 def main() -> None:
+    global BUILD
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-href", default="/")
+    parser.add_argument(
+        "--output",
+        default="build/web",
+        help="输出目录（相对项目根目录或绝对路径），默认 build/web",
+    )
     args = parser.parse_args()
+    BUILD = Path(args.output)
+    if not BUILD.is_absolute():
+        BUILD = (ROOT / BUILD).resolve()
 
-    run_flutter(find_flutter(), args.base_href)
+    run_flutter(find_flutter(), args.base_href, BUILD)
     removed = prune_engine(BUILD)
     build_id = write_build_id()
     count, raw_total, gz_total = compress(BUILD)

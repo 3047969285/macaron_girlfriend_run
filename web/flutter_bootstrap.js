@@ -50,13 +50,16 @@
   };
 
   // 离线 Service Worker 在启动前注册；不等待结果，挂起或失败都不阻塞游戏。
+  // HTTP 页面无法注册（要求 https 或 localhost），此时直接跳过离线预热。
+  let offlineReady = false;
   const registerOfflineWorker = async () => {
-    if (!('serviceWorker' in navigator)) {
+    if (!window.isSecureContext || !('serviceWorker' in navigator)) {
       console.warn('当前页面不是安全上下文（需要 https 或 localhost），不启用离线缓存');
       return;
     }
     try {
       await navigator.serviceWorker.register('offline_sw.js', { scope: './' });
+      offlineReady = true;
     } catch (err) {
       console.warn('离线缓存注册失败，游戏照常运行', err);
     }
@@ -213,10 +216,8 @@
 
   // 首帧后在后台预热：在线、没开省流量、本版本还没预热过才做；全部成功才记下版本键。
   const warmUp = async (buildId, firstFrameMs) => {
-    if (!('serviceWorker' in navigator)) {
-      showStatus('此地址无法保存离线资源，请使用受信任的 HTTPS 地址。');
-      return;
-    }
+    // HTTP 地址或注册失败时没有离线缓存能力，静默跳过，不打扰玩家。
+    if (!offlineReady) return;
     if (!sourceAvailable) {
       if (readStored(WARM_KEY) !== buildId) {
         showStatus('离线资源尚未完整准备，请联网后重新打开。');
