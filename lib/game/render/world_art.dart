@@ -16,7 +16,8 @@ class WorldArt {
   static bool get ready => _atlas != null;
   static bool get backgroundsReady => _backgrounds != null;
   static bool get enemiesReady => _enemies != null;
-  static final _paint = ui.Paint();
+  // 图集是像素画，放大到关卡尺寸时用最近邻，保持硬边；双线性会把背景糊成一片。
+  static final _paint = ui.Paint()..filterQuality = ui.FilterQuality.none;
 
   static Future<void> preload() => _loading ??= _load();
 
