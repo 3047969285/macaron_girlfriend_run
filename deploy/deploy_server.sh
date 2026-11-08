@@ -66,9 +66,9 @@ REMOTE
 if [ "$INSTALL_NGINX" = 1 ]; then
   echo "==> 安装 nginx 配置"
   "${SCP[@]}" "$ROOT/deploy/nginx-macaron-http.conf" "$TARGET:/tmp/macaron-nginx.conf"
-  "${SSH[@]}" "$TARGET" 'bash -s' <<'REMOTE'
+  "${SSH[@]}" "$TARGET" "bash -s -- '${NGINX_CONF:-/etc/nginx/conf.d/macaron.conf}'" <<'REMOTE'
 set -euo pipefail
-conf=/etc/nginx/conf.d/macaron.conf
+conf=$1
 if ! nginx -V 2>&1 | grep -q gzip_static; then
   sed -i '/gzip_static on;/d' /tmp/macaron-nginx.conf
   echo "当前 nginx 未编译 gzip_static，已改用动态 gzip"

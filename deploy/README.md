@@ -46,7 +46,12 @@ SSH_USER=root bash deploy/deploy_server.sh --nginx
 3. 只保留最近 3 个备份；
 4. `--nginx` 时安装 `deploy/nginx-macaron-http.conf`，`nginx -t` 失败会自动回滚。
 
-可用环境变量：`SSH_USER`、`SSH_HOST`、`SSH_PORT`、`SSH_KEY`、`REMOTE_DIR`。
+可用环境变量：`SSH_USER`、`SSH_HOST`、`SSH_PORT`、`SSH_KEY`、`REMOTE_DIR`、`NGINX_CONF`。
+
+如果站点是宝塔/其他面板管理的，nginx 配置通常不在 `/etc/nginx/conf.d/`，
+请把 `NGINX_CONF` 指到实际站点配置文件（例如
+`/www/server/panel/vhost/nginx/47.104.137.7.conf`），或把配置内容合并进去，
+避免出现两个 `server_name` 相同的 server 块。
 
 ## 4. 服务器侧优化内容
 
