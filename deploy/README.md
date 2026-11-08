@@ -42,11 +42,12 @@ SSH_USER=root bash deploy/deploy_server.sh --nginx
 脚本会：
 
 1. 把 `build/web_server` 打成 tar.gz 上传到 `/tmp`；
-2. 旧站点改名为 `/var/www/macaron.bak.<时间>`，新包解压到 `/var/www/macaron`；
-3. 只保留最近 3 个备份；
+2. 解压到新版本目录 `/var/www/macaron/releases/<构建号>-<时间>`；
+3. 用软链原子切换 `/var/www/macaron/current`，旧版本保留 2 个，可直接回滚；
 4. `--nginx` 时安装 `deploy/nginx-macaron-http.conf`，`nginx -t` 失败会自动回滚。
 
-可用环境变量：`SSH_USER`、`SSH_HOST`、`SSH_PORT`、`SSH_KEY`、`REMOTE_DIR`、`NGINX_CONF`。
+可用环境变量：`SSH_USER`、`SSH_HOST`、`SSH_PORT`、`SSH_KEY`、`REMOTE_ROOT`、`NGINX_CONF`。
+站点目录按现有约定：`REMOTE_ROOT/current -> REMOTE_ROOT/releases/...`。
 
 如果站点是宝塔/其他面板管理的，nginx 配置通常不在 `/etc/nginx/conf.d/`，
 请把 `NGINX_CONF` 指到实际站点配置文件（例如
@@ -56,11 +57,16 @@ SSH_USER=root bash deploy/deploy_server.sh --nginx
 ## 4. 服务器侧优化内容
 
 - `gzip_static`：`main.dart.js` 2.8MB → 0.8MB，`canvaskit.wasm` 7.2MB → 2.9MB；
+- 补上 `gzip_types text/javascript`（原配置只有 `application/javascript`，导致 JS 实际没压缩）；
 - 入口文件 `no-cache`，图集 10 分钟、字体 1 天、音频/canvaskit 7 天；
 - `sendfile`、`tcp_nopush`、`open_file_cache`、keepalive；
 - 纯 HTTP 下不注册 Service Worker，也不会再弹离线准备失败的提示（代码已跳过）。
 
-## 5. 当前阻断
+## 5. 回滚
 
-服务器返回 `root@47.104.137.7: Permission denied (publickey)`，说明公钥尚未写入
-服务器。完成第 2 步后即可直接执行第 3 步。
+```bash
+ls -dt /var/www/macaron/releases/*
+ln -sfn /var/www/macaron/releases/<旧版本> /var/www/macaron/current.new
+mv -Tf /var/www/macaron/current.new /var/www/macaron/current
+```
+

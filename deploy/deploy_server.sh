@@ -8,7 +8,11 @@
 # 可用环境变量覆盖：
 #   SSH_USER=root SSH_HOST=47.104.137.7 SSH_PORT=22 \
 #   SSH_KEY=~/.ssh/macaron_ecs_deploy_ed25519 \
-#   REMOTE_DIR=/var/www/macaron bash deploy/deploy_server.sh
+#   REMOTE_ROOT=/var/www/macaron bash deploy/deploy_server.sh
+#
+# 服务器目录约定（与现有部署一致）：
+#   /var/www/macaron/releases/<构建号>-<时间>  每次发布一个新目录
+#   /var/www/macaron/current -> releases/...  软链原子切换，可随时回滚
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,7 +22,9 @@ SSH_USER="${SSH_USER:-root}"
 SSH_PORT="${SSH_PORT:-22}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/macaron_ecs_deploy_ed25519}"
 KNOWN_HOSTS="${KNOWN_HOSTS:-$HOME/.ssh/macaron_ecs_known_hosts}"
-REMOTE_DIR="${REMOTE_DIR:-/var/www/macaron}"
+REMOTE_ROOT="${REMOTE_ROOT:-/var/www/macaron}"
+RELEASES_DIR="$REMOTE_ROOT/releases"
+CURRENT_LINK="$REMOTE_ROOT/current"
 INSTALL_NGINX=0
 if [ "${1:-}" = "--nginx" ]; then
   INSTALL_NGINX=1
@@ -34,6 +40,11 @@ if [ ! -f "$SSH_KEY" ]; then
   exit 1
 fi
 
+BUILD_ID="$(tr -d '[:space:]' < "$BUNDLE/.last_build_id" 2>/dev/null || true)"
+BUILD_SHORT="${BUILD_ID:0:12}"
+[ -n "$BUILD_SHORT" ] || BUILD_SHORT="$(date -u +%Y%m%d%H%M%S)"
+RELEASE="$BUILD_SHORT-$(date -u +%Y%m%d%H%M%S)"
+
 TARGET="$SSH_USER@$SSH_HOST"
 SSH=(ssh -p "$SSH_PORT" -i "$SSH_KEY" -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new)
 SCP=(scp -P "$SSH_PORT" -i "$SSH_KEY" -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new)
@@ -47,20 +58,26 @@ echo "    包大小：$(du -h "$ARCHIVE" | cut -f1)"
 echo "==> 上传到 $TARGET:/tmp/macaron-web.tar.gz"
 "${SCP[@]}" "$ARCHIVE" "$TARGET:/tmp/macaron-web.tar.gz"
 
-echo "==> 切换站点目录 $REMOTE_DIR"
-"${SSH[@]}" "$TARGET" "bash -s -- '$REMOTE_DIR'" <<'REMOTE'
+echo "==> 发布新版本 $RELEASE"
+"${SSH[@]}" "$TARGET" "bash -s -- '$RELEASES_DIR' '$CURRENT_LINK' '$RELEASE'" <<'REMOTE'
 set -euo pipefail
-target=$1
-ts=$(date +%Y%m%d%H%M%S)
-if [ -d "$target" ]; then
-  mv "$target" "$target.bak.$ts"
-fi
-mkdir -p "$target"
-tar -xzf /tmp/macaron-web.tar.gz -C "$target"
-chmod -R a+rX "$target"
+releases=$1
+current=$2
+name=$3
+mkdir -p "$releases"
+tmp="$releases/.incoming-$name"
+rm -rf "$tmp"
+mkdir -p "$tmp"
+tar -xzf /tmp/macaron-web.tar.gz -C "$tmp"
+chmod -R a+rX "$tmp"
+mv "$tmp" "$releases/$name"
+ln -sfn "$releases/$name" "$current.new"
+mv -Tf "$current.new" "$current"
 rm -f /tmp/macaron-web.tar.gz
-ls -dt "$target".bak.* 2>/dev/null | tail -n +4 | xargs -r rm -rf
-echo "已发布到 $target（备份 $target.bak.$ts）"
+now=$(readlink -f "$current")
+# 保留当前版本和最近两个旧版本，方便回滚。
+ls -dt "$releases"/* 2>/dev/null | grep -vx "$now" | tail -n +3 | xargs -r rm -rf
+echo "已切换 $current -> $(readlink "$current")"
 REMOTE
 
 if [ "$INSTALL_NGINX" = 1 ]; then
