@@ -100,8 +100,17 @@ def prune_engine(build: Path) -> int:
 
 
 def write_build_id() -> str:
-    main_js = BUILD / "main.dart.js"
-    build_id = hashlib.sha256(main_js.read_bytes()).hexdigest()
+    """构建标识覆盖代码和资源，避免只换图集时离线缓存不失效。"""
+    digest = hashlib.sha256()
+    for path in sorted(BUILD.rglob("*")):
+        if not path.is_file() or path.suffix == ".gz" or path.name in SKIP_NAMES:
+            continue
+        rel = path.relative_to(BUILD).as_posix().encode()
+        digest.update(rel)
+        data = path.read_bytes()
+        digest.update(len(data).to_bytes(8, "little"))
+        digest.update(data)
+    build_id = digest.hexdigest()
     (BUILD / ".last_build_id").write_text(build_id, encoding="utf-8")
     return build_id
 
