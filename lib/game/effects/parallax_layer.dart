@@ -31,19 +31,26 @@ class ParallaxLayer extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    if (WorldArt.ready && worldIndex != null) {
+    if (WorldArt.backgroundsReady && worldIndex != null) {
       const width = 1536.0;
-      final left = scrollX - (viewportWidth > 0 ? viewportWidth : width);
-      final right = scrollX + (viewportWidth > 0 ? viewportWidth : width);
+      const speeds = [0.15, 0.35, 0.08];
+      const layerTops = [95.0, 128.0, -190.0];
+      // Web 端 getLocalClipBounds 可能返回极大的矩形，不能按它算平铺次数。
+      // 这里只按相机视野铺图，并限制单层最多 8 张，避免主线程被贴图循环拖死。
+      final halfWidth = viewportWidth > 0 ? viewportWidth / 2 : width;
+      final left = scrollX - halfWidth - width;
+      final right = scrollX + halfWidth + width;
       for (var layer = 0; layer < 3; layer++) {
-        final offset = scrollX * [0.15, 0.35, 0.08][layer];
+        final top = layerTops[layer];
+        final offset = scrollX * speeds[layer];
         final start = ((left + offset) / width).floor() * width - offset;
-        for (var x = start; x < right; x += width) {
+        var drawn = 0;
+        for (var x = start; x < right && drawn < 8; x += width, drawn++) {
           WorldArt.background(
             canvas,
             worldIndex!,
             layer,
-            Rect.fromLTWH(x, layer == 2 ? 40 : 128, width, 512),
+            Rect.fromLTWH(x, top, width, 512),
           );
         }
       }

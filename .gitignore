@@ -46,3 +46,7 @@ app.*.map.json
 
 # Local tooling / tunnels
 .tools/
+
+# 原始美术素材与构建临时文件不参与打包
+art_source/
+.tmp/

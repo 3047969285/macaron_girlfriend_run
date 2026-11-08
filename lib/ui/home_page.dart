@@ -324,7 +324,7 @@ class _HeroFigureState extends State<_HeroFigure> {
             Align(
               alignment: const Alignment(0, 0.93),
               child: Image.asset(
-                'assets/character/hero.png',
+                'assets/character/hero.webp',
                 height: h,
                 filterQuality: FilterQuality.medium,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),

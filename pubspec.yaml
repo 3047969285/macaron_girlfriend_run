@@ -69,22 +69,24 @@ flutter:
     - assets/audio/meme_gum.mp4
     - assets/audio/meme_orchid.mp4
     - assets/audio/meme_mamba_out.mp4
-    - assets/worlds/firstLove.png
-    - assets/worlds/whiteHorse.png
-    - assets/worlds/reflection.png
-    - assets/worlds/quietLove.png
-    - assets/worlds/dawn.png
-    - assets/worlds/lost.png
-    - assets/worlds/world-atlas.png
-    - assets/worlds/background-atlas.png
+    - assets/worlds/firstLove.webp
+    - assets/worlds/whiteHorse.webp
+    - assets/worlds/reflection.webp
+    - assets/worlds/quietLove.webp
+    - assets/worlds/dawn.webp
+    - assets/worlds/lost.webp
+    - assets/worlds/world-atlas.webp
+    - assets/worlds/background-atlas.webp
     - assets/character/
-    - assets/worlds/enemy-atlas.png
+    - assets/worlds/enemy-atlas.webp
     - assets/audio/bgm_5am20.mp3
     - assets/audio/bgm_jingqiaoqiao.mp3
     - assets/audio/bgm_lost.mp3
     - assets/audio/bgm_shenqibaima.mp3
     - assets/audio/bgm_shui.mp3
     - assets/audio/bgm_suyan.mp3
+    # 歌词子集（常用汉字 + 标点）：进关后按需加载，不再让 17MB 全量字体进入启动清单。
+    - assets/fonts/NotoSansSC-Lyrics.ttf
 
   # 内置中文字体（Noto Sans SC，SIL OFL），只含应用文案用到的字符，
   # 这样手机端不用再从 Google 的字体服务器补载中文。
@@ -94,9 +96,11 @@ flutter:
         - asset: assets/fonts/NotoSansSC-Regular.ttf
         - asset: assets/fonts/NotoSansSC-Bold.ttf
           weight: 700
-    - family: NotoSansSCFull
+    # Flutter Web 在没有 Roboto 家族时会从 fonts.gstatic.com 补一版；
+    # 这里放本地 Latin 子集，国内网络不用再等这个跨域请求。
+    - family: Roboto
       fonts:
-        - asset: assets/fonts/NotoSansSC-Full.ttf
+        - asset: assets/fonts/Roboto-Regular.ttf
     # 彩色 emoji（Noto Color Emoji，SIL OFL），只含应用用到的 23 个符号。
     - family: NotoColorEmoji
       fonts:

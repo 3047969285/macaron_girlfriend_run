@@ -3,43 +3,48 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 
-/// 六个世界共用的图集，启动时解码一次，绘制时不再分配图片。
+/// 六个世界共用的图集，各自加载后即可用于绘制。
 class WorldArt {
   WorldArt._();
 
   static ui.Image? _atlas;
   static ui.Image? _backgrounds;
   static ui.Image? _enemies;
+  static Future<void>? _loading;
+  static Future<void>? _terrainLoading;
+  static Future<void>? get terrainLoading => _terrainLoading;
   static bool get ready => _atlas != null;
+  static bool get backgroundsReady => _backgrounds != null;
+  static bool get enemiesReady => _enemies != null;
+  static final _paint = ui.Paint();
 
-  static Future<void> preload() async {
-    if (_atlas != null) return;
-    final data = await rootBundle.load('assets/worlds/world-atlas.png');
-    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-    try {
-      _atlas = (await codec.getNextFrame()).image;
-    } finally {
-      codec.dispose();
+  static Future<void> preload() => _loading ??= _load();
+
+  static Future<void> _load() async {
+    if (_atlas == null) {
+      _terrainLoading = _loadImage('world-atlas').then<void>((image) {
+        _atlas = image;
+      });
+      await _terrainLoading;
     }
-    final backgroundData = await rootBundle.load(
-      'assets/worlds/background-atlas.png',
-    );
-    final backgroundCodec = await ui.instantiateImageCodec(
-      backgroundData.buffer.asUint8List(),
-    );
-    try {
-      _backgrounds = (await backgroundCodec.getNextFrame()).image;
-    } finally {
-      backgroundCodec.dispose();
+    _backgrounds ??= await _loadImage('background-atlas');
+    _enemies ??= await _loadImage('enemy-atlas');
+    if (_atlas == null || _backgrounds == null || _enemies == null) {
+      _loading = null;
     }
-    final enemyData = await rootBundle.load('assets/worlds/enemy-atlas.png');
-    final enemyCodec = await ui.instantiateImageCodec(
-      enemyData.buffer.asUint8List(),
-    );
+  }
+
+  static Future<ui.Image?> _loadImage(String name) async {
     try {
-      _enemies = (await enemyCodec.getNextFrame()).image;
-    } finally {
-      enemyCodec.dispose();
+      final data = await rootBundle.load('assets/worlds/$name.webp');
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      try {
+        return (await codec.getNextFrame()).image;
+      } finally {
+        codec.dispose();
+      }
+    } catch (_) {
+      return null;
     }
   }
 
@@ -57,7 +62,7 @@ class WorldArt {
         height,
       ),
       target,
-      ui.Paint()..filterQuality = ui.FilterQuality.none,
+      _paint,
     );
   }
 
@@ -80,7 +85,7 @@ class WorldArt {
         height,
       ),
       target,
-      ui.Paint()..filterQuality = ui.FilterQuality.none,
+      _paint,
     );
   }
 
@@ -98,7 +103,7 @@ class WorldArt {
         height,
       ).deflate(column < 2 ? width * 0.1 : 0),
       target,
-      ui.Paint()..filterQuality = ui.FilterQuality.none,
+      _paint,
     );
   }
 }

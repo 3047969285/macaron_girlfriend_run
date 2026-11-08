@@ -40,6 +40,17 @@ class FxLayer extends PositionComponent {
   final List<_FxBeam> _beamPool = [];
   int _auxiliaryAllocations = 0;
   final math.Random _rng = math.Random();
+  // 每帧复用画笔，避免大量 Paint 分配触发 GC 抖动。
+  final Paint _beamGlowPaint = Paint()
+    ..strokeWidth = 9
+    ..strokeCap = StrokeCap.round;
+  final Paint _beamCorePaint = Paint()
+    ..strokeWidth = 3
+    ..strokeCap = StrokeCap.round;
+  final Paint _ringPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4;
+  final Paint _particlePaint = Paint();
 
   @visibleForTesting
   int get particleCount => _particles.length;
@@ -538,32 +549,32 @@ class FxLayer extends PositionComponent {
       canvas.drawLine(
         a,
         c,
-        Paint()
-          ..color = const Color(0xFFFF4040).withValues(alpha: alpha * 0.55)
-          ..strokeWidth = 9
-          ..strokeCap = StrokeCap.round,
+        _beamGlowPaint
+          ..color = const Color(0xFFFF4040).withValues(alpha: alpha * 0.55),
       );
       canvas.drawLine(
         a,
         c,
-        Paint()
-          ..color = Colors.white.withValues(alpha: alpha)
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round,
+        _beamCorePaint..color = Colors.white.withValues(alpha: alpha),
       );
     }
     for (final r in _rings) {
       final alpha = (r.life * 2.8).clamp(0.0, 1.0);
-      final paint = Paint()
-        ..color = MacaronColors.rose.withValues(alpha: alpha * 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4;
-      canvas.drawCircle(Offset(r.center.x, r.center.y), r.radius, paint);
+      _ringPaint.color = MacaronColors.rose.withValues(alpha: alpha * 0.55);
+      canvas.drawCircle(
+        Offset(r.center.x, r.center.y),
+        r.radius,
+        _ringPaint,
+      );
     }
     for (final p in _particles) {
       final alpha = (p.life * 2.5).clamp(0.0, 1.0);
-      final paint = Paint()..color = p.color.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(p.position.x, p.position.y), p.size, paint);
+      _particlePaint.color = p.color.withValues(alpha: alpha);
+      canvas.drawCircle(
+        Offset(p.position.x, p.position.y),
+        p.size,
+        _particlePaint,
+      );
     }
     for (final l in _labels) {
       final alpha = (l.life * 1.8).clamp(0.0, 1.0);
@@ -640,6 +651,13 @@ class AmbientSparkles extends PositionComponent {
   final AmbientKind kind;
   final List<_Spark> _dots = [];
   final math.Random _rng = math.Random();
+  // 氛围粒子每帧重设颜色即可，画笔与模糊滤镜只创建一次。
+  final Paint _fillPaint = Paint();
+  final Paint _strokePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.1;
+  final Paint _glowPaint = Paint()
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
   double _acc = 0;
   double _viewLeft = 0;
   double _viewRight = 0;
@@ -739,55 +757,45 @@ class AmbientSparkles extends PositionComponent {
       );
       switch (kind) {
         case AmbientKind.sparkle:
-          canvas.drawCircle(
-            Offset(d.x, d.y),
-            d.size,
-            Paint()
-              ..color = tint.withValues(
-                alpha: (0.25 + 0.35 * blink) * edgeFade,
-              ),
+          _fillPaint.color = tint.withValues(
+            alpha: (0.25 + 0.35 * blink) * edgeFade,
           );
+          canvas.drawCircle(Offset(d.x, d.y), d.size, _fillPaint);
         case AmbientKind.petal:
           canvas.save();
           canvas.translate(d.x, d.y);
           canvas.rotate(d.phase);
+          _fillPaint.color = tint.withValues(alpha: 0.55 * edgeFade);
           canvas.drawOval(
             Rect.fromCenter(
               center: Offset.zero,
               width: d.size * 3.4,
               height: d.size * 1.7,
             ),
-            Paint()..color = tint.withValues(alpha: 0.55 * edgeFade),
+            _fillPaint,
           );
           canvas.restore();
         case AmbientKind.bubble:
-          canvas.drawCircle(
-            Offset(d.x, d.y),
-            d.size * 1.6,
-            Paint()
-              ..color = Colors.white.withValues(alpha: 0.55 * edgeFade)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.1,
+          _strokePaint.color = Colors.white.withValues(
+            alpha: 0.55 * edgeFade,
           );
+          canvas.drawCircle(Offset(d.x, d.y), d.size * 1.6, _strokePaint);
+          _fillPaint.color = Colors.white.withValues(alpha: 0.7 * edgeFade);
           canvas.drawCircle(
             Offset(d.x - d.size * 0.5, d.y - d.size * 0.5),
             d.size * 0.35,
-            Paint()..color = Colors.white.withValues(alpha: 0.7 * edgeFade),
+            _fillPaint,
           );
         case AmbientKind.firefly:
           final a = (0.2 + 0.7 * blink * blink) * edgeFade;
-          canvas.drawCircle(
-            Offset(d.x, d.y),
-            d.size * 3.2,
-            Paint()
-              ..color = const Color(0xFFFFE08A).withValues(alpha: a * 0.28)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-          );
-          canvas.drawCircle(
-            Offset(d.x, d.y),
-            d.size * 0.8,
-            Paint()..color = const Color(0xFFFFF3B0).withValues(alpha: a),
-          );
+          _glowPaint.color = const Color(
+            0xFFFFE08A,
+          ).withValues(alpha: a * 0.28);
+          canvas.drawCircle(Offset(d.x, d.y), d.size * 3.2, _glowPaint);
+          _fillPaint.color = const Color(
+            0xFFFFF3B0,
+          ).withValues(alpha: a);
+          canvas.drawCircle(Offset(d.x, d.y), d.size * 0.8, _fillPaint);
       }
     }
   }

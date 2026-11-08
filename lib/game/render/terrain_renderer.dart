@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -62,13 +63,23 @@ class TerrainRenderer extends PositionComponent {
   TextPainter? _lyricPainter;
   String? _paintedLyric;
   bool _removed = false;
+  static Future<void>? _lyricFont;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuildPicture();
+    final terrainLoading = WorldArt.terrainLoading;
+    if (!WorldArt.ready && terrainLoading != null) {
+      unawaited(terrainLoading.then((_) {
+        if (!_removed && WorldArt.ready) _rebuildPicture();
+      }));
+    }
     if (enableSyncedLyrics && worldIndex != null) {
       _lyricAreas = _makeLyricAreas();
+      // 字体和歌词并行加载；字体没注册前不要画歌词，否则引擎会去挨个下载
+      // fonts/notosanssc 的分片，网页端会出现一串 404。
+      unawaited(_lyricFont ??= _loadLyricFont());
       unawaited(_loadLyrics());
     }
   }
@@ -77,7 +88,21 @@ class TerrainRenderer extends PositionComponent {
     final result = await SyncedLyrics.instance.load(
       SongProfile.songIndexOf(worldIndex!),
     );
-    if (!_removed) _lyrics = result;
+    if (_removed || result.isEmpty) return;
+    await (_lyricFont ??= _loadLyricFont());
+    if (_removed) return;
+    _lyrics = result;
+    _paintedLyric = null;
+  }
+
+  static Future<void> _loadLyricFont() async {
+    final loader = FontLoader(MacaronColors.lyricFallbackFamily)
+      ..addFont(rootBundle.load('assets/fonts/NotoSansSC-Lyrics.ttf'));
+    try {
+      await loader.load();
+    } catch (_) {
+      _lyricFont = null;
+    }
   }
 
   List<Rect> _makeLyricAreas() {
@@ -124,8 +149,9 @@ class TerrainRenderer extends PositionComponent {
         text: TextSpan(
           text: lyric,
           style: TextStyle(
-            fontFamily: MacaronColors.fontFamily,
-            fontFamilyFallback: MacaronColors.fontFallback,
+            // 歌词直接用按需加载的完整子集，避免回退到引擎的 Noto 分片。
+            fontFamily: MacaronColors.lyricFallbackFamily,
+            fontFamilyFallback: const ['NotoColorEmoji'],
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: const Color(0xFF352A32),
@@ -220,6 +246,7 @@ class TerrainRenderer extends PositionComponent {
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
     final light = Paint()..color = palette.accent.withValues(alpha: 0.35);
+    final world = worldIndex;
     for (var i = 0; i < scenes.length; i++) {
       final scene = scenes[i];
       final x = (scene.x + scene.width / 2) * GameConstants.tileSize;
@@ -229,6 +256,14 @@ class TerrainRenderer extends PositionComponent {
       if (scene.lyricRoute != null) {
         _drawWorldSetPiece(canvas);
         _drawChapterStory(canvas, chapter, scene.mirrored);
+        if (WorldArt.ready && world != null) {
+          WorldArt.draw(
+            canvas,
+            world,
+            6,
+            Rect.fromLTWH(scene.mirrored ? 115 : -195, -30, 80, 80),
+          );
+        }
       }
       // 建筑远景只参与绘制，不改变实体碰撞或可通过路线。
       final distant = Paint()
@@ -707,6 +742,11 @@ class TerrainRenderer extends PositionComponent {
           ? Color.lerp(palette.ground, palette.groundDark, 0.3)!
           : Color.lerp(palette.groundDark, palette.skyBottom, 0.16)!;
     canvas.drawRect(r, body);
+    final world = worldIndex;
+    if (WorldArt.ready && world != null) {
+      WorldArt.draw(canvas, world, isSurface ? 0 : 1, r);
+      return;
+    }
     final crumbs = Paint()..color = palette.accent.withValues(alpha: 0.22);
     final tileX = (r.left / r.width).round();
     for (var i = 0; i < 2; i++) {
@@ -790,7 +830,19 @@ class TerrainRenderer extends PositionComponent {
     if (!duckCeiling) {
       canvas.save();
       canvas.clipRRect(rrect);
-      _drawPlatformMaterial(canvas, r);
+      final world = worldIndex;
+      if (WorldArt.ready && world != null) {
+        for (var x = r.left; x < r.right; x += GameConstants.tileSize) {
+          WorldArt.draw(
+            canvas,
+            world,
+            2,
+            Rect.fromLTWH(x, r.top, GameConstants.tileSize, r.height),
+          );
+        }
+      } else {
+        _drawPlatformMaterial(canvas, r);
+      }
       canvas.restore();
     }
     canvas.drawRRect(
@@ -1949,7 +2001,7 @@ class WorldBackdrop extends PositionComponent {
     required this.sceneSeed,
     this.worldIndex,
     this.skyShift = 0,
-  }) : super(priority: -10);
+  }) : super(priority: -30);
 
   final WorldPalette palette;
   final double mapWidth;
@@ -1968,6 +2020,7 @@ class WorldBackdrop extends PositionComponent {
     'dawn',
     'lost',
   ];
+  final _backgroundPaint = Paint()..filterQuality = FilterQuality.medium;
 
   @override
   Future<void> onLoad() async {
@@ -1983,7 +2036,7 @@ class WorldBackdrop extends PositionComponent {
     final image = await _backgrounds.putIfAbsent(song, () async {
       try {
         final bytes = await rootBundle.load(
-          'assets/worlds/${_backgroundNames[song]}.png',
+          'assets/worlds/${_backgroundNames[song]}.webp',
         );
         final codec = await ui.instantiateImageCodec(
           bytes.buffer.asUint8List(),
@@ -1999,7 +2052,8 @@ class WorldBackdrop extends PositionComponent {
     });
     if (!_removed && image != null) {
       _songBackground = image.clone();
-      _rebuild();
+      _picture?.dispose();
+      _picture = null;
     }
   }
 
@@ -2016,35 +2070,39 @@ class WorldBackdrop extends PositionComponent {
     _picture?.dispose();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    _drawSceneTints(canvas);
+    _drawHills(canvas);
+    _drawClouds(canvas);
+    _picture = recorder.endRecording();
+  }
+
+  @override
+  void render(Canvas canvas) {
     final image = _songBackground;
-    if (image == null) {
-      _drawSceneTints(canvas);
-      _drawHills(canvas);
-      _drawClouds(canvas);
-    } else {
+    if (image != null) {
       final height = 640.0 + math.max(0.0, skyShift);
       final width = height * image.width / image.height;
+      final top = 640.0 - height;
+      final clip = canvas.getLocalClipBounds();
+      if (clip.bottom <= top || clip.top >= 640) return;
+      final first = (math.max(0.0, clip.left) / width).floor() * width;
+      final end = math.min(mapWidth, clip.right);
       final src = Rect.fromLTWH(
         0,
         0,
         image.width.toDouble(),
         image.height.toDouble(),
       );
-      final paint = Paint()..filterQuality = FilterQuality.medium;
-      for (var x = 0.0; x < mapWidth; x += width) {
+      for (var x = first; x < end; x += width) {
         canvas.drawImageRect(
           image,
           src,
-          Rect.fromLTWH(x, -math.max(0.0, skyShift), width, height),
-          paint,
+          Rect.fromLTWH(x, top, width, height),
+          _backgroundPaint,
         );
       }
+      return;
     }
-    _picture = recorder.endRecording();
-  }
-
-  @override
-  void render(Canvas canvas) {
     final pic = _picture;
     if (pic != null) {
       canvas.drawPicture(pic);

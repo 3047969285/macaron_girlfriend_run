@@ -112,9 +112,17 @@ class LevelScenes {
   /// 计划场景数：clamp(关卡宽度 ÷ 30, 4, 14)。
   static int plannedCount(int width) => (width ~/ 30).clamp(4, 14);
 
+  static final _kindPlans = <(int, int), List<SceneKind>>{};
+
   /// 关卡的场景种类计划（与 [compose] 同一套种子）。种类先按响度匹配到槽位，再要求相邻不重复、
   /// 相邻两关按位置对齐的相同比例不超过一半；换盐重抽最多 40 次。
-  static List<SceneKind> planKinds(int world, int level) {
+  static List<SceneKind> planKinds(int world, int level) =>
+      _kindPlans.putIfAbsent((
+        world,
+        level,
+      ), () => List.unmodifiable(_planKinds(world, level)));
+
+  static List<SceneKind> _planKinds(int world, int level) {
     final count = plannedCount(_levelWidth(world, level));
     final prev = level > 0 ? planKinds(world, level - 1) : null;
     for (var t = 0; t < 40; t++) {
@@ -857,8 +865,13 @@ bool _drawLyricRoute(
         }
       } else {
         final nextX = x + length + 2;
-        final nextHeight = height == 7 ? 9 : (song.isEven ? 7 : 10);
-        p.bricks(nextHeight, nextX, 2);
+        final (nextHeight, nextLength) = switch (song) {
+          0 => (height + 1, 3), // 街角：宽屋檐接上一级屋顶。
+          1 => (height, 3), // 白马：平桥接驿站，保持水平动线。
+          3 => (height - 2, 2), // 心跳：从花园高台落回低台。
+          _ => (height == 7 ? 9 : 7, 2), // Lost：折返高低错落的灯台。
+        };
+        p.bricks(nextHeight, nextX, nextLength);
         p.coin(nextX, nextHeight + 1);
       }
       p.storyExpansion = true;
@@ -1317,10 +1330,18 @@ class _Writer {
 
   /// 从 [lo, hi] 列内的地面出发，BFS 出所有能站到的格子（编码 r * w + c）。
   Set<int> _reach(int lo, int hi) {
+    final firstRow = math.max(0, g - 11);
+    final standingRows = [
+      for (var c = lo; c <= hi; c++)
+        [
+          for (var r = firstRow; r <= g; r++)
+            if (_stand(c, r)) r,
+        ],
+    ];
     final seen = <int>{};
     final q = <(int, int)>[];
     for (var c = lo; c <= hi; c++) {
-      if (grid[g + 1][c] == '#' && _stand(c, g)) {
+      if (grid[g + 1][c] == '#' && standingRows[c - lo].contains(g)) {
         seen.add(g * w + c);
         q.add((c, g));
       }
@@ -1329,16 +1350,12 @@ class _Writer {
       final (c, r) = q[i];
       for (var c2 = math.max(lo, c - 5); c2 <= math.min(hi, c + 5); c2++) {
         final dx = (c2 - c).abs();
-        for (
-          var r2 = math.max(g - 11, r - 4);
-          r2 <= math.min(g, r + 12);
-          r2++
-        ) {
+        for (final r2 in standingRows[c2 - lo]) {
           final rise = r - r2;
           final ok = rise >= 0
               ? (rise <= 3 && dx <= 4) || (rise == 4 && dx <= 3)
-              : dx <= 5;
-          if (ok && _stand(c2, r2) && seen.add(r2 * w + c2)) {
+              : rise >= -12;
+          if (ok && seen.add(r2 * w + c2)) {
             q.add((c2, r2));
           }
         }

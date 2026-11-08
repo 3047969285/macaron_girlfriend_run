@@ -4,6 +4,7 @@
 (async function () {
   const BUILD_KEY = 'macaron.build';
   const WARM_KEY = 'macaron.warm';
+  const bootStartedAt = performance.now();
   const META_CACHE = 'macaron-offline-meta-v1';
   const BUNDLE_PREFIX = 'macaron-offline-bundle-';
   const ACTIVE_URL = new URL('__offline_active__', document.baseURI).href;
@@ -30,6 +31,22 @@
     } catch (_) {
       // 无法存档时照常启动
     }
+  };
+
+  // 慢网不自动预热：后台把 1Mbps 带宽吃满会让游戏一直卡。
+  // Safari 没有 Network Information API，所以再用首帧耗时兜底判断。
+  const isSlowNetwork = (firstFrameMs) => {
+    const connection = navigator.connection;
+    if (connection) {
+      if (connection.saveData) return true;
+      if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g' || connection.effectiveType === '3g') {
+        return true;
+      }
+      if (typeof connection.downlink === 'number' && connection.downlink > 0 && connection.downlink < 2) {
+        return true;
+      }
+    }
+    return firstFrameMs > 12000;
   };
 
   // 离线 Service Worker 在启动前注册；不等待结果，挂起或失败都不阻塞游戏。
@@ -156,7 +173,11 @@
       }
       urls.add(new URL(path, base).href);
     }
-    for (const key of await loadAssetKeys()) urls.add(new URL(`assets/${key}`, base).href);
+    for (const key of await loadAssetKeys()) {
+      // 歌曲体积最大（几十 MB），播放时由 Service Worker 按需缓存，不参与启动后预热。
+      if (key.startsWith('assets/audio/')) continue;
+      urls.add(new URL(`assets/${key}`, base).href);
+    }
     return [...urls];
   };
 
@@ -167,6 +188,12 @@
     const worker = async () => {
       while (!failed && next < urls.length) {
         const url = new URL(urls[next++], document.baseURI);
+        // 已经在浏览器缓存里的文件直接复制进新离线包，不再重新下载一遍。
+        const existing = await caches.match(url.href, { ignoreSearch: true });
+        if (existing) {
+          await cache.put(url.href, existing.clone());
+          continue;
+        }
         const response = await fetch(url.href, {
           cache: 'no-store',
           headers: { 'X-Macaron-Warm': '1' },
@@ -185,7 +212,7 @@
   };
 
   // 首帧后在后台预热：在线、没开省流量、本版本还没预热过才做；全部成功才记下版本键。
-  const warmUp = async (buildId) => {
+  const warmUp = async (buildId, firstFrameMs) => {
     if (!('serviceWorker' in navigator)) {
       showStatus('此地址无法保存离线资源，请使用受信任的 HTTPS 地址。');
       return;
@@ -196,8 +223,8 @@
       }
       return;
     }
-    if (navigator.connection?.saveData) {
-      showStatus('省流量模式已开启，离线资源尚未准备。');
+    if (isSlowNetwork(firstFrameMs)) {
+      showStatus('网络较慢，已跳过后台离线下载，游戏会更流畅。', true);
       return;
     }
     const sw = navigator.serviceWorker;
@@ -231,7 +258,7 @@
     const nextBundle = `${BUNDLE_PREFIX}${buildId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     try {
       const cache = await caches.open(nextBundle);
-      await fetchAll(urls, 4, cache);
+      await fetchAll(urls, 2, cache);
       const latest = await fetch(new URL('.last_build_id', document.baseURI), {
         cache: 'no-store',
         headers: { 'X-Macaron-Warm': '1' },
@@ -249,11 +276,29 @@
     if (currentBundle && currentBundle !== nextBundle) {
       await caches.delete(currentBundle).catch(() => {});
     }
-    showStatus('离线资源准备完成，现在可以断网游玩。', true);
+    showStatus('核心离线资源已准备，歌曲会在首次播放后缓存。', true);
+  };
+
+  // 新构建上线后旧缓存里的字体和图片都是过期文件，Service Worker 却会优先返回它们。
+  // 所以在加载游戏资源前先清掉全部离线缓存；本次访问会在后台重新准备。
+  const invalidateCaches = async (buildId) => {
+    if (!sourceAvailable || readStored(BUILD_KEY) === buildId) return;
+    if (!('caches' in window)) return;
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((key) => key.startsWith('macaron-offline')).map((key) => caches.delete(key)),
+      );
+    } catch (err) {
+      console.warn('旧离线缓存清理失败，本次仍会加载新版本资源', err);
+    }
   };
 
   registerOfflineWorker();
   const buildId = await resolveBuildId();
+  await invalidateCaches(buildId);
+  // 记下已经看到过的版本；离线预热是否完整仍以 WARM_KEY 为准。
+  writeStored(BUILD_KEY, buildId);
   for (const build of _flutter.buildConfig.builds) {
     if (build.mainJsPath) {
       const entrypoint = new URL(build.mainJsPath, document.baseURI);
@@ -264,10 +309,14 @@
   window.addEventListener(
     'flutter-first-frame',
     () => {
-      warmUp(buildId).catch((err) => {
-        showStatus('离线资源未准备完成，请保持联网并重新打开。');
-        console.warn('离线预热未完成，下次打开会重试', err);
-      });
+      const firstFrameMs = performance.now() - bootStartedAt;
+      // 首帧后先让菜单和第一关资源喘口气，再开始后台离线下载。
+      setTimeout(() => {
+        warmUp(buildId, firstFrameMs).catch((err) => {
+          showStatus('离线资源未准备完成，请保持联网并重新打开。');
+          console.warn('离线预热未完成，下次打开会重试', err);
+        });
+      }, 3000);
     },
     { once: true },
   );

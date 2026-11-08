@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/level_scenes.dart';
+import 'package:macaron_girlfriend_run/data/song_profile.dart';
 
 /// 99 关全量目录（每关独立构图规则，按世界主题手调）
 class LevelCatalog {
@@ -1441,10 +1442,23 @@ class LevelCatalog {
   ) {
     final width = grid.first.length;
     final sceneType = (world + level + sceneIndex * 2) % 5;
+    final energy = SongProfile.levelEnergyAt(world, level, targetX / width);
+    final (verse, chorus) = switch (SongProfile.songIndexOf(world)) {
+      0 => ('E', 'G'), // 素颜：巡逻后接弹跳。
+      1 => ('E', 'R'), // 身骑白马：在高响度的直道交给冲锋怪。
+      2 => ('T', 'A'), // 谁：从脚下陷阱转为上方俯冲。
+      3 => ('E', 'G'), // 静悄悄：低密度威胁，高潮用高低变化。
+      4 => ('G', 'T'), // 5:20AM：弹跳与落脚观察。
+      _ => ('T', 'R'), // Lost：先观察路面，再应对冲锋。
+    };
     final kind = difficulty < 3
         ? 'E'
         : difficulty < 4
         ? (sceneType == 0 ? 'T' : 'E')
+        : energy < 0.38
+        ? verse
+        : energy >= 0.72 && sceneIndex.isEven
+        ? chorus
         : switch (sceneType) {
             0 => 'T',
             1 => 'G',

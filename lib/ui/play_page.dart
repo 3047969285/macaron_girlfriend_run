@@ -9,6 +9,8 @@ import 'package:macaron_girlfriend_run/data/game_models.dart';
 import 'package:macaron_girlfriend_run/data/level_names.dart';
 import 'package:macaron_girlfriend_run/data/save_service.dart';
 import 'package:macaron_girlfriend_run/game/macaron_game.dart';
+import 'package:macaron_girlfriend_run/game/player/hero_sprites.dart';
+import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'package:macaron_girlfriend_run/theme/macaron_colors.dart';
 import 'package:macaron_girlfriend_run/ui/controls.dart';
 import 'package:macaron_girlfriend_run/ui/game_viewport.dart';
@@ -67,6 +69,12 @@ class _PlayPageState extends State<PlayPage> with WidgetsBindingObserver {
     // 进关直接开玩，不再弹教程；想看玩法可以从主菜单的“玩法”进入。
     _showTutorial = false;
     SaveService.instance.setLastPlayed(widget.worldIndex, widget.levelIndex);
+    if (kIsWeb) {
+      // ignore: unawaited_futures
+      HeroSprites.preload();
+      // ignore: unawaited_futures
+      WorldArt.preload();
+    }
     game = MacaronGame(
       enableSyncedLyrics: true,
       worldIndex: widget.worldIndex,

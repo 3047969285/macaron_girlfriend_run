@@ -25,7 +25,7 @@ void main() {
     expect(boot, contains('serviceWorker'));
     expect(boot, contains('offline_sw.js'));
     final sw = _read('web/offline_sw.js');
-    expect(sw, contains('macaron-offline-v1'));
+    expect(sw, contains('macaron-offline-v2'));
     expect(sw, contains('ignoreSearch: true'));
     expect(sw, contains('Range'));
     expect(sw, contains('206'));
@@ -47,7 +47,11 @@ void main() {
         .listSync(recursive: true)
         .whereType<File>()
         .where((file) => file.path.endsWith('.woff2'))
-        .map((file) => file.path.substring('web/'.length))
+        .map(
+          (file) => file.path
+              .substring('web/'.length)
+              .replaceAll(Platform.pathSeparator, '/'),
+        )
         .toSet();
     final actual = (jsonDecode(_read('web/offline_fonts.json')) as List)
         .cast<String>();
@@ -75,7 +79,9 @@ void main() {
     final file = File('scripts/serve_lan.sh');
     expect(file.existsSync(), isTrue);
     final mode = file.statSync().mode;
-    expect(mode & 0x40, isNot(0), reason: '需要可执行权限');
+    if (!Platform.isWindows) {
+      expect(mode & 0x40, isNot(0), reason: '需要可执行权限');
+    }
     final text = file.readAsStringSync();
     expect(
       text,
@@ -92,8 +98,11 @@ void main() {
   });
 
   test('局域网证书可验证并且私钥不放在网页目录', () async {
-    final temp = await Directory.systemTemp.createTemp('macaron-cert-test-');
-    try {
+    if (Platform.isWindows) {
+      markTestSkipped('Windows 环境缺少 python3/openssl，改在 Linux/macOS 验证');
+      return;
+    }
+    final temp = await Directory.systemTemp.createTemp('macaron-cert-test-');    try {
       final code = '''
 import scripts.serve_lan as lan
 import subprocess

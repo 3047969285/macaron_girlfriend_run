@@ -1,5 +1,6 @@
 import 'package:macaron_girlfriend_run/game/render/world_art.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macaron_girlfriend_run/data/audio_service.dart';
@@ -22,16 +23,20 @@ Future<void> main() async {
   } catch (_) {}
   // 角色立绘帧后台加载，没加载完时先用矢量画法。
   // ignore: unawaited_futures
-  HeroSprites.preload();
-  await WorldArt.preload();
+  if (!kIsWeb) {
+    HeroSprites.preload();
+    await WorldArt.preload();
+  }
   await SaveService.instance.init();
-  try {
-    await AudioService.instance.init();
-  } catch (_) {}
   // 高刷失败不阻塞启动
   // ignore: unawaited_futures
   FpsBootstrap.applyFromSave();
   runApp(const MacaronApp());
+  // 音频播放器与合成音效放到首帧之后初始化，别和启动资源抢时间。
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // ignore: unawaited_futures
+    AudioService.instance.init().catchError((Object _) {});
+  });
 }
 
 /// 整个应用统一按横屏布局：竖屏手机上菜单、选关、商店也会旋转成横屏画面，

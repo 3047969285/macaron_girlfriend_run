@@ -109,19 +109,19 @@ class HeroSprites {
 
   static const Map<HeroPose, HeroFrame> frames = {
     HeroPose.stand: HeroFrame(
-      'assets/character/stand.png',
+      'assets/character/stand.webp',
       131,
       425,
       61.0,
       -2.3,
     ),
-    HeroPose.run1: HeroFrame('assets/character/run1.png', 166, 421, 93.5, -1.1),
-    HeroPose.run2: HeroFrame('assets/character/run2.png', 145, 415, 75.8, 4.6),
-    HeroPose.run3: HeroFrame('assets/character/run3.png', 189, 412, 114.5, 7.4),
-    HeroPose.run4: HeroFrame('assets/character/run4.png', 146, 421, 73.5, -1.1),
-    HeroPose.jump: HeroFrame('assets/character/jump.png', 145, 376, 74.7, 62.7),
-    HeroPose.fall: HeroFrame('assets/character/fall.png', 180, 410, 76.4, 4.6),
-    HeroPose.duck: HeroFrame('assets/character/duck.png', 146, 287, 78.1, -2.8),
+    HeroPose.run1: HeroFrame('assets/character/run1.webp', 166, 421, 93.5, -1.1),
+    HeroPose.run2: HeroFrame('assets/character/run2.webp', 145, 415, 75.8, 4.6),
+    HeroPose.run3: HeroFrame('assets/character/run3.webp', 189, 412, 114.5, 7.4),
+    HeroPose.run4: HeroFrame('assets/character/run4.webp', 146, 421, 73.5, -1.1),
+    HeroPose.jump: HeroFrame('assets/character/jump.webp', 145, 376, 74.7, 62.7),
+    HeroPose.fall: HeroFrame('assets/character/fall.webp', 180, 410, 76.4, 4.6),
+    HeroPose.duck: HeroFrame('assets/character/duck.webp', 146, 287, 78.1, -2.8),
   };
 
   /// 站立那一帧的图片高度：缩放以它为基准，所有帧用同一个比例。
@@ -144,10 +144,13 @@ class HeroSprites {
       for (final entry in frames.entries) {
         final data = await rootBundle.load(entry.value.asset);
         final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-        final frame = await codec.getNextFrame();
-        _images[entry.key] = frame.image;
+        try {
+          _images[entry.key] = (await codec.getNextFrame()).image;
+        } finally {
+          codec.dispose();
+        }
       }
-      for (final asset in ['white_horse_idle.png', 'white_horse_run.png']) {
+      for (final asset in ['white_horse_idle.webp', 'white_horse_run.webp']) {
         try {
           final data = await rootBundle.load('assets/character/$asset');
           final codec = await ui.instantiateImageCodec(
@@ -155,7 +158,7 @@ class HeroSprites {
           );
           final image = (await codec.getNextFrame()).image;
           codec.dispose();
-          if (asset == 'white_horse_idle.png') {
+          if (asset == 'white_horse_idle.webp') {
             horseIdle = image;
           } else {
             horseRun = image;

@@ -671,26 +671,6 @@ class SoftEnemy extends PositionComponent {
     if (_flash > 0 && (_flash * 18).floor().isOdd) {
       return;
     }
-    if (WorldArt.ready &&
-        worldIndex != null &&
-        (kind == EnemyKind.hopper || kind == EnemyKind.bruiser)) {
-      WorldArt.enemy(
-        canvas,
-        worldIndex!,
-        (kind == EnemyKind.bruiser ? 2 : 0) + (_wobble * 2).floor() % 2,
-        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
-      );
-      return;
-    }
-    if (WorldArt.ready && worldIndex != null && kind == EnemyKind.walker) {
-      WorldArt.draw(
-        canvas,
-        worldIndex!,
-        3 + (_wobble * 2).floor() % 2,
-        Rect.fromLTWH(0, -size.y * 0.2, size.x, size.y * 1.2),
-      );
-      return;
-    }
     final squash = visualSquash;
     canvas.save();
     canvas.translate(size.x / 2, size.y);
@@ -770,7 +750,26 @@ class SoftEnemy extends PositionComponent {
           ),
       );
     }
-    _drawSilhouette(canvas);
+    final world = worldIndex;
+    if (WorldArt.ready && world != null && kind == EnemyKind.walker) {
+      WorldArt.draw(
+        canvas,
+        world,
+        3 + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(-size.x / 2, -size.y * 1.15, size.x, size.y * 1.15),
+      );
+    } else if (WorldArt.enemiesReady &&
+        world != null &&
+        (kind == EnemyKind.hopper || kind == EnemyKind.bruiser)) {
+      WorldArt.enemy(
+        canvas,
+        world,
+        (kind == EnemyKind.bruiser ? 2 : 0) + (_wobble * 2).floor() % 2,
+        Rect.fromLTWH(-size.x / 2, -size.y * 1.15, size.x, size.y * 1.15),
+      );
+    } else {
+      _drawSilhouette(canvas);
+    }
     if (_flash > 0) canvas.restore();
     if (_warningTimer > 0) {
       final center = Offset(0, -size.y - 15);
@@ -2139,66 +2138,74 @@ class MacaronBoss extends PositionComponent {
     if (_flash > 0 && (_flash * 20).floor().isOdd) {
       return;
     }
+    final squash =
+        1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.08 : 0);
+    canvas.save();
+    canvas.translate(size.x / 2, size.y);
+    canvas.scale((dir >= 0 ? 1.0 : -1.0) * squash, 1 / squash);
     if (WorldArt.ready) {
       WorldArt.draw(
         canvas,
         worldIndex,
         5,
         Rect.fromLTWH(
-          -size.x * 0.15,
-          -size.y * 0.3,
+          -size.x * 0.65,
+          -size.y * 1.15,
           size.x * 1.3,
-          size.y * 1.3,
+          size.y * 1.15,
         ),
       );
-      return;
-    }
-    final squash =
-        1 + math.sin(_wobble) * 0.035 + (_warningTimer > 0 ? 0.08 : 0);
-    canvas.save();
-    canvas.translate(size.x / 2, size.y);
-    canvas.scale((dir >= 0 ? 1.0 : -1.0) * squash, 1 / squash);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(0, -size.y * 0.42),
-          width: size.x,
-          height: size.y * 0.85,
+      if (enraged) {
+        canvas.drawCircle(
+          Offset(0, -size.y * 0.95),
+          5,
+          Paint()..color = const Color(0xFFFF5252),
+        );
+      }
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(0, -size.y * 0.42),
+            width: size.x,
+            height: size.y * 0.85,
+          ),
+          const Radius.circular(18),
         ),
-        const Radius.circular(18),
-      ),
-      Paint()
-        ..color = Color.lerp(
-          enraged ? MacaronColors.rose : MacaronColors.lilac,
-          Colors.white,
-          (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
-        )!,
-    );
-    canvas.drawCircle(
-      Offset(-14, -size.y * 0.55),
-      8,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(14, -size.y * 0.55),
-      8,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(-14, -size.y * 0.55),
-      4,
-      Paint()..color = MacaronColors.cocoa,
-    );
-    canvas.drawCircle(
-      Offset(14, -size.y * 0.55),
-      4,
-      Paint()..color = MacaronColors.cocoa,
-    );
-    canvas.drawCircle(
-      Offset(0, -size.y * 0.78),
-      10,
-      Paint()..color = enraged ? const Color(0xFFFF5252) : MacaronColors.lemon,
-    );
+        Paint()
+          ..color = Color.lerp(
+            enraged ? MacaronColors.rose : MacaronColors.lilac,
+            Colors.white,
+            (_flash / 0.35).clamp(0.0, 1.0) * 0.8,
+          )!,
+      );
+      canvas.drawCircle(
+        Offset(-14, -size.y * 0.55),
+        8,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        Offset(14, -size.y * 0.55),
+        8,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        Offset(-14, -size.y * 0.55),
+        4,
+        Paint()..color = MacaronColors.cocoa,
+      );
+      canvas.drawCircle(
+        Offset(14, -size.y * 0.55),
+        4,
+        Paint()..color = MacaronColors.cocoa,
+      );
+      canvas.drawCircle(
+        Offset(0, -size.y * 0.78),
+        10,
+        Paint()
+          ..color = enraged ? const Color(0xFFFF5252) : MacaronColors.lemon,
+      );
+    }
     if (isRushing) {
       final trailPaint = Paint()
         ..color = Colors.white.withValues(alpha: 0.75)
